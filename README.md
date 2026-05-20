@@ -23,8 +23,6 @@ OWNAI Admin Platform 是一个面向 OWNAI 业务的后台管理系统，包含 
 - Spring MVC
 - MyBatis Plus 3.5.2
 - MySQL
-- Redis 和 Spring Session Redis，按需启用
-- Elasticsearch，按需启用
 - Knife4j 接口文档
 - JWT
 - 腾讯云 COS SDK
@@ -81,7 +79,7 @@ OWNAI Admin Platform 是一个面向 OWNAI 业务的后台管理系统，包含 
 - Maven Wrapper，仓库已包含 `mvnw` 和 `mvnw.cmd`
 - Node.js 22，或兼容当前 Vite/React 依赖的较新版本
 - MySQL，数据库名默认 `my_db`
-- Redis、Elasticsearch、COS、微信配置按业务需要启用
+- COS、微信配置按业务需要启用
 
 ### 后端启动
 
@@ -168,8 +166,6 @@ deploy/springboot-init.env.example
 | `DB_URL` | MySQL JDBC 地址 |
 | `DB_USERNAME` | MySQL 用户名 |
 | `DB_PASSWORD` | MySQL 密码 |
-| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis 配置 |
-| `ES_URIS` / `ES_USERNAME` / `ES_PASSWORD` | Elasticsearch 配置 |
 | `COS_HOST` / `COS_SECRET_ID` / `COS_SECRET_KEY` / `COS_REGION` / `COS_BUCKET` | 腾讯云 COS 配置 |
 | `WX_MP_*` / `WX_OPEN_*` | 微信公众号和微信开放平台配置 |
 | `KNIFE4J_ENABLE` | 是否启用接口文档 |

@@ -10,16 +10,6 @@ spring:
     url: ${DB_URL:jdbc:mysql://localhost:3306/my_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai}
     username: ${DB_USERNAME:my_db}
     password: ${DB_PASSWORD:}
-  redis:
-    database: ${REDIS_DATABASE:1}
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    timeout: ${REDIS_TIMEOUT:5000}
-    password: ${REDIS_PASSWORD:}
-  elasticsearch:
-    uris: ${ES_URIS:http://localhost:9200}
-    username: ${ES_USERNAME:}
-    password: ${ES_PASSWORD:}
 
 mybatis-plus:
   configuration:
@@ -53,9 +43,6 @@ wx:
     config-storage:
       http-client-type: HttpClient
       key-prefix: wx
-      redis:
-        host: ${REDIS_HOST:127.0.0.1}
-        port: ${REDIS_PORT:6379}
       type: Memory
   open:
     appId: ${WX_OPEN_APP_ID:}

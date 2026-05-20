@@ -17,9 +17,6 @@ wx:
     config-storage:
       http-client-type: HttpClient
       key-prefix: wx
-      redis:
-        host: ${REDIS_HOST:127.0.0.1}
-        port: ${REDIS_PORT:6379}
       type: Memory
   open:
     appId: ${WX_OPEN_APP_ID:}

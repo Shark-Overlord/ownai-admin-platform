@@ -32,7 +32,7 @@ Database SQL is not stored in this repo. Import the exported SQL separately befo
 
 ## Deploy flow
 
-Push to `master`, or run the `Deploy Spring Boot app` workflow manually.
+Push to `main`, or run the `Deploy Spring Boot app` workflow manually.
 
 The workflow builds:
 
