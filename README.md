@@ -1,181 +1,237 @@
-# SpringBoot 项目初始模板
+# OWNAI Admin Platform
 
-> 作者：[程序员鱼皮](https://github.com/liyupi)
-> 仅分享于 [编程导航知识星球](https://yupi.icu)
+OWNAI Admin Platform 是一个面向 OWNAI 业务的后台管理系统，包含 Spring Boot 后端服务和 React 管理端前端。项目用于管理用户、作品、分类、标签、订单、会员、积分和操作日志，并已接入 GitHub Actions 自动部署到服务器。
 
-基于 Java SpringBoot 的项目初始模板，整合了常用框架和主流业务的示例代码。
+## 功能概览
 
-只需 1 分钟即可完成内容网站的后端！！！大家还可以在此基础上快速开发自己的项目。
+- 用户管理：账号注册、登录、JWT 鉴权、管理员用户维护、会员等级和积分信息管理。
+- 作品管理：作品增删改查、作品上下架、价格和积分配置、HTML 作品包上传、在线预览。
+- 分类与标签：分类管理、标签管理、分类标签绑定和树形关系维护。
+- 订单管理：作品订单创建、支付回调、模拟支付、取消订单、订单分页查询。
+- 会员系统：会员价格配置、会员订单、管理员手动授权会员。
+- 积分中心：积分概览、每日签到、积分流水。
+- 操作日志：通过 AOP 记录关键后台操作。
+- 微信能力：预留微信公众号和微信开放平台登录配置。
+- 文件存储：通过腾讯云 COS 上传和访问作品资源。
 
-[toc]
+## 技术栈
 
-## 模板特点
+后端：
 
-### 主流框架 & 特性
-
-- Spring Boot 2.7.x（贼新）
+- Java 8
+- Spring Boot 2.7.2
 - Spring MVC
-- MyBatis + MyBatis Plus 数据访问（开启分页）
-- Spring Boot 调试工具和项目处理器
-- Spring AOP 切面编程
-- Spring Scheduler 定时任务
-- Spring 事务注解
+- MyBatis Plus 3.5.2
+- MySQL
+- Redis 和 Spring Session Redis，按需启用
+- Elasticsearch，按需启用
+- Knife4j 接口文档
+- JWT
+- 腾讯云 COS SDK
+- 微信公众号 SDK
 
-### 数据存储
+前端：
 
-- MySQL 数据库
-- Redis 内存数据库
-- Elasticsearch 搜索引擎
-- 腾讯云 COS 对象存储
+- React 19
+- TypeScript
+- Vite
+- Ant Design 5
+- Ant Design Pro Components
+- Axios
+- React Router
 
-### 工具类
+部署：
 
-- Easy Excel 表格处理
-- Hutool 工具库
-- Apache Commons Lang3 工具类
-- Lombok 注解
+- GitHub Actions
+- Maven Wrapper
+- Node.js 22
+- systemd
+- Nginx
+- rsync + SSH
 
-### 业务特性
+## 目录结构
 
-- 业务代码生成器（支持自动生成 Service、Controller、数据模型代码）
-- Spring Session Redis 分布式登录
-- 全局请求响应拦截器（记录日志）
-- 全局异常处理器
-- 自定义错误码
-- 封装通用响应类
-- Swagger + Knife4j 接口文档
-- 自定义权限注解 + 全局校验
-- 全局跨域处理
-- 长整数丢失精度解决
-- 多环境配置
-
-
-## 业务功能
-
-- 提供示例 SQL（用户、帖子、帖子点赞、帖子收藏表）
-- 用户登录、注册、注销、更新、检索、权限管理
-- 帖子创建、删除、编辑、更新、数据库检索、ES 灵活检索
-- 帖子点赞、取消点赞
-- 帖子收藏、取消收藏、检索已收藏帖子
-- 帖子全量同步 ES、增量同步 ES 定时任务
-- 支持微信开放平台登录
-- 支持微信公众号订阅、收发消息、设置菜单
-- 支持分业务的文件上传
-
-### 单元测试
-
-- JUnit5 单元测试
-- 示例单元测试类
-
-### 架构设计
-
-- 合理分层
-
-
-## 快速上手
-
-> 所有需要修改的地方鱼皮都标记了 `todo`，便于大家找到修改的位置~
-
-### MySQL 数据库
-
-1）修改 `application.yml` 的数据库配置为你自己的：
-
-```yml
-spring:
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/my_db
-    username: root
-    password: 123456
+```text
+.
+├── src/main/java/com/yupi/springbootinit
+│   ├── controller        # 后端接口
+│   ├── service           # 业务逻辑
+│   ├── mapper            # MyBatis Plus Mapper
+│   ├── model             # DTO、Entity、VO、Enum
+│   ├── annotation        # 权限和操作日志注解
+│   ├── aop               # 鉴权、日志、操作记录切面
+│   ├── config            # CORS、MyBatis、COS、微信等配置
+│   └── manager           # 第三方服务封装
+├── src/main/resources
+│   ├── application.yml
+│   ├── application-local.yml
+│   ├── application-prod.yml
+│   └── mapper
+├── web-admin             # React 管理端
+├── deploy                # systemd 和环境变量模板
+├── .github/workflows     # 自动部署工作流
+└── DEPLOYMENT.md         # 服务器部署说明
 ```
 
-2）执行 `sql/create_table.sql` 中的数据库语句，自动创建库表
+## 本地开发
 
-3）启动项目，访问 `http://localhost:8101/api/doc.html` 即可打开接口文档，不需要写前端就能在线调试接口了~
+### 环境要求
 
-![](doc/swagger.png)
+- JDK 8
+- Maven Wrapper，仓库已包含 `mvnw` 和 `mvnw.cmd`
+- Node.js 22，或兼容当前 Vite/React 依赖的较新版本
+- MySQL，数据库名默认 `my_db`
+- Redis、Elasticsearch、COS、微信配置按业务需要启用
 
-### Redis 分布式登录
+### 后端启动
 
-1）修改 `application.yml` 的 Redis 配置为你自己的：
+先准备数据库并导入你的 SQL。SQL 文件不提交到本仓库。
 
-```yml
-spring:
-  redis:
-    database: 1
-    host: localhost
-    port: 6379
-    timeout: 5000
-    password: 123456
+PowerShell 示例：
+
+```powershell
+cd E:\JAVA_project\ownai-admin-platform
+
+$env:SPRING_PROFILES_ACTIVE = "local"
+$env:DB_URL = "jdbc:mysql://localhost:3306/my_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai"
+$env:DB_USERNAME = "root"
+$env:DB_PASSWORD = "<your-local-db-password>"
+
+.\mvnw.cmd spring-boot:run
 ```
 
-2）修改 `application.yml` 中的 session 存储方式：
+后端默认监听：
 
-```yml
-spring:
-  session:
-    store-type: redis
+- 服务端口：`8011`
+- API 前缀：`/api`
+- 本地接口地址：`http://localhost:8011/api`
+- 本地接口文档：`http://localhost:8011/api/doc.html`
+
+### 前端启动
+
+```powershell
+cd E:\JAVA_project\ownai-admin-platform\web-admin
+npm install
+$env:VITE_API_BASE_URL = "http://localhost:8011/api"
+npm run dev
 ```
 
-3）移除 `MainApplication` 类开头 `@SpringBootApplication` 注解内的 exclude 参数：
+Vite 默认访问地址：
 
-修改前：
-
-```java
-@SpringBootApplication(exclude = {RedisAutoConfiguration.class})
+```text
+http://localhost:5173
 ```
 
-修改后：
+## 常用命令
 
+后端构建：
 
-```java
-@SpringBootApplication
+```powershell
+.\mvnw.cmd -DskipTests package
 ```
 
-### Elasticsearch 搜索引擎
+前端构建：
 
-1）修改 `application.yml` 的 Elasticsearch 配置为你自己的：
-
-```yml
-spring:
-  elasticsearch:
-    uris: http://localhost:9200
-    username: root
-    password: 123456
+```powershell
+cd web-admin
+npm ci
+npm run build
 ```
 
-2）复制 `sql/post_es_mapping.json` 文件中的内容，通过调用 Elasticsearch 的接口或者 Kibana Dev Tools 来创建索引（相当于数据库建表）
+前端代码检查：
 
-```
-PUT post_v1
-{
- 参数见 sql/post_es_mapping.json 文件
-}
+```powershell
+cd web-admin
+npm run lint
 ```
 
-这步不会操作的话需要补充下 Elasticsearch 的知识，或者自行百度一下~
+## 环境变量
 
-3）开启同步任务，将数据库的帖子同步到 Elasticsearch
+生产环境不把密钥写入代码。服务器运行时配置放在：
 
-找到 job 目录下的 `FullSyncPostToEs` 和 `IncSyncPostToEs` 文件，取消掉 `@Component` 注解的注释，再次执行程序即可触发同步：
-
-```java
-// todo 取消注释开启任务
-//@Component
+```text
+/etc/springboot-init/springboot-init.env
 ```
 
-### 业务代码生成器
+模板文件：
 
-支持自动生成 Service、Controller、数据模型代码，配合 MyBatisX 插件，可以快速开发增删改查等实用基础功能。
-
-找到 `generate.CodeGenerator` 类，修改生成参数和生成路径，并且支持注释掉不需要的生成逻辑，然后运行即可。
-
-```
-// 指定生成参数
-String packageName = "com.yupi.springbootinit";
-String dataName = "用户评论";
-String dataKey = "userComment";
-String upperDataKey = "UserComment";
+```text
+deploy/springboot-init.env.example
 ```
 
-生成代码后，可以移动到实际项目中，并且按照 `// todo` 注释的提示来针对自己的业务需求进行修改。
+关键配置：
+
+| 变量 | 说明 |
+| --- | --- |
+| `SERVER_PORT` | 后端服务端口，默认 `8011` |
+| `SPRING_PROFILES_ACTIVE` | 运行环境，生产环境使用 `prod` |
+| `DB_URL` | MySQL JDBC 地址 |
+| `DB_USERNAME` | MySQL 用户名 |
+| `DB_PASSWORD` | MySQL 密码 |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis 配置 |
+| `ES_URIS` / `ES_USERNAME` / `ES_PASSWORD` | Elasticsearch 配置 |
+| `COS_HOST` / `COS_SECRET_ID` / `COS_SECRET_KEY` / `COS_REGION` / `COS_BUCKET` | 腾讯云 COS 配置 |
+| `WX_MP_*` / `WX_OPEN_*` | 微信公众号和微信开放平台配置 |
+| `KNIFE4J_ENABLE` | 是否启用接口文档 |
+
+## 自动部署
+
+仓库已经配置 GitHub Actions：
+
+```text
+.github/workflows/deploy.yml
+```
+
+推送到 `main` 分支后，工作流会自动执行：
+
+1. 拉取代码。
+2. 使用 Java 8 构建后端 jar。
+3. 使用 Node.js 22 构建 `web-admin`。
+4. 通过 SSH + rsync 上传后端 jar 到 `/opt/springboot-init/app.jar`。
+5. 重启 `springboot-init.service`。
+6. 上传前端静态文件到 `/www/wwwroot/springboot-init-admin`。
+
+服务器当前路径：
+
+| 项目 | 路径 |
+| --- | --- |
+| 后端 jar | `/opt/springboot-init/app.jar` |
+| 后端环境变量 | `/etc/springboot-init/springboot-init.env` |
+| 前端静态目录 | `/www/wwwroot/springboot-init-admin` |
+| systemd 服务 | `springboot-init.service` |
+| Nginx 配置 | `/www/server/panel/vhost/nginx/springboot-init-admin.conf` |
+| 对外端口 | `8080` |
+| 后端内网端口 | `8011` |
+
+GitHub 仓库需要配置 Secret：
+
+| Secret | 说明 |
+| --- | --- |
+| `DEPLOY_SSH_KEY` | 部署用户 SSH 私钥内容 |
+
+## 开发和发布流程
+
+建议始终在干净仓库目录开发：
+
+```powershell
+cd E:\JAVA_project\ownai-admin-platform
+git pull
+```
+
+修改完成后：
+
+```powershell
+git status
+git add .
+git commit -m "描述本次修改"
+git push origin main
+```
+
+推送成功后，GitHub Actions 会自动部署。
+
+## 注意事项
+
+- 不要提交数据库 SQL dump、真实密钥、服务器配置文件或 `.env` 文件。
+- 生产环境配置只放在服务器 `/etc/springboot-init/springboot-init.env`。
+- 如果公网无法访问 `http://101.200.91.81:8080`，先检查云服务器安全组是否放行 `8080/tcp`。
+- 正式对外使用建议绑定域名并切换到 `80/443 + HTTPS`。
