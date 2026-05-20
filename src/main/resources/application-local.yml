@@ -1,0 +1,49 @@
+# Local development configuration.
+# Override values with environment variables when needed.
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://localhost:3306/my_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+
+wx:
+  mp:
+    token: ${WX_MP_TOKEN:}
+    aesKey: ${WX_MP_AES_KEY:}
+    appId: ${WX_MP_APP_ID:}
+    secret: ${WX_MP_SECRET:}
+    config-storage:
+      http-client-type: HttpClient
+      key-prefix: wx
+      redis:
+        host: ${REDIS_HOST:127.0.0.1}
+        port: ${REDIS_PORT:6379}
+      type: Memory
+  open:
+    appId: ${WX_OPEN_APP_ID:}
+    appSecret: ${WX_OPEN_APP_SECRET:}
+
+cos:
+  client:
+    host: ${COS_HOST:}
+    secretId: ${COS_SECRET_ID:}
+    secretKey: ${COS_SECRET_KEY:}
+    region: ${COS_REGION:}
+    bucket: ${COS_BUCKET:}
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+knife4j:
+  enable: true
+  openapi:
+    title: API
+    version: 1.0
+    group:
+      default:
+        api-rule: package
+        api-rule-resources:
+          - com.yupi.springbootinit.controller

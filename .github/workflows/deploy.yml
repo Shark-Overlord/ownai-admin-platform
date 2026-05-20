@@ -1,0 +1,78 @@
+name: Deploy Spring Boot app
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: springboot-init-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      DEPLOY_HOST: 101.200.91.81
+      DEPLOY_USER: deploy
+      BACKEND_PATH: /opt/springboot-init
+      FRONTEND_PATH: /www/wwwroot/springboot-init-admin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+
+      - name: Build backend
+        run: ./mvnw -B -DskipTests package
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-admin/package-lock.json
+
+      - name: Build admin frontend
+        working-directory: web-admin
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install rsync
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy backend jar
+        run: |
+          JAR_FILE="$(find target -maxdepth 1 -type f -name '*.jar' ! -name 'original-*' | head -n 1)"
+          test -n "$JAR_FILE"
+          rsync -az \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            "$JAR_FILE" "$DEPLOY_USER@$DEPLOY_HOST:$BACKEND_PATH/app.jar.tmp"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mv '$BACKEND_PATH/app.jar.tmp' '$BACKEND_PATH/app.jar' && sudo systemctl restart springboot-init"
+
+      - name: Deploy admin frontend
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            web-admin/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$FRONTEND_PATH/"

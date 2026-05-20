@@ -1,0 +1,21 @@
+# Test configuration.
+
+server:
+  port: ${SERVER_PORT:8101}
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://localhost:3306/my_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+  redis:
+    database: ${REDIS_DATABASE:1}
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    timeout: ${REDIS_TIMEOUT:5000}
+    password: ${REDIS_PASSWORD:}
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
+    username: ${ES_USERNAME:}
+    password: ${ES_PASSWORD:}
