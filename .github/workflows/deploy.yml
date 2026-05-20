@@ -32,7 +32,9 @@ jobs:
           cache: maven
 
       - name: Build backend
-        run: ./mvnw -B -DskipTests package
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B -DskipTests package
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
