@@ -18,7 +18,7 @@ import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
-import com.yupi.springbootinit.constant.FileConstant;
+import com.yupi.springbootinit.config.CosClientConfig;
 import com.yupi.springbootinit.manager.CosManager;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.UserService;
@@ -68,6 +68,9 @@ public class ArtworkController {
 
     @Resource
     private CosManager cosManager;
+
+    @Resource
+    private CosClientConfig cosClientConfig;
 
     /**
      * 管理员添加艺术作品 Admin add artwork
@@ -201,7 +204,7 @@ public class ArtworkController {
      */
     @GetMapping("/get/vo")
     @ApiOperation("获取艺术作品详情 Get artwork detail")
-    public BaseResponse<ArtworkDetailVO> getArtworkVOById(Long id, HttpServletRequest request) {
+    public BaseResponse<ArtworkDetailVO> getArtworkVOById(long id, HttpServletRequest request) {
         User loginUser = userService.getLoginUserPermitNull(request);
         return ResultUtils.success(artworkService.getArtworkDetail(id, loginUser, false));
     }
@@ -223,7 +226,7 @@ public class ArtworkController {
      */
     @PostMapping("/list/page/vo")
     @ApiOperation("分页查询艺术作品列表（前台） Page query artwork list for frontend")
-    public BaseResponse<Page<ArtworkVO>> listArtworkVOByPage(@RequestBody(required = false) ArtworkQueryRequest artworkQueryRequest,
+    public BaseResponse<Page<ArtworkVO>> listArtworkVOByPage(@RequestBody ArtworkQueryRequest artworkQueryRequest,
             HttpServletRequest request) {
         User loginUser = userService.getLoginUserPermitNull(request);
         return ResultUtils.success(artworkService.listArtworkVOByPage(artworkQueryRequest, loginUser, false));
@@ -235,7 +238,7 @@ public class ArtworkController {
     @PostMapping("/admin/list/page/vo")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @ApiOperation("管理员分页查询艺术作品列表 Admin page query artwork list")
-    public BaseResponse<Page<ArtworkVO>> listArtworkVOByPageForAdmin(@RequestBody(required = false) ArtworkQueryRequest artworkQueryRequest,
+    public BaseResponse<Page<ArtworkVO>> listArtworkVOByPageForAdmin(@RequestBody ArtworkQueryRequest artworkQueryRequest,
             HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         return ResultUtils.success(artworkService.listArtworkVOByPage(artworkQueryRequest, loginUser, true));
@@ -287,7 +290,7 @@ public class ArtworkController {
             }
 
             Map<String, String> result = new HashMap<>();
-            result.put("htmlUrl", FileConstant.COS_HOST + "/" + htmlKey);
+            result.put("htmlUrl", cosClientConfig.getHost() + "/" + htmlKey);
             return ResultUtils.success(result);
         } catch (BusinessException e) {
             throw e;

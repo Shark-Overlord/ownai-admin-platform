@@ -36,28 +36,25 @@ public class MemberPriceConfigController {
     private MemberPriceConfigService memberPriceConfigService;
 
     /**
-     * 获取全部会员价格配置（管理员）
+     * 获取全部会员价格配置
      */
+    @GetMapping("/plans")
+    @ApiOperation("List enabled member price plans")
+    public BaseResponse<List<MemberPriceConfig>> listEnabledPlans() {
+        List<MemberPriceConfig> list = memberPriceConfigService.list(
+                new QueryWrapper<MemberPriceConfig>()
+                        .eq("isDelete", 0)
+                        .eq("status", 1)
+                        .orderByAsc("memberLevel", "planType"));
+        return ResultUtils.success(list);
+    }
+
     @GetMapping("/list")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @ApiOperation("获取全部会员价格配置 List all member price configs")
     public BaseResponse<List<MemberPriceConfig>> listAll() {
         List<MemberPriceConfig> list = memberPriceConfigService.list(
                 new QueryWrapper<MemberPriceConfig>().eq("isDelete", 0).orderByAsc("memberLevel", "planType"));
-        return ResultUtils.success(list);
-    }
-
-    /**
-     * 获取启用的会员价格配置（普通用户可查看）
-     */
-    @GetMapping("/plans")
-    @ApiOperation("获取可订阅的会员计划 Get available member plans")
-    public BaseResponse<List<MemberPriceConfig>> listAvailablePlans() {
-        List<MemberPriceConfig> list = memberPriceConfigService.list(
-                new QueryWrapper<MemberPriceConfig>()
-                        .eq("status", 1)
-                        .eq("isDelete", 0)
-                        .orderByAsc("memberLevel", "planType"));
         return ResultUtils.success(list);
     }
 

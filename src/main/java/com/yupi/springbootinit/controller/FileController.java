@@ -5,7 +5,7 @@ import com.yupi.springbootinit.annotation.OperationLog;
 import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
-import com.yupi.springbootinit.constant.FileConstant;
+import com.yupi.springbootinit.config.CosClientConfig;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.manager.CosManager;
 import com.yupi.springbootinit.model.dto.file.UploadFileRequest;
@@ -42,6 +42,9 @@ public class FileController {
     @Resource
     private CosManager cosManager;
 
+    @Resource
+    private CosClientConfig cosClientConfig;
+
     /**
      * 上传文件到对象存储 Upload file to object storage
      */
@@ -65,7 +68,7 @@ public class FileController {
             file = File.createTempFile("upload-", FileUtil.extName(filename));
             multipartFile.transferTo(file);
             cosManager.putObject(filepath, file);
-            return ResultUtils.success(FileConstant.COS_HOST + filepath);
+            return ResultUtils.success(cosClientConfig.getHost() + filepath);
         } catch (Exception e) {
             log.error("file upload error, filepath = {}", filepath, e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "Upload failed");
@@ -95,7 +98,8 @@ public class FileController {
             }
             return;
         }
-        if (FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)) {
+        if (FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
+                || FileUploadBizEnum.PROMPT_ASSET_COVER.equals(fileUploadBizEnum)) {
             validSuffix(fileSuffix, Arrays.asList("jpeg", "jpg", "png", "webp"));
             if (fileSize > TEN_M) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "Cover file cannot exceed 10MB");

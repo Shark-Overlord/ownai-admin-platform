@@ -68,12 +68,6 @@ export default function MemberPriceConfigManage() {
       ellipsis: true,
     },
     {
-      title: '功能描述(JSON)',
-      dataIndex: 'features',
-      search: false,
-      ellipsis: true,
-    },
-    {
       title: '状态',
       dataIndex: 'status',
       valueType: 'select',
@@ -216,9 +210,6 @@ export default function MemberPriceConfigManage() {
           </Form.Item>
           <Form.Item label="描述" name="description">
             <Input.TextArea rows={2} placeholder="可选填" />
-          </Form.Item>
-          <Form.Item label="功能描述(JSON)" name="features">
-            <Input.TextArea rows={4} placeholder='例如: {"privileges": ["高清下载", "无广告"]}' />
           </Form.Item>
           <Form.Item
             label="状态"

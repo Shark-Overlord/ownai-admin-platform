@@ -13,6 +13,7 @@ import MemberOrderManage from '../pages/MemberOrderManage';
 import PointManage from '../pages/PointManage';
 import MemberPriceConfigManage from '../pages/MemberPriceConfigManage';
 import OperationLog from '../pages/OperationLog';
+import PromptAssetManage from '../pages/PromptAssetManage';
 
 export const routes = [
   {
@@ -41,6 +42,11 @@ export const routes = [
       {
         path: 'artwork',
         element: <ArtworkManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'prompt-asset',
+        element: <PromptAssetManage />,
         meta: { requiresAdmin: true },
       },
       {
@@ -111,6 +117,11 @@ export const menuRoutes = [
     path: '/artwork',
     name: '作品管理',
     icon: 'PictureOutlined',
+  },
+  {
+    path: '/prompt-asset',
+    name: 'Prompt 资产',
+    icon: 'DatabaseOutlined',
   },
   {
     path: '/category',

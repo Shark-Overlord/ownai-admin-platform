@@ -4,14 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '.github/workflows/deploy.yml'
-      - 'deploy/**'
-      - 'pom.xml'
-      - 'mvnw'
-      - 'mvnw.cmd'
-      - 'src/**'
-      - 'web-admin/**'
   workflow_dispatch:
 
 concurrency:

@@ -118,7 +118,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         } else if (safeRequest.getStatus() != null) {
             queryWrapper.eq("status", safeRequest.getStatus());
         }
-        queryWrapper.eq(safeRequest.getCategoryId() != null && safeRequest.getCategoryId() > 0, "categoryId", safeRequest.getCategoryId());
+        queryWrapper.eq(safeRequest.getCategoryId() != null, "categoryId", safeRequest.getCategoryId());
         queryWrapper.eq(safeRequest.getMemberOnly() != null, "memberOnly", safeRequest.getMemberOnly());
         if (StringUtils.isNotBlank(safeRequest.getSearchText())) {
             queryWrapper.and(wrapper -> wrapper.like("title", safeRequest.getSearchText())
@@ -158,11 +158,10 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         queryWrapper.orderBy(SqlUtils.validSortField(sortField),
                 CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
         queryWrapper.orderByDesc("sort", "id");
-        long current = Math.max(safeRequest.getCurrent(), 1);
-        long pageSize = Math.max(safeRequest.getPageSize(), 1);
-        Page<Artwork> artworkPage = this.page(new Page<>(current, pageSize), queryWrapper);
-        Page<ArtworkVO> artworkVOPage = new Page<>(current, pageSize, artworkPage.getTotal());
-        artworkVOPage.setRecords(buildArtworkVOList(artworkPage.getRecords(), loginUser, adminView));
+        Page<Artwork> artworkPage = this.page(new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize()), queryWrapper);
+        Page<ArtworkVO> artworkVOPage = new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(),
+                artworkPage.getTotal());
+        artworkVOPage.setRecords(buildArtworkVOList(artworkPage.getRecords(), loginUser));
         return artworkVOPage;
     }
 
@@ -173,15 +172,6 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         ThrowUtils.throwIf(artwork == null, ErrorCode.NOT_FOUND_ERROR, "作品不存在");
         if (!adminView && !ArtworkStatusEnum.PUBLISHED.getValue().equals(artwork.getStatus())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "作品未发布");
-        }
-        // 会员专享作品权限校验：普通用户（含未登录、NORMAL 会员）直接拦截
-        if (!adminView && artwork.getMemberOnly() != null && artwork.getMemberOnly() == 1) {
-            if (loginUser == null) {
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "该作品为会员专享，请先登录");
-            }
-            if (!userService.isAdmin(loginUser) && !hasMemberAccess(artwork, loginUser)) {
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "该作品为会员专享，请升级会员");
-            }
         }
         ArtworkDetailVO artworkDetailVO = new ArtworkDetailVO();
         BeanUtils.copyProperties(buildArtworkVO(artwork, loginUser), artworkDetailVO);
@@ -273,7 +263,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         }
     }
 
-    private List<ArtworkVO> buildArtworkVOList(List<Artwork> artworkList, User loginUser, boolean adminView) {
+    private List<ArtworkVO> buildArtworkVOList(List<Artwork> artworkList, User loginUser) {
         if (CollUtil.isEmpty(artworkList)) {
             return new ArrayList<>();
         }
@@ -285,10 +275,6 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         return artworkList.stream().map(artwork -> {
             ArtworkVO artworkVO = new ArtworkVO();
             BeanUtils.copyProperties(artwork, artworkVO);
-            if (!adminView) {
-                artworkVO.setDescription(null);
-                artworkVO.setPromptContent(null);
-            }
             artworkVO.setCategory(categoryMap.get(artwork.getCategoryId()));
             artworkVO.setTagList(artworkTagMap.getOrDefault(artwork.getId(), Collections.emptyList()));
             artworkVO.setCanAccessPrompt(accessMap.getOrDefault(artwork.getId(), false));
@@ -297,7 +283,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     }
 
     private ArtworkVO buildArtworkVO(Artwork artwork, User loginUser) {
-        List<ArtworkVO> artworkVOList = buildArtworkVOList(Collections.singletonList(artwork), loginUser, true);
+        List<ArtworkVO> artworkVOList = buildArtworkVOList(Collections.singletonList(artwork), loginUser);
         return artworkVOList.isEmpty() ? null : artworkVOList.get(0);
     }
 
@@ -366,7 +352,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     private boolean isFreeArtwork(Artwork artwork) {
         boolean noCashPrice = artwork.getCashPrice() == null || artwork.getCashPrice().compareTo(BigDecimal.ZERO) <= 0;
         boolean noPointsPrice = artwork.getPointsPrice() == null || artwork.getPointsPrice() <= 0;
-        return (artwork.getMemberOnly() == null || artwork.getMemberOnly() == 0) && noCashPrice && noPointsPrice;
+        return artwork.getMemberOnly() != null && artwork.getMemberOnly() == 0 && noCashPrice && noPointsPrice;
     }
 
     private boolean hasMemberAccess(Artwork artwork, User loginUser) {

@@ -7,6 +7,8 @@ target/
 **/.DS_Store
 .playwright-mcp/
 sql/*.sql
+!sql/prompt_asset_schema.sql
+!sql/prompt_asset_cloud_fields_migration.sql
 web-admin/node_modules/
 web-admin/dist/
 !.mvn/wrapper/maven-wrapper.jar
