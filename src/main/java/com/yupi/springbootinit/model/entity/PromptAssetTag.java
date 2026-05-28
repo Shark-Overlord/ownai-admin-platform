@@ -5,34 +5,21 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.util.Date;
 import lombok.Data;
 
-@TableName(value = "member_price_config")
+@TableName(value = "prompt_asset_tag")
 @Data
-public class MemberPriceConfig implements Serializable {
+public class PromptAssetTag implements Serializable {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    private String memberLevel;
+    private Long promptAssetId;
 
-    private String planType;
-
-    private BigDecimal cashPrice;
-
-    private Integer pointsPrice;
-
-    private Integer durationDays;
-
-    private String description;
-
-    private Integer status;
+    private Long tagId;
 
     private Date createTime;
-
-    private Date updateTime;
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;

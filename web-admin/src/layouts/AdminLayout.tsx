@@ -14,6 +14,7 @@ import {
   DollarOutlined,
   SettingOutlined,
   FileTextOutlined,
+  DatabaseOutlined,
   LogoutOutlined,
   DownOutlined,
 } from '@ant-design/icons';
@@ -32,6 +33,7 @@ const iconMap: Record<string, React.ReactNode> = {
   SettingOutlined: <SettingOutlined />,
   ClusterOutlined: <ClusterOutlined />,
   FileTextOutlined: <FileTextOutlined />,
+  DatabaseOutlined: <DatabaseOutlined />,
 };
 
 export default function AdminLayout() {

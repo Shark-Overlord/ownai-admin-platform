@@ -8,7 +8,6 @@ import {
   deleteArtwork,
   deleteArtworkBatch,
   addArtwork,
-  getArtworkVOById,
   type ArtworkVO,
 } from '../../api/artwork';
 import { listCategory, type CategoryVO } from '../../api/category';
@@ -151,9 +150,8 @@ export default function ArtworkManage() {
         <Button
           key="edit"
           type="link"
-          onClick={async () => {
-            const res = await getArtworkVOById(record.id);
-            setEditing(res.data);
+          onClick={() => {
+            setEditing(record);
             setModalVisible(true);
           }}
         >

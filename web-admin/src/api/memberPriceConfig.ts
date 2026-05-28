@@ -1,28 +1,26 @@
 import request from './request';
 
 export interface MemberPriceConfig {
-  id: string;
+  id: number;
   memberLevel: string;
   planType: string;
   cashPrice: number;
   pointsPrice: number;
   durationDays: number;
   description?: string;
-  features?: string;
   status: number;
   createTime?: string;
   updateTime?: string;
 }
 
 export interface MemberPriceConfigUpdateRequest {
-  id?: string;
+  id?: number;
   memberLevel?: string;
   planType?: string;
   cashPrice?: number;
   pointsPrice?: number;
   durationDays?: number;
   description?: string;
-  features?: string;
   status?: number;
 }
 
@@ -35,9 +33,5 @@ export async function updateMemberPriceConfig(params: MemberPriceConfigUpdateReq
 }
 
 export async function addMemberPriceConfig(params: MemberPriceConfigUpdateRequest) {
-  return request.post('/member-price-config/add', params) as Promise<{ data: string }>;
-}
-
-export async function listAvailableMemberPlans() {
-  return request.get('/member-price-config/plans') as Promise<{ data: MemberPriceConfig[] }>;
+  return request.post('/member-price-config/add', params) as Promise<{ data: number }>;
 }

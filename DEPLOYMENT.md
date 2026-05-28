@@ -11,7 +11,7 @@ This project deploys two parts:
 - Backend env: `/etc/springboot-init/springboot-init.env`
 - Frontend root: `/www/wwwroot/springboot-init-admin`
 - Nginx config: `/www/server/panel/vhost/nginx/springboot-init-admin.conf`
-- Public port: `8080`
+- Public domain: `http://admin.ownai.icu`
 - Backend local port: `8011`
 
 ## GitHub secret
@@ -42,3 +42,9 @@ cd web-admin && npm ci && npm run build
 ```
 
 Then it uploads the backend jar and admin frontend to the server, and restarts `springboot-init`.
+
+For the full safe deployment runbook, including backup and recovery rules, see:
+
+```text
+E:\DesginEverything\OWNAI_DEPLOYMENT_RUNBOOK.md
+```

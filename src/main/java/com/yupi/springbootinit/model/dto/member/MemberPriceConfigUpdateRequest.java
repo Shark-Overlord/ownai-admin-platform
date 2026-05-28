@@ -21,8 +21,6 @@ public class MemberPriceConfigUpdateRequest implements Serializable {
 
     private String description;
 
-    private String features;
-
     private Integer status;
 
     private static final long serialVersionUID = 1L;

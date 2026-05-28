@@ -1,20 +1,36 @@
-# Production configuration.
-# Secrets must be provided by environment variables on the server.
-
+# 线上配置文件
+# @author <a href="https://github.com/liyupi">程序员鱼皮</a>
+# @from <a href="https://yupi.icu">编程导航知识星球</a>
 server:
-  port: ${SERVER_PORT:8011}
-
+  port: 8011
 spring:
+  # 数据库配置
+  # todo 需替换配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${DB_URL:jdbc:mysql://localhost:3306/my_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai}
-    username: ${DB_USERNAME:my_db}
+    username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
-
+  # Redis 配置
+  # todo 需替换配置
+  redis:
+    database: ${REDIS_DATABASE:1}
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    timeout: ${REDIS_TIMEOUT:5000}
+    password: ${REDIS_PASSWORD:}
+  # Elasticsearch 配置
+  # todo 需替换配置
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
+    username: ${ES_USERNAME:}
+    password: ${ES_PASSWORD:}
 mybatis-plus:
   configuration:
+    # 生产环境关闭日志
     log-impl: ''
 
+# todo 需替换配置
 cos:
   client:
     host: ${COS_HOST:}
@@ -22,28 +38,35 @@ cos:
     secretKey: ${COS_SECRET_KEY:}
     region: ${COS_REGION:}
     bucket: ${COS_BUCKET:}
-
+# 接口文档配置
 knife4j:
-  enable: ${KNIFE4J_ENABLE:false}
+  enable: true
   openapi:
-    title: API
+    title: 接口文档
     version: 1.0
     group:
       default:
         api-rule: package
         api-rule-resources:
           - com.yupi.springbootinit.controller
-
+# 微信相关
 wx:
+  # 微信公众平台
+  # todo 需替换配置
   mp:
-    token: ${WX_MP_TOKEN:}
-    aesKey: ${WX_MP_AES_KEY:}
-    appId: ${WX_MP_APP_ID:}
-    secret: ${WX_MP_SECRET:}
+    token: xxx
+    aesKey: xxx
+    appId: xxx
+    secret: xxx
     config-storage:
       http-client-type: HttpClient
       key-prefix: wx
+      redis:
+        host: 127.0.0.1
+        port: 6379
       type: Memory
+  # 微信开放平台
+  # todo 需替换配置
   open:
-    appId: ${WX_OPEN_APP_ID:}
-    appSecret: ${WX_OPEN_APP_SECRET:}
+    appId: xxx
+    appSecret: xxx
