@@ -9,6 +9,10 @@ public class LoginUserVO implements Serializable {
 
     private Long id;
 
+    private String userAccount;
+
+    private String userEmail;
+
     private String userName;
 
     private String userAvatar;

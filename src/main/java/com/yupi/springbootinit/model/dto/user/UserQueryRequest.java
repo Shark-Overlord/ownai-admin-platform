@@ -17,6 +17,8 @@ public class UserQueryRequest extends PageRequest implements Serializable {
 
     private String userAccount;
 
+    private String userEmail;
+
     private String userName;
 
     private String userProfile;

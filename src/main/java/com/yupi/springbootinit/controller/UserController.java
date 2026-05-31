@@ -16,6 +16,8 @@ import com.yupi.springbootinit.config.WxOpenConfig;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
+import com.yupi.springbootinit.model.dto.user.EmailCodeSendRequest;
+import com.yupi.springbootinit.model.dto.user.EmailRegisterRequest;
 import com.yupi.springbootinit.model.dto.user.UserAddRequest;
 import com.yupi.springbootinit.model.dto.user.UserLoginRequest;
 import com.yupi.springbootinit.model.dto.user.UserQueryRequest;
@@ -26,7 +28,10 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.model.vo.LoginUserVO;
 import com.yupi.springbootinit.model.vo.UserVO;
+import com.yupi.springbootinit.model.vo.user.LoginCaptchaVO;
+import com.yupi.springbootinit.service.AuthCodeService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.NetUtils;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import java.util.HashMap;
@@ -40,6 +45,7 @@ import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 import me.chanjar.weixin.common.bean.oauth2.WxOAuth2AccessToken;
 import me.chanjar.weixin.mp.api.WxMpService;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.BeanUtils;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,7 +68,13 @@ public class UserController {
     private UserService userService;
 
     @Resource
+    private AuthCodeService authCodeService;
+
+    @Resource
     private WxOpenConfig wxOpenConfig;
+
+    @Value("${auth.login-captcha-required:true}")
+    private boolean loginCaptchaRequired;
 
     /**
      * 用户注册 User register
@@ -86,6 +98,42 @@ public class UserController {
     /**
      * 账号密码登录 Account password login
      */
+    @GetMapping("/login/captcha")
+    @ApiOperation("Get login captcha")
+    public BaseResponse<LoginCaptchaVO> getLoginCaptcha() {
+        return ResultUtils.success(authCodeService.generateLoginCaptcha());
+    }
+
+    @PostMapping("/register/email/code")
+    @ApiOperation("Send email register code")
+    public BaseResponse<Boolean> sendEmailRegisterCode(@RequestBody EmailCodeSendRequest emailCodeSendRequest,
+            HttpServletRequest request) {
+        if (emailCodeSendRequest == null || StringUtils.isBlank(emailCodeSendRequest.getUserEmail())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        String ip = NetUtils.getIpAddress(request);
+        return ResultUtils.success(authCodeService.sendRegisterEmailCode(emailCodeSendRequest.getUserEmail(), ip));
+    }
+
+    @PostMapping("/register/email")
+    @ApiOperation("Register by email")
+    public BaseResponse<Long> userRegisterByEmail(@RequestBody EmailRegisterRequest emailRegisterRequest) {
+        if (emailRegisterRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        String userEmail = emailRegisterRequest.getUserEmail();
+        String emailCode = emailRegisterRequest.getEmailCode();
+        String userPassword = emailRegisterRequest.getUserPassword();
+        String checkPassword = emailRegisterRequest.getCheckPassword();
+        if (StringUtils.isAnyBlank(userEmail, emailCode, userPassword, checkPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        authCodeService.validateEmailRegisterCode(userEmail, emailCode);
+        long result = userService.userRegisterByEmail(userEmail, userPassword, checkPassword);
+        authCodeService.invalidateEmailRegisterCode(userEmail);
+        return ResultUtils.success(result);
+    }
+
     @PostMapping("/login")
     @ApiOperation("账号密码登录 Account password login")
     public BaseResponse<LoginUserVO> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
@@ -96,6 +144,11 @@ public class UserController {
         String userPassword = userLoginRequest.getUserPassword();
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        String captchaId = userLoginRequest.getCaptchaId();
+        String captchaCode = userLoginRequest.getCaptchaCode();
+        if (loginCaptchaRequired || StringUtils.isNotBlank(captchaId) || StringUtils.isNotBlank(captchaCode)) {
+            authCodeService.validateLoginCaptcha(captchaId, captchaCode);
         }
         return ResultUtils.success(userService.userLogin(userAccount, userPassword, request));
     }
