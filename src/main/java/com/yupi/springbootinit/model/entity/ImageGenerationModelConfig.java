@@ -6,43 +6,42 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Date;
 import lombok.Data;
 
-@TableName(value = "user")
+@TableName(value = "image_generation_model_config")
 @Data
-public class User implements Serializable {
+public class ImageGenerationModelConfig implements Serializable {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    private String userAccount;
+    private String providerCode;
 
-    private String userEmail;
+    private String modelCode;
 
-    private String userPassword;
+    private String sizeCode;
 
-    private String unionId;
+    private String aspectRatio;
 
-    private String mpOpenId;
+    private String vendorSize;
 
-    private String userName;
+    private Integer pointCost;
 
-    private String userAvatar;
+    private BigDecimal apiInputCostCny;
 
-    private String userProfile;
+    private BigDecimal apiOutputCostCny;
 
-    private String userRole;
+    private BigDecimal apiCostCny;
 
-    private String memberLevel;
+    private Integer supportsReferenceImage;
 
-    private String memberPlanType;
+    private Integer status;
 
-    private Integer pointBalance;
+    private Integer sortOrder;
 
-    private Date memberExpireTime;
-
-    private Date lastCheckInDate;
+    private String description;
 
     private Date createTime;
 

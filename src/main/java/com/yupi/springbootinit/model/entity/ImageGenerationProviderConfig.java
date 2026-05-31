@@ -9,40 +9,34 @@ import java.io.Serializable;
 import java.util.Date;
 import lombok.Data;
 
-@TableName(value = "user")
+@TableName(value = "image_generation_provider_config")
 @Data
-public class User implements Serializable {
+public class ImageGenerationProviderConfig implements Serializable {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    private String userAccount;
+    private String providerCode;
 
-    private String userEmail;
+    private String providerName;
 
-    private String userPassword;
+    private String baseUrl;
 
-    private String unionId;
+    private String generationPath;
 
-    private String mpOpenId;
+    private String authType;
 
-    private String userName;
+    private String apiKeyEncrypted;
 
-    private String userAvatar;
+    private String apiKeyLast4;
 
-    private String userProfile;
+    private Integer status;
 
-    private String userRole;
+    private Integer isDefault;
 
-    private String memberLevel;
+    private Integer timeoutSeconds;
 
-    private String memberPlanType;
-
-    private Integer pointBalance;
-
-    private Date memberExpireTime;
-
-    private Date lastCheckInDate;
+    private String requestSchema;
 
     private Date createTime;
 

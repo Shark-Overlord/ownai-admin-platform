@@ -28,6 +28,8 @@ public interface UserService extends IService<User> {
      */
     long userRegister(String userAccount, String userPassword, String checkPassword);
 
+    long userRegisterByEmail(String userEmail, String userPassword, String checkPassword);
+
     /**
      * 用户登录
      *
