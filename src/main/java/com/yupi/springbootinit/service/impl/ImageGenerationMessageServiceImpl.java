@@ -412,7 +412,7 @@ public class ImageGenerationMessageServiceImpl
         ImageGenerationMessage updateMessage = new ImageGenerationMessage();
         updateMessage.setId(taskMessage.getId());
         updateMessage.setStatus(targetStatus);
-        updateMessage.setPrompt(StringUtils.trimToNull(request.getPrompt()));
+        // Worker results should not overwrite the conversation prompt; keep API details in responsePayload.
         updateMessage.setResultImageUrls(toJsonStorage(request.getResultImageUrls()));
         updateMessage.setResponsePayload(toJsonStorage(request.getResponsePayload()));
         updateMessage.setErrorMessage(StringUtils.trimToNull(request.getErrorMessage()));
