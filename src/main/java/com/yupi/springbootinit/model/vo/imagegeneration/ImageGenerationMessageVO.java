@@ -54,6 +54,10 @@ public class ImageGenerationMessageVO implements Serializable {
 
     private Date finishedTime;
 
+    private Boolean timeoutPending;
+
+    private Long pendingAgeSeconds;
+
     private String resultImageUrls;
 
     private List<String> resultImageUrlList = new ArrayList<>();

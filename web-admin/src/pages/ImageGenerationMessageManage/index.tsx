@@ -61,6 +61,8 @@ const defaultOverview: ImageGenerationMonitorOverview = {
   failedTasks: 0,
   pendingTasks: 0,
   runningTasks: 0,
+  timeoutPendingTasks: 0,
+  pendingTimeoutMinutes: 20,
   totalImages: 0,
   totalPointCost: 0,
   totalApiCostCny: 0,
@@ -226,13 +228,32 @@ function renderThumbnails(urls?: string[], size = 58) {
 
 function buildTimeQuery(params: any) {
   const { timeRange, current, pageSize, ...rest } = params;
+  const timeoutOnly = rest.timeoutOnly === true || rest.timeoutOnly === 'true' ? true : undefined;
+  delete rest.timeoutOnly;
   return {
     ...rest,
+    timeoutOnly,
     current: current || 1,
     pageSize: pageSize || 10,
     startTime: timeRange?.[0],
     endTime: timeRange?.[1],
   };
+}
+
+function formatDuration(seconds?: number) {
+  if (!seconds && seconds !== 0) {
+    return '-';
+  }
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
 }
 
 function MonitorCards({ overview }: { overview: ImageGenerationMonitorOverview }) {
@@ -250,12 +271,16 @@ function MonitorCards({ overview }: { overview: ImageGenerationMonitorOverview }
       </Col>
       <Col xs={24} sm={12} lg={6}>
         <Card>
-          <Statistic title="待处理 / 运行中" value={`${overview.pendingTasks || 0} / ${overview.runningTasks || 0}`} />
+          <Statistic
+            title={`待处理 / 超时等待（${overview.pendingTimeoutMinutes || 20}m）`}
+            value={`${overview.pendingTasks || 0} / ${overview.timeoutPendingTasks || 0}`}
+            valueStyle={(overview.timeoutPendingTasks || 0) > 0 ? { color: '#cf1322' } : undefined}
+          />
         </Card>
       </Col>
       <Col xs={24} sm={12} lg={6}>
         <Card>
-          <Statistic title="失败任务" value={overview.failedTasks || 0} valueStyle={{ color: '#cf1322' }} />
+          <Statistic title="运行中 / 失败" value={`${overview.runningTasks || 0} / ${overview.failedTasks || 0}`} />
         </Card>
       </Col>
       <Col xs={24} sm={12} lg={6}>
@@ -340,6 +365,15 @@ export default function ImageGenerationMessageManage() {
       },
     },
     {
+      title: '超时等待',
+      dataIndex: 'timeoutOnly',
+      valueType: 'select',
+      hideInTable: true,
+      valueEnum: {
+        true: { text: '仅看超时等待' },
+      },
+    },
+    {
       title: '模型',
       dataIndex: 'modelCode',
       valueType: 'select',
@@ -387,6 +421,7 @@ export default function ImageGenerationMessageManage() {
           <Tag color="success">成功 {record.successCount || 0}</Tag>
           <Tag color="error">失败 {record.failedCount || 0}</Tag>
           <Tag color="gold">等待 {record.pendingCount || 0}</Tag>
+          {(record.timeoutPendingCount || 0) > 0 ? <Tag color="red">超时 {record.timeoutPendingCount}</Tag> : null}
           <Tag color="processing">运行 {record.runningCount || 0}</Tag>
         </Space>
       ),
@@ -453,8 +488,20 @@ export default function ImageGenerationMessageManage() {
       },
       width: 110,
       render: (_: unknown, record: ImageGenerationMessageItem) => (
-        <Tag color={statusColorMap[record.status || ''] || 'default'}>{record.status || '-'}</Tag>
+        <Space size={4} wrap>
+          <Tag color={statusColorMap[record.status || ''] || 'default'}>{record.status || '-'}</Tag>
+          {record.timeoutPending ? <Tag color="red">超时 {formatDuration(record.pendingAgeSeconds)}</Tag> : null}
+        </Space>
       ),
+    },
+    {
+      title: '超时等待',
+      dataIndex: 'timeoutOnly',
+      valueType: 'select',
+      hideInTable: true,
+      valueEnum: {
+        true: { text: '仅看超时等待' },
+      },
     },
     {
       title: '规格',
@@ -656,6 +703,7 @@ export default function ImageGenerationMessageManage() {
                       <Space wrap>
                         <Tag color={roleColorMap[message.role || ''] || 'default'}>{message.role || '-'}</Tag>
                         <Tag color={statusColorMap[message.status || ''] || 'default'}>{message.status || '-'}</Tag>
+                        {message.timeoutPending ? <Tag color="red">超时等待 {formatDuration(message.pendingAgeSeconds)}</Tag> : null}
                         {message.imageSize ? <Tag>{message.imageSize.toUpperCase()}</Tag> : null}
                         {message.pointCost ? <Tag>积分 {message.pointCost}</Tag> : null}
                         {message.taskId ? <Text copyable>task: {message.taskId}</Text> : null}
@@ -719,6 +767,7 @@ export default function ImageGenerationMessageManage() {
                         <Space wrap>
                           <Tag color={roleColorMap[message.role || ''] || 'default'}>{message.role || '-'}</Tag>
                           <Tag color={statusColorMap[message.status || ''] || 'default'}>{message.status || '-'}</Tag>
+                          {message.timeoutPending ? <Tag color="red">超时等待 {formatDuration(message.pendingAgeSeconds)}</Tag> : null}
                           <Text type="secondary">{message.createTime || '-'}</Text>
                         </Space>
                         {renderThumbnails(getMessageImages(message), 72)}

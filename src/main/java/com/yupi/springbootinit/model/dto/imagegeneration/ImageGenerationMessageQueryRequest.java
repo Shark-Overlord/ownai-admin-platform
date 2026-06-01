@@ -30,6 +30,11 @@ public class ImageGenerationMessageQueryRequest extends PageRequest implements S
 
     private String searchText;
 
+    /**
+     * Only query pending tasks that have waited longer than the configured threshold.
+     */
+    private Boolean timeoutOnly;
+
     private Date startTime;
 
     private Date endTime;

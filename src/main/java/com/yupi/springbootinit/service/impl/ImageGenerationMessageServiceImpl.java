@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -96,6 +97,9 @@ public class ImageGenerationMessageServiceImpl
 
     @Resource
     private ImageGenerationModelConfigService modelConfigService;
+
+    @Value("${image.generation.pending-timeout-minutes:20}")
+    private Integer pendingTimeoutMinutes;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -304,6 +308,8 @@ public class ImageGenerationMessageServiceImpl
         overview.setFailedTasks(countByStatus(tasks, STATUS_FAILED));
         overview.setPendingTasks(countByStatus(tasks, STATUS_PENDING));
         overview.setRunningTasks(countByStatus(tasks, STATUS_RUNNING));
+        overview.setTimeoutPendingTasks(countPendingTimeout(tasks));
+        overview.setPendingTimeoutMinutes(getSafePendingTimeoutMinutes());
         overview.setTotalImages(sumSuccessImages(tasks));
         overview.setTotalPointCost(sumActivePointCost(tasks));
         overview.setTotalApiCostCny(sumSuccessApiCost(tasks));
@@ -612,6 +618,11 @@ public class ImageGenerationMessageServiceImpl
         queryWrapper.eq(StringUtils.isNotBlank(modelCode), "modelCode", modelCode);
         queryWrapper.eq(StringUtils.isNotBlank(imageSizeValue), "imageSize", imageSizeValue);
         queryWrapper.eq(StringUtils.isNotBlank(request.getTaskId()), "taskId", StringUtils.trim(request.getTaskId()));
+        if (Boolean.TRUE.equals(request.getTimeoutOnly())) {
+            queryWrapper.eq("role", ROLE_ASSISTANT);
+            queryWrapper.eq("status", STATUS_PENDING);
+            queryWrapper.le("updateTime", getPendingTimeoutCutoffTime());
+        }
         queryWrapper.ge(request.getStartTime() != null, "createTime", request.getStartTime());
         queryWrapper.le(request.getEndTime() != null, "createTime", request.getEndTime());
         String searchText = StringUtils.trimToNull(request.getSearchText());
@@ -641,6 +652,10 @@ public class ImageGenerationMessageServiceImpl
 
     private long countByStatus(List<ImageGenerationMessage> tasks, String status) {
         return tasks.stream().filter(task -> status.equals(task.getStatus())).count();
+    }
+
+    private long countPendingTimeout(List<ImageGenerationMessage> tasks) {
+        return tasks.stream().filter(this::isPendingTimeout).count();
     }
 
     private long sumSuccessImages(List<ImageGenerationMessage> tasks) {
@@ -764,6 +779,7 @@ public class ImageGenerationMessageServiceImpl
         summary.setFailedCount(countByStatus(tasks, STATUS_FAILED));
         summary.setPendingCount(countByStatus(tasks, STATUS_PENDING));
         summary.setRunningCount(countByStatus(tasks, STATUS_RUNNING));
+        summary.setTimeoutPendingCount(countPendingTimeout(tasks));
         summary.setTotalPointCost(sumActivePointCost(tasks));
         summary.setTotalApiCostCny(sumSuccessApiCost(tasks));
         messages.stream().map(ImageGenerationMessage::getCreateTime).filter(date -> date != null)
@@ -883,6 +899,35 @@ public class ImageGenerationMessageServiceImpl
         List<String> resultImageUrls = parseImageUrls(message.getResultImageUrls());
         vo.setResultImageUrlList(resultImageUrls);
         vo.setThumbnailUrls(extractThumbnailUrls(message));
+        vo.setTimeoutPending(isPendingTimeout(message));
+        vo.setPendingAgeSeconds(calculatePendingAgeSeconds(message));
         return vo;
+    }
+
+    private boolean isPendingTimeout(ImageGenerationMessage message) {
+        if (message == null || !STATUS_PENDING.equals(message.getStatus())) {
+            return false;
+        }
+        Date referenceTime = message.getUpdateTime() == null ? message.getCreateTime() : message.getUpdateTime();
+        return referenceTime != null && referenceTime.before(getPendingTimeoutCutoffTime());
+    }
+
+    private Long calculatePendingAgeSeconds(ImageGenerationMessage message) {
+        if (message == null || !STATUS_PENDING.equals(message.getStatus())) {
+            return null;
+        }
+        Date referenceTime = message.getUpdateTime() == null ? message.getCreateTime() : message.getUpdateTime();
+        if (referenceTime == null) {
+            return null;
+        }
+        return Math.max((System.currentTimeMillis() - referenceTime.getTime()) / 1000L, 0L);
+    }
+
+    private Date getPendingTimeoutCutoffTime() {
+        return new Date(System.currentTimeMillis() - getSafePendingTimeoutMinutes() * 60L * 1000L);
+    }
+
+    private int getSafePendingTimeoutMinutes() {
+        return pendingTimeoutMinutes == null || pendingTimeoutMinutes <= 0 ? 20 : pendingTimeoutMinutes;
     }
 }

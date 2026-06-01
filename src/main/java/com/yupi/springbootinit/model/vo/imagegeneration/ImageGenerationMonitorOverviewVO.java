@@ -21,6 +21,10 @@ public class ImageGenerationMonitorOverviewVO implements Serializable {
 
     private Long runningTasks;
 
+    private Long timeoutPendingTasks;
+
+    private Integer pendingTimeoutMinutes;
+
     private Long totalImages;
 
     private Long totalPointCost;

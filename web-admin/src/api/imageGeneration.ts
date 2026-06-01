@@ -19,6 +19,8 @@ export interface ImageGenerationMessageItem {
   pointStatus?: string;
   startedTime?: string;
   finishedTime?: string;
+  timeoutPending?: boolean;
+  pendingAgeSeconds?: number;
   referenceImageUrl?: string;
   sourcePromptAssetId?: number;
   taskId?: string;
@@ -48,6 +50,8 @@ export interface ImageGenerationMonitorOverview {
   failedTasks: number;
   pendingTasks: number;
   runningTasks: number;
+  timeoutPendingTasks: number;
+  pendingTimeoutMinutes: number;
   totalImages: number;
   totalPointCost: number;
   totalApiCostCny: number;
@@ -66,6 +70,7 @@ export interface ImageGenerationConversationSummary {
   failedCount: number;
   pendingCount: number;
   runningCount: number;
+  timeoutPendingCount: number;
   totalPointCost: number;
   totalApiCostCny: number;
   firstCreateTime?: string;

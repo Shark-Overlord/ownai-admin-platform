@@ -26,6 +26,8 @@ public class ImageGenerationConversationSummaryVO implements Serializable {
 
     private Long runningCount;
 
+    private Long timeoutPendingCount;
+
     private Long totalPointCost;
 
     private BigDecimal totalApiCostCny;
