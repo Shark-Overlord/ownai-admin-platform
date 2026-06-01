@@ -32,6 +32,8 @@ public class ImageGenerationConversationSummaryVO implements Serializable {
 
     private BigDecimal totalApiCostCny;
 
+    private BigDecimal totalManualCostCny;
+
     private Date firstCreateTime;
 
     private Date lastUpdateTime;

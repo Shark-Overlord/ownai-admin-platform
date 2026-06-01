@@ -13,9 +13,11 @@ export interface ImageGenerationMessageItem {
   vendorModel?: string;
   imageSize?: string;
   vendorSize?: string;
+  generationMode?: string;
   imageCount?: number;
   pointCost?: number;
   apiCostCny?: number;
+  manualCostCny?: number;
   pointStatus?: string;
   startedTime?: string;
   finishedTime?: string;
@@ -42,6 +44,7 @@ export interface ImageGenerationDailyTrend {
   totalImages: number;
   totalPointCost: number;
   totalApiCostCny: number;
+  totalManualCostCny: number;
 }
 
 export interface ImageGenerationMonitorOverview {
@@ -55,6 +58,7 @@ export interface ImageGenerationMonitorOverview {
   totalImages: number;
   totalPointCost: number;
   totalApiCostCny: number;
+  totalManualCostCny: number;
   successRate: number;
   avgDurationSeconds: number;
   statusDistribution: Record<string, number>;
@@ -73,6 +77,7 @@ export interface ImageGenerationConversationSummary {
   timeoutPendingCount: number;
   totalPointCost: number;
   totalApiCostCny: number;
+  totalManualCostCny: number;
   firstCreateTime?: string;
   lastUpdateTime?: string;
   thumbnailUrls?: string[];
@@ -124,9 +129,11 @@ export interface ImageGenerationModelConfig {
   aspectRatio: string;
   vendorSize: string;
   pointCost: number;
+  manualPointCost: number;
   apiInputCostCny: number;
   apiOutputCostCny: number;
   apiCostCny: number;
+  manualCostCny: number;
   supportsReferenceImage: number;
   status: number;
   sortOrder: number;
@@ -143,9 +150,11 @@ export interface ImageGenerationModelConfigRequest {
   aspectRatio?: string;
   vendorSize?: string;
   pointCost?: number;
+  manualPointCost?: number;
   apiInputCostCny?: number;
   apiOutputCostCny?: number;
   apiCostCny?: number;
+  manualCostCny?: number;
   supportsReferenceImage?: number;
   status?: number;
   sortOrder?: number;

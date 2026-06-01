@@ -72,6 +72,13 @@ public class ImageGenerationMessageServiceImpl
 
     private static final String IMAGE_SIZE_1K = "1k";
 
+    private static final String GENERATION_MODE_API = "api";
+
+    private static final String GENERATION_MODE_MANUAL = "manual";
+
+    private static final Set<String> ALLOWED_GENERATION_MODES = new HashSet<>(
+            Arrays.asList(GENERATION_MODE_API, GENERATION_MODE_MANUAL));
+
     private static final Set<String> ALLOWED_IMAGE_SIZES = new HashSet<>(Arrays.asList("1k", "2k", "4k"));
 
     private static final String POINT_STATUS_NONE = "none";
@@ -117,6 +124,7 @@ public class ImageGenerationMessageServiceImpl
         ImageGenerationProviderConfig providerConfig = resolveProviderConfig(request.getProviderCode());
         String modelCode = normalizeModelCode(request.getModelCode());
         String imageSize = normalizeImageSize(request.getImageSize());
+        String generationMode = normalizeGenerationMode(request.getGenerationMode());
         String resolvedAspectRatio = normalizeConfigAspectRatio(request.getAspectRatio());
         ImageGenerationModelConfig modelConfig = modelConfigService.getEnabledModelConfig(
                 providerConfig.getProviderCode(), modelCode, imageSize, resolvedAspectRatio);
@@ -126,8 +134,11 @@ public class ImageGenerationMessageServiceImpl
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "This model size does not support reference images");
         }
         int imageCount = normalizeImageCount(request.getImageCount());
-        int pointCost = calculatePointCost(modelConfig, imageCount);
-        BigDecimal apiCostCny = calculateApiCost(modelConfig, imageCount);
+        boolean manualMode = GENERATION_MODE_MANUAL.equals(generationMode);
+        int pointCost = manualMode ? calculateManualPointCost(modelConfig, imageCount)
+                : calculatePointCost(modelConfig, imageCount);
+        BigDecimal apiCostCny = manualMode ? BigDecimal.ZERO : calculateApiCost(modelConfig, imageCount);
+        BigDecimal manualCostCny = manualMode ? calculateManualCost(modelConfig, imageCount) : BigDecimal.ZERO;
         Date now = new Date();
         String taskId = "img_task_" + IdWorker.getIdStr();
         String vendorModel = modelConfig.getModelCode();
@@ -146,7 +157,9 @@ public class ImageGenerationMessageServiceImpl
         userMessage.setVendorModel(vendorModel);
         userMessage.setImageSize(imageSize);
         userMessage.setVendorSize(vendorSize);
+        userMessage.setGenerationMode(generationMode);
         userMessage.setImageCount(imageCount);
+        userMessage.setManualCostCny(BigDecimal.ZERO);
         userMessage.setPointStatus(POINT_STATUS_NONE);
         userMessage.setReferenceImageUrl(referenceImageUrl);
         userMessage.setSourcePromptAssetId(request.getSourcePromptAssetId());
@@ -167,9 +180,11 @@ public class ImageGenerationMessageServiceImpl
         assistantMessage.setVendorModel(vendorModel);
         assistantMessage.setImageSize(imageSize);
         assistantMessage.setVendorSize(vendorSize);
+        assistantMessage.setGenerationMode(generationMode);
         assistantMessage.setImageCount(imageCount);
         assistantMessage.setPointCost(pointCost);
         assistantMessage.setApiCostCny(apiCostCny);
+        assistantMessage.setManualCostCny(manualCostCny);
         assistantMessage.setPointStatus(POINT_STATUS_FROZEN);
         assistantMessage.setReferenceImageUrl(referenceImageUrl);
         assistantMessage.setSourcePromptAssetId(request.getSourcePromptAssetId());
@@ -196,9 +211,11 @@ public class ImageGenerationMessageServiceImpl
         vo.setVendorModel(vendorModel);
         vo.setImageSize(imageSize);
         vo.setVendorSize(vendorSize);
+        vo.setGenerationMode(generationMode);
         vo.setImageCount(imageCount);
         vo.setPointCost(pointCost);
         vo.setApiCostCny(apiCostCny);
+        vo.setManualCostCny(manualCostCny);
         return vo;
     }
 
@@ -259,7 +276,8 @@ public class ImageGenerationMessageServiceImpl
         int fromIndex = (int) Math.min((current - 1) * pageSize, latestMessages.size());
         int toIndex = (int) Math.min(fromIndex + pageSize, latestMessages.size());
         List<ImageGenerationConversationSummaryVO> records = latestMessages.subList(fromIndex, toIndex).stream()
-                .map(message -> buildConversationSummary(loginUser.getId(), message.getConversationId()))
+                .map(message -> buildConversationSummary(loginUser.getId(), message.getConversationId(),
+                        safeRequest.getGenerationMode()))
                 .collect(Collectors.toList());
 
         Page<ImageGenerationConversationSummaryVO> page = new Page<>(current, pageSize, latestMessages.size());
@@ -314,6 +332,7 @@ public class ImageGenerationMessageServiceImpl
         overview.setTotalImages(sumSuccessImages(tasks));
         overview.setTotalPointCost(sumActivePointCost(tasks));
         overview.setTotalApiCostCny(sumSuccessApiCost(tasks));
+        overview.setTotalManualCostCny(sumSuccessManualCost(tasks));
         overview.setSuccessRate(calculateRate(overview.getSuccessTasks(), overview.getTotalTasks()));
         overview.setAvgDurationSeconds(calculateAvgDurationSeconds(tasks));
 
@@ -355,7 +374,8 @@ public class ImageGenerationMessageServiceImpl
         int fromIndex = (int) Math.min((current - 1) * pageSize, latestMessages.size());
         int toIndex = (int) Math.min(fromIndex + pageSize, latestMessages.size());
         List<ImageGenerationConversationSummaryVO> records = latestMessages.subList(fromIndex, toIndex).stream()
-                .map(message -> buildConversationSummary(message.getUserId(), message.getConversationId()))
+                .map(message -> buildConversationSummary(message.getUserId(), message.getConversationId(),
+                        safeRequest.getGenerationMode()))
                 .collect(Collectors.toList());
 
         Page<ImageGenerationConversationSummaryVO> page = new Page<>(current, pageSize, latestMessages.size());
@@ -388,6 +408,7 @@ public class ImageGenerationMessageServiceImpl
                 request == null ? new ImageGenerationMessageQueryRequest() : request;
         safeRequest.setRole(ROLE_ASSISTANT);
         safeRequest.setStatus(STATUS_PENDING);
+        safeRequest.setGenerationMode(GENERATION_MODE_API);
         long current = Math.max(safeRequest.getCurrent(), 1);
         long pageSize = Math.min(Math.max(safeRequest.getPageSize(), 1), 50);
         Page<ImageGenerationMessage> page =
@@ -472,6 +493,9 @@ public class ImageGenerationMessageServiceImpl
         if (!STATUS_PENDING.equals(taskMessage.getStatus()) && !STATUS_RUNNING.equals(taskMessage.getStatus())) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "Only pending or running tasks can be manually completed");
         }
+        if (!GENERATION_MODE_MANUAL.equals(StringUtils.defaultIfBlank(taskMessage.getGenerationMode(), GENERATION_MODE_API))) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "Only manual generation tasks can be manually completed");
+        }
 
         Date now = new Date();
         Map<String, Object> responsePayload = new LinkedHashMap<>();
@@ -545,6 +569,7 @@ public class ImageGenerationMessageServiceImpl
         }
         normalizeModelCode(request.getModelCode());
         normalizeImageSize(request.getImageSize());
+        normalizeGenerationMode(request.getGenerationMode());
         normalizeImageCount(request.getImageCount());
         normalizeReferenceImageUrl(request.getReferenceImageUrl());
     }
@@ -559,6 +584,15 @@ public class ImageGenerationMessageServiceImpl
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported image size");
         }
         return safeImageSize;
+    }
+
+    private String normalizeGenerationMode(String generationMode) {
+        String safeMode = StringUtils.defaultIfBlank(StringUtils.trimToNull(generationMode), GENERATION_MODE_API)
+                .toLowerCase();
+        if (!ALLOWED_GENERATION_MODES.contains(safeMode)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported generation mode");
+        }
+        return safeMode;
     }
 
     private String normalizeConfigAspectRatio(String aspectRatio) {
@@ -599,8 +633,20 @@ public class ImageGenerationMessageServiceImpl
         return singleCost * imageCount;
     }
 
+    private int calculateManualPointCost(ImageGenerationModelConfig modelConfig, int imageCount) {
+        int singleCost = modelConfig.getManualPointCost() == null
+                ? (modelConfig.getPointCost() == null ? 0 : modelConfig.getPointCost())
+                : modelConfig.getManualPointCost();
+        return singleCost * imageCount;
+    }
+
     private BigDecimal calculateApiCost(ImageGenerationModelConfig modelConfig, int imageCount) {
         BigDecimal singleCost = modelConfig.getApiCostCny() == null ? BigDecimal.ZERO : modelConfig.getApiCostCny();
+        return singleCost.multiply(BigDecimal.valueOf(imageCount));
+    }
+
+    private BigDecimal calculateManualCost(ImageGenerationModelConfig modelConfig, int imageCount) {
+        BigDecimal singleCost = modelConfig.getManualCostCny() == null ? BigDecimal.ZERO : modelConfig.getManualCostCny();
         return singleCost.multiply(BigDecimal.valueOf(imageCount));
     }
 
@@ -615,6 +661,7 @@ public class ImageGenerationMessageServiceImpl
         payload.put("generationPath", providerConfig.getGenerationPath());
         payload.put("authType", providerConfig.getAuthType());
         payload.put("timeoutSeconds", providerConfig.getTimeoutSeconds());
+        payload.put("generationMode", normalizeGenerationMode(request.getGenerationMode()));
         payload.put("modelCode", modelCode);
         payload.put("model", modelConfig.getModelCode());
         payload.put("vendorModel", modelConfig.getModelCode());
@@ -663,6 +710,8 @@ public class ImageGenerationMessageServiceImpl
         String imageSize = StringUtils.trimToNull(request.getImageSize());
         String providerCodeValue = providerCode == null ? null : providerCode.toLowerCase();
         String imageSizeValue = imageSize == null ? null : normalizeImageSize(imageSize);
+        String generationMode = StringUtils.trimToNull(request.getGenerationMode());
+        String generationModeValue = generationMode == null ? null : normalizeGenerationMode(generationMode);
         queryWrapper.eq(request.getUserId() != null && request.getUserId() > 0, "userId", request.getUserId());
         queryWrapper.eq(StringUtils.isNotBlank(request.getConversationId()), "conversationId",
                 StringUtils.trim(request.getConversationId()));
@@ -672,6 +721,7 @@ public class ImageGenerationMessageServiceImpl
         queryWrapper.eq(StringUtils.isNotBlank(providerCodeValue), "providerCode", providerCodeValue);
         queryWrapper.eq(StringUtils.isNotBlank(modelCode), "modelCode", modelCode);
         queryWrapper.eq(StringUtils.isNotBlank(imageSizeValue), "imageSize", imageSizeValue);
+        queryWrapper.eq(StringUtils.isNotBlank(generationModeValue), "generationMode", generationModeValue);
         queryWrapper.eq(StringUtils.isNotBlank(request.getTaskId()), "taskId", StringUtils.trim(request.getTaskId()));
         if (Boolean.TRUE.equals(request.getTimeoutOnly())) {
             queryWrapper.eq("role", ROLE_ASSISTANT);
@@ -735,6 +785,13 @@ public class ImageGenerationMessageServiceImpl
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    private BigDecimal sumSuccessManualCost(List<ImageGenerationMessage> tasks) {
+        return tasks.stream()
+                .filter(task -> STATUS_SUCCESS.equals(task.getStatus()))
+                .map(task -> task.getManualCostCny() == null ? BigDecimal.ZERO : task.getManualCostCny())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private BigDecimal calculateRate(long numerator, long denominator) {
         if (denominator <= 0) {
             return BigDecimal.ZERO;
@@ -772,6 +829,7 @@ public class ImageGenerationMessageServiceImpl
             trend.setTotalImages(0L);
             trend.setTotalPointCost(0L);
             trend.setTotalApiCostCny(BigDecimal.ZERO);
+            trend.setTotalManualCostCny(BigDecimal.ZERO);
             trendMap.put(cursor, trend);
             cursor = cursor.plusDays(1);
         }
@@ -790,6 +848,8 @@ public class ImageGenerationMessageServiceImpl
                 trend.setTotalImages(trend.getTotalImages() + (task.getImageCount() == null ? 1 : task.getImageCount()));
                 trend.setTotalApiCostCny(trend.getTotalApiCostCny()
                         .add(task.getApiCostCny() == null ? BigDecimal.ZERO : task.getApiCostCny()));
+                trend.setTotalManualCostCny(trend.getTotalManualCostCny()
+                        .add(task.getManualCostCny() == null ? BigDecimal.ZERO : task.getManualCostCny()));
             }
             if (POINT_STATUS_FROZEN.equals(task.getPointStatus())
                     || POINT_STATUS_CONSUMED.equals(task.getPointStatus())) {
@@ -817,7 +877,8 @@ public class ImageGenerationMessageServiceImpl
         return Long.compare(leftId, rightId);
     }
 
-    private ImageGenerationConversationSummaryVO buildConversationSummary(Long userId, String conversationId) {
+    private ImageGenerationConversationSummaryVO buildConversationSummary(Long userId, String conversationId,
+            String generationMode) {
         List<ImageGenerationMessage> messages = this.list(new QueryWrapper<ImageGenerationMessage>()
                 .eq("userId", userId)
                 .eq("conversationId", conversationId)
@@ -828,6 +889,9 @@ public class ImageGenerationMessageServiceImpl
         summary.setMessageCount((long) messages.size());
         List<ImageGenerationMessage> tasks = messages.stream()
                 .filter(message -> ROLE_ASSISTANT.equals(message.getRole()))
+                .filter(message -> StringUtils.isBlank(generationMode)
+                        || normalizeGenerationMode(generationMode).equals(
+                                StringUtils.defaultIfBlank(message.getGenerationMode(), GENERATION_MODE_API)))
                 .collect(Collectors.toList());
         summary.setTaskCount((long) tasks.size());
         summary.setSuccessCount(countByStatus(tasks, STATUS_SUCCESS));
@@ -837,6 +901,7 @@ public class ImageGenerationMessageServiceImpl
         summary.setTimeoutPendingCount(countPendingTimeout(tasks));
         summary.setTotalPointCost(sumActivePointCost(tasks));
         summary.setTotalApiCostCny(sumSuccessApiCost(tasks));
+        summary.setTotalManualCostCny(sumSuccessManualCost(tasks));
         messages.stream().map(ImageGenerationMessage::getCreateTime).filter(date -> date != null)
                 .min(Date::compareTo).ifPresent(summary::setFirstCreateTime);
         messages.stream()

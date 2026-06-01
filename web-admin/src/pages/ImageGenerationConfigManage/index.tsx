@@ -151,9 +151,11 @@ export default function ImageGenerationConfigManage() {
             aspectRatio: '1:1',
             vendorSize: '1024x1024',
             pointCost: 30,
+            manualPointCost: 30,
             apiInputCostCny: 0.05,
             apiOutputCostCny: 0.05,
             apiCostCny: 0.1,
+            manualCostCny: 0.1,
             supportsReferenceImage: 1,
             status: 1,
             sortOrder: 10,
@@ -266,7 +268,8 @@ export default function ImageGenerationConfigManage() {
     { title: '级别', dataIndex: 'sizeCode', width: 100, render: (value: string) => <Tag color="blue">{value}</Tag> },
     { title: '比例', dataIndex: 'aspectRatio', width: 90, render: (value: string) => <Tag>{value}</Tag> },
     { title: '厂商尺寸', dataIndex: 'vendorSize', width: 130 },
-    { title: '积分', dataIndex: 'pointCost', width: 90 },
+    { title: 'API 积分', dataIndex: 'pointCost', width: 90 },
+    { title: '人工积分', dataIndex: 'manualPointCost', width: 90 },
     {
       title: '输入成本',
       dataIndex: 'apiInputCostCny',
@@ -282,6 +285,12 @@ export default function ImageGenerationConfigManage() {
     {
       title: '总成本',
       dataIndex: 'apiCostCny',
+      width: 100,
+      render: (value: number) => `¥${Number(value || 0).toFixed(2)}`,
+    },
+    {
+      title: '人工成本',
+      dataIndex: 'manualCostCny',
       width: 100,
       render: (value: number) => `¥${Number(value || 0).toFixed(2)}`,
     },
@@ -341,7 +350,7 @@ export default function ImageGenerationConfigManage() {
                 columns={modelColumns}
                 search={false}
                 cardBordered
-                scroll={{ x: 1280 }}
+                scroll={{ x: 1480 }}
                 params={{ selectedProvider }}
                 request={async () => {
                   const res = await listImageGenerationModels(selectedProvider);
@@ -460,13 +469,19 @@ export default function ImageGenerationConfigManage() {
           <Form.Item label="厂商尺寸" name="vendorSize" rules={[{ required: true }]}>
             <Input placeholder="1024x1024" />
           </Form.Item>
-          <Form.Item label="消耗积分" name="pointCost" rules={[{ required: true }]}>
+          <Form.Item label="API 消耗积分" name="pointCost" rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} min={0} precision={0} />
+          </Form.Item>
+          <Form.Item label="人工消耗积分" name="manualPointCost" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} min={0} precision={0} />
           </Form.Item>
           <Form.Item label="API 输入成本（元）" name="apiInputCostCny" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} min={0} precision={2} />
           </Form.Item>
           <Form.Item label="API 输出成本（元）" name="apiOutputCostCny" rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} min={0} precision={2} />
+          </Form.Item>
+          <Form.Item label="人工成本（元/张）" name="manualCostCny" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} min={0} precision={2} />
           </Form.Item>
           <Form.Item

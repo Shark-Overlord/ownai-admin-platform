@@ -29,11 +29,15 @@ public class ImageGenerationCreateVO implements Serializable {
 
     private String vendorSize;
 
+    private String generationMode;
+
     private Integer imageCount;
 
     private Integer pointCost;
 
     private BigDecimal apiCostCny;
+
+    private BigDecimal manualCostCny;
 
     private static final long serialVersionUID = 1L;
 }

@@ -29,6 +29,8 @@ public class ImageGenerationModelConfigServiceImpl
 
     private static final String DEFAULT_ASPECT_RATIO = "1:1";
 
+    private static final BigDecimal DEFAULT_MANUAL_COST_CNY = new BigDecimal("0.10");
+
     private static final Set<String> ALLOWED_SIZE_CODES = new HashSet<>(Arrays.asList("1k", "2k", "4k"));
 
     private static final Set<String> ALLOWED_ASPECT_RATIOS = new HashSet<>(
@@ -116,9 +118,13 @@ public class ImageGenerationModelConfigServiceImpl
         if (request.getPointCost() != null && request.getPointCost() < 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "Point cost cannot be negative");
         }
+        if (request.getManualPointCost() != null && request.getManualPointCost() < 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Manual point cost cannot be negative");
+        }
         validateCost(request.getApiInputCostCny(), "Input cost cannot be negative");
         validateCost(request.getApiOutputCostCny(), "Output cost cannot be negative");
         validateCost(request.getApiCostCny(), "Total cost cannot be negative");
+        validateCost(request.getManualCostCny(), "Manual cost cannot be negative");
     }
 
     private void validateCost(BigDecimal value, String message) {
@@ -148,6 +154,9 @@ public class ImageGenerationModelConfigServiceImpl
         if (config.getPointCost() == null) {
             config.setPointCost(0);
         }
+        if (config.getManualPointCost() == null) {
+            config.setManualPointCost(config.getPointCost());
+        }
         if (config.getApiInputCostCny() == null) {
             config.setApiInputCostCny(BigDecimal.ZERO);
         }
@@ -156,6 +165,9 @@ public class ImageGenerationModelConfigServiceImpl
         }
         if (config.getApiCostCny() == null) {
             config.setApiCostCny(config.getApiInputCostCny().add(config.getApiOutputCostCny()));
+        }
+        if (config.getManualCostCny() == null) {
+            config.setManualCostCny(DEFAULT_MANUAL_COST_CNY);
         }
         if (config.getSupportsReferenceImage() == null) {
             config.setSupportsReferenceImage(DEFAULT_SUPPORTS_REFERENCE_IMAGE);

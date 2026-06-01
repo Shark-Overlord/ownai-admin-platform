@@ -42,11 +42,15 @@ public class ImageGenerationMessageVO implements Serializable {
 
     private String vendorSize;
 
+    private String generationMode;
+
     private Integer imageCount;
 
     private Integer pointCost;
 
     private BigDecimal apiCostCny;
+
+    private BigDecimal manualCostCny;
 
     private String pointStatus;
 

@@ -20,6 +20,8 @@ public class ImageGenerationCreateRequest implements Serializable {
 
     private Integer imageCount;
 
+    private String generationMode;
+
     private String referenceImageUrl;
 
     private Long sourcePromptAssetId;

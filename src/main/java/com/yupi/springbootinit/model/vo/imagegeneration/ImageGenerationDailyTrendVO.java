@@ -19,5 +19,7 @@ public class ImageGenerationDailyTrendVO implements Serializable {
 
     private BigDecimal totalApiCostCny;
 
+    private BigDecimal totalManualCostCny;
+
     private static final long serialVersionUID = 1L;
 }

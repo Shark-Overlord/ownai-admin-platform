@@ -26,6 +26,8 @@ public class ImageGenerationMessageQueryRequest extends PageRequest implements S
 
     private String imageSize;
 
+    private String generationMode;
+
     private String taskId;
 
     private String searchText;

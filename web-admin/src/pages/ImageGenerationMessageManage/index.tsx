@@ -73,6 +73,7 @@ const defaultOverview: ImageGenerationMonitorOverview = {
   totalImages: 0,
   totalPointCost: 0,
   totalApiCostCny: 0,
+  totalManualCostCny: 0,
   successRate: 0,
   avgDurationSeconds: 0,
   statusDistribution: {},
@@ -263,7 +264,10 @@ function formatDuration(seconds?: number) {
   return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
 }
 
-function MonitorCards({ overview }: { overview: ImageGenerationMonitorOverview }) {
+type GenerationMode = 'api' | 'manual';
+
+function MonitorCards({ overview, generationMode }: { overview: ImageGenerationMonitorOverview; generationMode: GenerationMode }) {
+  const isManualMode = generationMode === 'manual';
   return (
     <Row gutter={[16, 16]}>
       <Col xs={24} sm={12} lg={6}>
@@ -302,7 +306,12 @@ function MonitorCards({ overview }: { overview: ImageGenerationMonitorOverview }
       </Col>
       <Col xs={24} sm={12} lg={6}>
         <Card>
-          <Statistic title="预估 API 成本" value={overview.totalApiCostCny || 0} precision={2} prefix="¥" />
+          <Statistic
+            title={isManualMode ? '人工成本' : '预估 API 成本'}
+            value={(isManualMode ? overview.totalManualCostCny : overview.totalApiCostCny) || 0}
+            precision={2}
+            prefix="¥"
+          />
         </Card>
       </Col>
       <Col xs={24} sm={12} lg={6}>
@@ -314,7 +323,15 @@ function MonitorCards({ overview }: { overview: ImageGenerationMonitorOverview }
   );
 }
 
-export default function ImageGenerationMessageManage() {
+interface ImageGenerationMessageManageProps {
+  generationMode?: GenerationMode;
+}
+
+export default function ImageGenerationMessageManage({ generationMode = 'api' }: ImageGenerationMessageManageProps) {
+  const isManualMode = generationMode === 'manual';
+  const pageTitle = isManualMode ? '人工生成监控' : 'API 生成监控';
+  const costField = isManualMode ? 'totalManualCostCny' : 'totalApiCostCny';
+  const costTitle = isManualMode ? '人工成本' : 'API 成本';
   const conversationActionRef = useRef<any>(null);
   const taskActionRef = useRef<any>(null);
   const [manualForm] = Form.useForm();
@@ -327,13 +344,13 @@ export default function ImageGenerationMessageManage() {
   const [manualImageUrl, setManualImageUrl] = useState<string>();
 
   const loadOverview = async () => {
-    const res = await getImageGenerationMonitorOverview({});
+    const res = await getImageGenerationMonitorOverview({ generationMode });
     setOverview(res.data || defaultOverview);
   };
 
   useEffect(() => {
     loadOverview();
-  }, []);
+  }, [generationMode]);
 
   const openConversation = async (record: ImageGenerationConversationSummary) => {
     const res = await getImageGenerationConversation(record.conversationId, record.userId);
@@ -476,11 +493,12 @@ export default function ImageGenerationMessageManage() {
       width: 100,
     },
     {
-      title: '成本',
-      dataIndex: 'totalApiCostCny',
+      title: costTitle,
+      dataIndex: costField,
       search: false,
       width: 100,
-      render: (_: unknown, record: ImageGenerationConversationSummary) => `¥${Number(record.totalApiCostCny || 0).toFixed(2)}`,
+      render: (_: unknown, record: ImageGenerationConversationSummary) =>
+        `¥${Number((isManualMode ? record.totalManualCostCny : record.totalApiCostCny) || 0).toFixed(2)}`,
     },
     {
       title: '更新时间',
@@ -573,6 +591,13 @@ export default function ImageGenerationMessageManage() {
       ),
     },
     {
+      title: costTitle,
+      search: false,
+      width: 100,
+      render: (_: unknown, record: ImageGenerationMessageItem) =>
+        `¥${Number((isManualMode ? record.manualCostCny : record.apiCostCny) || 0).toFixed(2)}`,
+    },
+    {
       title: '缩略图',
       search: false,
       width: 150,
@@ -611,7 +636,8 @@ export default function ImageGenerationMessageManage() {
           <Button type="link" onClick={() => openTaskDetail(record.id)}>
             详情
           </Button>
-          {record.role === 'assistant' && (record.status === 'pending' || record.status === 'running') ? (
+          {isManualMode && record.generationMode === 'manual'
+          && record.role === 'assistant' && (record.status === 'pending' || record.status === 'running') ? (
             <Button type="link" onClick={() => openManualComplete(record)}>
               人工完成
             </Button>
@@ -628,15 +654,15 @@ export default function ImageGenerationMessageManage() {
     { title: '图片数', dataIndex: 'totalImages' },
     { title: '积分', dataIndex: 'totalPointCost' },
     {
-      title: 'API 成本',
-      dataIndex: 'totalApiCostCny',
+      title: costTitle,
+      dataIndex: costField,
       render: (value: number) => `¥${Number(value || 0).toFixed(2)}`,
     },
   ];
 
   return (
     <PageContainer
-      title="图片生成监控"
+      title={pageTitle}
       extra={[
         <Button key="refresh" onClick={() => { loadOverview(); conversationActionRef.current?.reload(); taskActionRef.current?.reload(); }}>
           刷新
@@ -644,7 +670,7 @@ export default function ImageGenerationMessageManage() {
       ]}
     >
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
-        <MonitorCards overview={overview} />
+        <MonitorCards overview={overview} generationMode={generationMode} />
 
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={16}>
@@ -694,7 +720,10 @@ export default function ImageGenerationMessageManage() {
                   cardBordered
                   scroll={{ x: 1300 }}
                   request={async (params) => {
-                    const res = await listImageGenerationConversations(buildTimeQuery(params));
+                    const res = await listImageGenerationConversations({
+                      ...buildTimeQuery(params),
+                      generationMode,
+                    });
                     return {
                       data: res.data.records,
                       total: res.data.total,
@@ -720,6 +749,7 @@ export default function ImageGenerationMessageManage() {
                     const res = await listImageGenerationMessages({
                       ...buildTimeQuery(params),
                       role: 'assistant',
+                      generationMode,
                     });
                     return {
                       data: res.data.records,
@@ -757,7 +787,8 @@ export default function ImageGenerationMessageManage() {
                         {message.imageSize ? <Tag>{message.imageSize.toUpperCase()}</Tag> : null}
                         {message.pointCost ? <Tag>积分 {message.pointCost}</Tag> : null}
                         {message.taskId ? <Text copyable>task: {message.taskId}</Text> : null}
-                        {message.role === 'assistant' && (message.status === 'pending' || message.status === 'running') ? (
+                        {isManualMode && message.generationMode === 'manual'
+                        && message.role === 'assistant' && (message.status === 'pending' || message.status === 'running') ? (
                           <Button size="small" type="link" onClick={() => openManualComplete(message)}>
                             人工完成
                           </Button>
@@ -780,7 +811,8 @@ export default function ImageGenerationMessageManage() {
       <Drawer title="图片生成任务详情" open={!!taskDetail} width={900} onClose={() => { setTaskDetail(null); setTaskConversation([]); }}>
         {taskDetail ? (
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            {taskDetail.status === 'pending' || taskDetail.status === 'running' ? (
+            {isManualMode && taskDetail.generationMode === 'manual'
+            && (taskDetail.status === 'pending' || taskDetail.status === 'running') ? (
               <Button type="primary" onClick={() => openManualComplete(taskDetail)}>
                 上传结果图并人工完成
               </Button>
@@ -799,9 +831,12 @@ export default function ImageGenerationMessageManage() {
               </Descriptions.Item>
               <Descriptions.Item label="模型">{taskDetail.modelCode || '-'}</Descriptions.Item>
               <Descriptions.Item label="规格">{taskDetail.imageSize || '-'}</Descriptions.Item>
+              <Descriptions.Item label="生成方式">{taskDetail.generationMode || '-'}</Descriptions.Item>
               <Descriptions.Item label="张数">{taskDetail.imageCount || '-'}</Descriptions.Item>
               <Descriptions.Item label="积分">{taskDetail.pointCost || '-'}</Descriptions.Item>
-              <Descriptions.Item label="API 成本">¥{Number(taskDetail.apiCostCny || 0).toFixed(2)}</Descriptions.Item>
+              <Descriptions.Item label={costTitle}>
+                ¥{Number((isManualMode ? taskDetail.manualCostCny : taskDetail.apiCostCny) || 0).toFixed(2)}
+              </Descriptions.Item>
               <Descriptions.Item label="Task ID">
                 <Text copyable>{taskDetail.taskId || '-'}</Text>
               </Descriptions.Item>

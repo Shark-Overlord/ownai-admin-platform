@@ -21,11 +21,15 @@ public class ImageGenerationModelConfigRequest implements Serializable {
 
     private Integer pointCost;
 
+    private Integer manualPointCost;
+
     private BigDecimal apiInputCostCny;
 
     private BigDecimal apiOutputCostCny;
 
     private BigDecimal apiCostCny;
+
+    private BigDecimal manualCostCny;
 
     private Integer supportsReferenceImage;
 

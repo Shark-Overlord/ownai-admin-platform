@@ -16,9 +16,11 @@ CREATE TABLE IF NOT EXISTS image_generation_message
     vendorModel         VARCHAR(64)  NULL,
     imageSize           VARCHAR(16)  NULL,
     vendorSize          VARCHAR(32)  NULL,
+    generationMode      VARCHAR(16)  NOT NULL DEFAULT 'api',
     imageCount          INT          NULL,
     pointCost           INT          NULL,
     apiCostCny          DECIMAL(10, 2) NULL,
+    manualCostCny       DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     pointStatus         VARCHAR(32)  NULL,
     startedTime         DATETIME     NULL,
     finishedTime        DATETIME     NULL,
@@ -35,5 +37,6 @@ CREATE TABLE IF NOT EXISTS image_generation_message
     KEY idx_img_gen_status (status),
     KEY idx_img_gen_provider (providerCode),
     KEY idx_img_gen_model_size (modelCode, imageSize),
+    KEY idx_img_gen_generation_mode (generationMode),
     KEY idx_img_gen_role_status_create (role, status, createTime)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT 'image generation conversation messages';

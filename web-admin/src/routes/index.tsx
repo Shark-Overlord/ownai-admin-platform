@@ -53,7 +53,12 @@ export const routes = [
       },
       {
         path: 'image-generation-message',
-        element: <ImageGenerationMessageManage />,
+        element: <ImageGenerationMessageManage generationMode="api" />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'image-generation-manual',
+        element: <ImageGenerationMessageManage generationMode="manual" />,
         meta: { requiresAdmin: true },
       },
       {
@@ -165,7 +170,12 @@ export const menuRoutes = [
     routes: [
       {
         path: '/image-generation-message',
-        name: '生成监控',
+        name: 'API 生成监控',
+        icon: 'PictureOutlined',
+      },
+      {
+        path: '/image-generation-manual',
+        name: '人工生成监控',
         icon: 'PictureOutlined',
       },
       {

@@ -31,6 +31,8 @@ public class ImageGenerationMonitorOverviewVO implements Serializable {
 
     private BigDecimal totalApiCostCny;
 
+    private BigDecimal totalManualCostCny;
+
     private BigDecimal successRate;
 
     private BigDecimal avgDurationSeconds;
