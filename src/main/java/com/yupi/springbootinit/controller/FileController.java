@@ -21,6 +21,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -65,8 +66,12 @@ public class FileController {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         String uuid = RandomStringUtils.randomAlphanumeric(8);
-        String filename = uuid + "-" + multipartFile.getOriginalFilename();
-        String filepath = String.format("/%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
+        String filename = uuid + "-" + FileUtil.getName(multipartFile.getOriginalFilename());
+        String objectPath = String.format("%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
+        String filepath = "/" + objectPath;
+        if (FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum) && !isCosConfigured()) {
+            return uploadImageGenerationResultToLocal(multipartFile, objectPath, request);
+        }
         File file = null;
         try {
             file = File.createTempFile("upload-", FileUtil.extName(filename));
@@ -81,6 +86,43 @@ public class FileController {
                 log.warn("temp file delete failed, filepath = {}", filepath);
             }
         }
+    }
+
+    private boolean isCosConfigured() {
+        return StringUtils.isNoneBlank(cosClientConfig.getHost(), cosClientConfig.getSecretId(),
+                cosClientConfig.getSecretKey(), cosClientConfig.getRegion(), cosClientConfig.getBucket());
+    }
+
+    private BaseResponse<String> uploadImageGenerationResultToLocal(MultipartFile multipartFile, String objectPath,
+            HttpServletRequest request) {
+        File uploadRoot = new File(System.getProperty("user.dir"), "uploads");
+        File targetFile = new File(uploadRoot, objectPath);
+        try {
+            FileUtil.mkdir(targetFile.getParentFile());
+            multipartFile.transferTo(targetFile);
+            String publicPath = "/uploads/" + objectPath.replace("\\", "/");
+            log.warn("COS is not configured, image generation result saved locally: {}", targetFile.getAbsolutePath());
+            return ResultUtils.success(buildRequestBaseUrl(request) + publicPath);
+        } catch (Exception e) {
+            log.error("local file upload error, filepath = {}", targetFile.getAbsolutePath(), e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "Upload failed");
+        }
+    }
+
+    private String buildRequestBaseUrl(HttpServletRequest request) {
+        String proto = StringUtils.defaultIfBlank(request.getHeader("X-Forwarded-Proto"), request.getScheme());
+        if (StringUtils.contains(proto, ",")) {
+            proto = StringUtils.trim(StringUtils.substringBefore(proto, ","));
+        }
+        String host = StringUtils.defaultIfBlank(request.getHeader("X-Forwarded-Host"), request.getHeader("Host"));
+        if (StringUtils.isBlank(host)) {
+            host = request.getServerName();
+            int port = request.getServerPort();
+            if (port > 0 && port != 80 && port != 443) {
+                host = host + ":" + port;
+            }
+        }
+        return proto + "://" + host;
     }
 
     /**
