@@ -324,6 +324,7 @@ export default function ImageGenerationMessageManage() {
   const [taskConversation, setTaskConversation] = useState<ImageGenerationMessageItem[]>([]);
   const [manualTask, setManualTask] = useState<ImageGenerationMessageItem | null>(null);
   const [manualFileList, setManualFileList] = useState<UploadFile[]>([]);
+  const [manualImageUrl, setManualImageUrl] = useState<string>();
 
   const loadOverview = async () => {
     const res = await getImageGenerationMonitorOverview({});
@@ -353,12 +354,17 @@ export default function ImageGenerationMessageManage() {
   const openManualComplete = (record: ImageGenerationMessageItem) => {
     setManualTask(record);
     setManualFileList([]);
+    setManualImageUrl(undefined);
     manualForm.resetFields();
     manualForm.setFieldsValue({ taskId: record.taskId });
   };
 
   const submitManualComplete = async () => {
     const values = await manualForm.validateFields();
+    if (!values.imageUrl) {
+      message.error('请先上传结果图片');
+      return;
+    }
     const res = await manualCompleteImageGenerationTask({
       taskId: values.taskId,
       imageUrl: values.imageUrl,
@@ -367,6 +373,7 @@ export default function ImageGenerationMessageManage() {
     message.success('已人工完成任务');
     setManualTask(null);
     setManualFileList([]);
+    setManualImageUrl(undefined);
     manualForm.resetFields();
     loadOverview();
     conversationActionRef.current?.reload();
@@ -862,6 +869,7 @@ export default function ImageGenerationMessageManage() {
         onClose={() => {
           setManualTask(null);
           setManualFileList([]);
+          setManualImageUrl(undefined);
           manualForm.resetFields();
         }}
       >
@@ -883,15 +891,24 @@ export default function ImageGenerationMessageManage() {
                   setManualFileList(info.fileList);
                   if (info.file.status === 'done') {
                     const res = info.file.response;
-                    if (res?.code === 0) {
+                    if (res?.code === 0 && res?.data) {
                       manualForm.setFieldsValue({ imageUrl: res.data });
+                      setManualImageUrl(res.data);
                       message.success('结果图片上传成功');
                     } else {
-                      message.error(res?.message || '上传失败');
+                      manualForm.setFieldsValue({ imageUrl: undefined });
+                      setManualImageUrl(undefined);
+                      message.error(res?.message || '上传失败，未返回图片 URL');
                     }
+                  }
+                  if (info.file.status === 'error') {
+                    manualForm.setFieldsValue({ imageUrl: undefined });
+                    setManualImageUrl(undefined);
+                    message.error('结果图片上传失败');
                   }
                   if (info.file.status === 'removed') {
                     manualForm.setFieldsValue({ imageUrl: undefined });
+                    setManualImageUrl(undefined);
                   }
                 }}
                 showUploadList={{ showPreviewIcon: true, showRemoveIcon: true }}
@@ -903,22 +920,32 @@ export default function ImageGenerationMessageManage() {
                   </div>
                 )}
               </Upload>
+              {manualImageUrl ? (
+                <div style={{ marginTop: 8 }}>
+                  <Tag color="success">已上传，确认后会作为结果图返回给用户</Tag>
+                </div>
+              ) : null}
             </Form.Item>
-            <Form.Item
-              label="结果图片 URL"
-              name="imageUrl"
-              rules={[{ required: true, message: '请先上传结果图片，或填写图片 URL' }]}
-            >
-              <Input placeholder="上传后自动填充，也可粘贴已在 COS 的图片 URL" />
+            <Form.Item name="imageUrl" hidden rules={[{ required: true, message: '请先上传结果图片' }]}>
+              <Input />
             </Form.Item>
             <Form.Item label="处理备注" name="note">
               <Input.TextArea rows={3} placeholder="例如：超时任务由管理员手动补图" />
             </Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" disabled={!manualImageUrl}>
                 确认人工完成
               </Button>
-              <Button onClick={() => setManualTask(null)}>取消</Button>
+              <Button
+                onClick={() => {
+                  setManualTask(null);
+                  setManualFileList([]);
+                  setManualImageUrl(undefined);
+                  manualForm.resetFields();
+                }}
+              >
+                取消
+              </Button>
             </Space>
           </Form>
         ) : null}
