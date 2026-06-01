@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Col,
+  Collapse,
   Descriptions,
   Drawer,
   Empty,
@@ -80,6 +81,60 @@ function formatJsonText(value?: string) {
   }
 }
 
+function parseJsonObject(value?: string) {
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, any> : null;
+  } catch {
+    return null;
+  }
+}
+
+function getOriginalPrompt(message?: ImageGenerationMessageItem | null) {
+  if (!message) {
+    return undefined;
+  }
+  const payload = parseJsonObject(message.requestPayload);
+  const payloadPrompt = payload?.prompt || payload?.requestBody?.prompt;
+  if (typeof payloadPrompt === 'string' && payloadPrompt.trim()) {
+    return payloadPrompt;
+  }
+  if (message.role !== 'assistant' && message.prompt) {
+    return message.prompt;
+  }
+  return undefined;
+}
+
+function isEnhancedModelPrompt(value?: string) {
+  const text = value?.trim();
+  if (!text) {
+    return false;
+  }
+  return /^Use case:/i.test(text) || text.includes('\nAsset type:') || text.includes('\nPrimary request:');
+}
+
+function renderModelPromptDebug(value?: string) {
+  if (!value || !isEnhancedModelPrompt(value)) {
+    return null;
+  }
+  return (
+    <Collapse
+      ghost
+      size="small"
+      items={[
+        {
+          key: 'model-prompt',
+          label: '模型 Prompt（调试）',
+          children: renderLongText(value),
+        },
+      ]}
+    />
+  );
+}
+
 function renderLongText(value?: string) {
   if (!value) {
     return <Text type="secondary">-</Text>;
@@ -88,6 +143,36 @@ function renderLongText(value?: string) {
     <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }} copyable>
       {value}
     </Paragraph>
+  );
+}
+
+function renderConversationMessageText(message: ImageGenerationMessageItem) {
+  const originalPrompt = getOriginalPrompt(message);
+  const enhancedPrompt = isEnhancedModelPrompt(message.prompt) ? message.prompt : undefined;
+  const fallbackPrompt = enhancedPrompt ? undefined : message.prompt;
+
+  if (message.role === 'user') {
+    return renderLongText(originalPrompt || fallbackPrompt || message.errorMessage || message.requestPayload);
+  }
+
+  return (
+    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+      {originalPrompt ? (
+        <div>
+          <Text type="secondary">用户原始输入</Text>
+          {renderLongText(originalPrompt)}
+        </div>
+      ) : fallbackPrompt || message.errorMessage ? (
+        renderLongText(fallbackPrompt || message.errorMessage)
+      ) : null}
+      {message.role === 'assistant' ? (
+        <Text type="secondary">
+          生成任务：{message.status || '-'}
+          {message.taskId ? ` / ${message.taskId}` : ''}
+        </Text>
+      ) : null}
+      {renderModelPromptDebug(enhancedPrompt)}
+    </Space>
   );
 }
 
@@ -577,7 +662,7 @@ export default function ImageGenerationMessageManage() {
                         <Text type="secondary">{message.createTime ? dayjs(message.createTime).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
                       </Space>
                       {renderThumbnails(getMessageImages(message), 86)}
-                      {renderLongText(message.prompt || message.errorMessage || message.requestPayload)}
+                      {renderConversationMessageText(message)}
                     </Space>
                   ),
                 }))}
@@ -637,7 +722,7 @@ export default function ImageGenerationMessageManage() {
                           <Text type="secondary">{message.createTime || '-'}</Text>
                         </Space>
                         {renderThumbnails(getMessageImages(message), 72)}
-                        {renderLongText(message.prompt || message.errorMessage || message.requestPayload)}
+                        {renderConversationMessageText(message)}
                       </Space>
                     ),
                   }))}
@@ -648,8 +733,9 @@ export default function ImageGenerationMessageManage() {
             </div>
 
             <div>
-              <Text strong>Prompt</Text>
-              {renderLongText(taskDetail.prompt)}
+              <Text strong>用户原始输入</Text>
+              {renderLongText(getOriginalPrompt(taskDetail) || taskDetail.errorMessage)}
+              {renderModelPromptDebug(taskDetail.prompt)}
             </div>
             <div>
               <Text strong>结果图 JSON</Text>
