@@ -493,8 +493,12 @@ public class ImageGenerationMessageServiceImpl
         if (!STATUS_PENDING.equals(taskMessage.getStatus()) && !STATUS_RUNNING.equals(taskMessage.getStatus())) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "Only pending or running tasks can be manually completed");
         }
-        if (!GENERATION_MODE_MANUAL.equals(StringUtils.defaultIfBlank(taskMessage.getGenerationMode(), GENERATION_MODE_API))) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "Only manual generation tasks can be manually completed");
+        String generationMode = StringUtils.defaultIfBlank(taskMessage.getGenerationMode(), GENERATION_MODE_API);
+        boolean manualTask = GENERATION_MODE_MANUAL.equals(generationMode);
+        boolean timeoutApiTask = GENERATION_MODE_API.equals(generationMode) && isPendingTimeout(taskMessage);
+        if (!manualTask && !timeoutApiTask) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,
+                    "Only manual tasks or timed-out API tasks can be manually completed");
         }
 
         Date now = new Date();

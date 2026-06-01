@@ -343,6 +343,19 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
   const [manualFileList, setManualFileList] = useState<UploadFile[]>([]);
   const [manualImageUrl, setManualImageUrl] = useState<string>();
 
+  const isManualCompletable = (record?: ImageGenerationMessageItem | null) => {
+    if (!record || record.role !== 'assistant' || (record.status !== 'pending' && record.status !== 'running')) {
+      return false;
+    }
+    if (isManualMode) {
+      return record.generationMode === 'manual';
+    }
+    return (record.generationMode || 'api') === 'api' && !!record.timeoutPending;
+  };
+
+  const manualCompleteLabel = isManualMode ? '人工完成' : '人工补图';
+  const manualCompletePrimaryLabel = isManualMode ? '上传结果图并人工完成' : '上传结果图补充超时任务';
+
   const loadOverview = async () => {
     const res = await getImageGenerationMonitorOverview({ generationMode });
     setOverview(res.data || defaultOverview);
@@ -387,7 +400,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
       imageUrl: values.imageUrl,
       note: values.note,
     });
-    message.success('已人工完成任务');
+    message.success(isManualMode ? '已人工完成任务' : '已补充超时任务结果图');
     setManualTask(null);
     setManualFileList([]);
     setManualImageUrl(undefined);
@@ -636,10 +649,9 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
           <Button type="link" onClick={() => openTaskDetail(record.id)}>
             详情
           </Button>
-          {isManualMode && record.generationMode === 'manual'
-          && record.role === 'assistant' && (record.status === 'pending' || record.status === 'running') ? (
+          {isManualCompletable(record) ? (
             <Button type="link" onClick={() => openManualComplete(record)}>
-              人工完成
+              {manualCompleteLabel}
             </Button>
           ) : null}
         </Space>
@@ -787,10 +799,9 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                         {message.imageSize ? <Tag>{message.imageSize.toUpperCase()}</Tag> : null}
                         {message.pointCost ? <Tag>积分 {message.pointCost}</Tag> : null}
                         {message.taskId ? <Text copyable>task: {message.taskId}</Text> : null}
-                        {isManualMode && message.generationMode === 'manual'
-                        && message.role === 'assistant' && (message.status === 'pending' || message.status === 'running') ? (
+                        {isManualCompletable(message) ? (
                           <Button size="small" type="link" onClick={() => openManualComplete(message)}>
-                            人工完成
+                            {manualCompleteLabel}
                           </Button>
                         ) : null}
                         <Text type="secondary">{message.createTime ? dayjs(message.createTime).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
@@ -811,10 +822,9 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
       <Drawer title="图片生成任务详情" open={!!taskDetail} width={900} onClose={() => { setTaskDetail(null); setTaskConversation([]); }}>
         {taskDetail ? (
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            {isManualMode && taskDetail.generationMode === 'manual'
-            && (taskDetail.status === 'pending' || taskDetail.status === 'running') ? (
+            {isManualCompletable(taskDetail) ? (
               <Button type="primary" onClick={() => openManualComplete(taskDetail)}>
-                上传结果图并人工完成
+                {manualCompletePrimaryLabel}
               </Button>
             ) : null}
             <Descriptions bordered column={2} size="small">
@@ -898,7 +908,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
       </Drawer>
 
       <Drawer
-        title="人工完成图片生成任务"
+        title={isManualMode ? '人工完成图片生成任务' : '人工补充超时图片'}
         open={!!manualTask}
         width={520}
         onClose={() => {
@@ -969,7 +979,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
             </Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" disabled={!manualImageUrl}>
-                确认人工完成
+                {isManualMode ? '确认人工完成' : '确认补充结果图'}
               </Button>
               <Button
                 onClick={() => {
