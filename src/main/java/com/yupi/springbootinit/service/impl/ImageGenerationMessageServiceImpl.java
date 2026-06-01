@@ -600,6 +600,7 @@ public class ImageGenerationMessageServiceImpl
         String providerCode = StringUtils.trimToNull(request.getProviderCode());
         String modelCode = StringUtils.trimToNull(request.getModelCode());
         String imageSize = StringUtils.trimToNull(request.getImageSize());
+        String providerCodeValue = providerCode == null ? null : providerCode.toLowerCase();
         String imageSizeValue = imageSize == null ? null : normalizeImageSize(imageSize);
         queryWrapper.eq(request.getUserId() != null && request.getUserId() > 0, "userId", request.getUserId());
         queryWrapper.eq(StringUtils.isNotBlank(request.getConversationId()), "conversationId",
@@ -607,7 +608,7 @@ public class ImageGenerationMessageServiceImpl
         queryWrapper.eq(StringUtils.isNotBlank(request.getRole()), "role", request.getRole());
         queryWrapper.eq(StringUtils.isNotBlank(request.getStatus()), "status", request.getStatus());
         queryWrapper.eq(StringUtils.isNotBlank(request.getAspectRatio()), "aspectRatio", request.getAspectRatio());
-        queryWrapper.eq(StringUtils.isNotBlank(providerCode), "providerCode", providerCode.toLowerCase());
+        queryWrapper.eq(StringUtils.isNotBlank(providerCodeValue), "providerCode", providerCodeValue);
         queryWrapper.eq(StringUtils.isNotBlank(modelCode), "modelCode", modelCode);
         queryWrapper.eq(StringUtils.isNotBlank(imageSizeValue), "imageSize", imageSizeValue);
         queryWrapper.eq(StringUtils.isNotBlank(request.getTaskId()), "taskId", StringUtils.trim(request.getTaskId()));
