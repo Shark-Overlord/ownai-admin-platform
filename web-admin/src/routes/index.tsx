@@ -14,6 +14,8 @@ import PointManage from '../pages/PointManage';
 import MemberPriceConfigManage from '../pages/MemberPriceConfigManage';
 import OperationLog from '../pages/OperationLog';
 import PromptAssetManage from '../pages/PromptAssetManage';
+import ImageGenerationMessageManage from '../pages/ImageGenerationMessageManage';
+import ImageGenerationConfigManage from '../pages/ImageGenerationConfigManage';
 
 export const routes = [
   {
@@ -47,6 +49,16 @@ export const routes = [
       {
         path: 'prompt-asset',
         element: <PromptAssetManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'image-generation-message',
+        element: <ImageGenerationMessageManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'image-generation-config',
+        element: <ImageGenerationConfigManage />,
         meta: { requiresAdmin: true },
       },
       {
@@ -101,66 +113,110 @@ export const routes = [
   },
 ];
 
-// 菜单配置（用于 ProLayout）
 export const menuRoutes = [
   {
     path: '/dashboard',
-    name: '概况',
+    name: '工作台',
     icon: 'DashboardOutlined',
+    routes: [
+      {
+        path: '/dashboard',
+        name: '概况',
+        icon: 'DashboardOutlined',
+      },
+    ],
   },
   {
-    path: '/user',
-    name: '用户管理',
-    icon: 'UserOutlined',
-  },
-  {
-    path: '/artwork',
-    name: '作品管理',
-    icon: 'PictureOutlined',
-  },
-  {
-    path: '/prompt-asset',
-    name: 'Prompt 资产',
+    path: '/content',
+    name: '内容资产',
     icon: 'DatabaseOutlined',
+    routes: [
+      {
+        path: '/artwork',
+        name: '作品管理',
+        icon: 'PictureOutlined',
+      },
+      {
+        path: '/prompt-asset',
+        name: 'Prompt 资产',
+        icon: 'DatabaseOutlined',
+      },
+      {
+        path: '/category',
+        name: '分类管理',
+        icon: 'AppstoreOutlined',
+      },
+      {
+        path: '/category-tag-tree',
+        name: '分类标签树',
+        icon: 'ClusterOutlined',
+      },
+      {
+        path: '/tag',
+        name: '标签管理',
+        icon: 'TagOutlined',
+      },
+    ],
   },
   {
-    path: '/category',
-    name: '分类管理',
-    icon: 'AppstoreOutlined',
+    path: '/image-generation',
+    name: '图片生成',
+    icon: 'PictureOutlined',
+    routes: [
+      {
+        path: '/image-generation-message',
+        name: '生成监控',
+        icon: 'PictureOutlined',
+      },
+      {
+        path: '/image-generation-config',
+        name: '生成配置',
+        icon: 'SettingOutlined',
+      },
+    ],
   },
   {
-    path: '/category-tag-tree',
-    name: '分类标签树',
-    icon: 'ClusterOutlined',
-  },
-  {
-    path: '/tag',
-    name: '标签管理',
-    icon: 'TagOutlined',
-  },
-  {
-    path: '/order',
-    name: '作品订单',
-    icon: 'ShoppingCartOutlined',
-  },
-  {
-    path: '/member-order',
-    name: '会员订单',
+    path: '/commerce',
+    name: '交易会员',
     icon: 'CrownOutlined',
+    routes: [
+      {
+        path: '/order',
+        name: '作品订单',
+        icon: 'ShoppingCartOutlined',
+      },
+      {
+        path: '/member-order',
+        name: '会员订单',
+        icon: 'CrownOutlined',
+      },
+      {
+        path: '/point',
+        name: '积分中心',
+        icon: 'DollarOutlined',
+      },
+      {
+        path: '/member-price-config',
+        name: '会员价格配置',
+        icon: 'SettingOutlined',
+      },
+    ],
   },
   {
-    path: '/point',
-    name: '积分中心',
-    icon: 'DollarOutlined',
-  },
-  {
-    path: '/member-price-config',
-    name: '会员价格配置',
+    path: '/system',
+    name: '系统管理',
     icon: 'SettingOutlined',
-  },
-  {
-    path: '/operation-log',
-    name: '操作日志',
-    icon: 'FileTextOutlined',
+    routes: [
+      {
+        path: '/user',
+        name: '用户管理',
+        icon: 'UserOutlined',
+      },
+      {
+        path: '/operation-log',
+        name: '操作日志',
+        icon: 'FileTextOutlined',
+      },
+    ],
   },
 ];

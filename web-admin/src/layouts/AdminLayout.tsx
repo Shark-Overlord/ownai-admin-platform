@@ -1,22 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ProLayout } from '@ant-design/pro-components';
-import { Spin, message, Dropdown, Space } from 'antd';
+import { Dropdown, message, Space, Spin } from 'antd';
 import {
-  DashboardOutlined,
-  UserOutlined,
-  PictureOutlined,
   AppstoreOutlined,
-  TagOutlined,
   ClusterOutlined,
-  ShoppingCartOutlined,
   CrownOutlined,
-  DollarOutlined,
-  SettingOutlined,
-  FileTextOutlined,
+  DashboardOutlined,
   DatabaseOutlined,
-  LogoutOutlined,
+  DollarOutlined,
   DownOutlined,
+  FileTextOutlined,
+  LogoutOutlined,
+  PictureOutlined,
+  SettingOutlined,
+  ShoppingCartOutlined,
+  TagOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { menuRoutes } from '../routes';
 import { getLoginUser, logout, type LoginUserVO } from '../api/user';
@@ -35,6 +35,23 @@ const iconMap: Record<string, React.ReactNode> = {
   FileTextOutlined: <FileTextOutlined />,
   DatabaseOutlined: <DatabaseOutlined />,
 };
+
+type MenuRoute = {
+  path: string;
+  name: string;
+  icon?: string;
+  routes?: MenuRoute[];
+};
+
+function mapMenuRoute(item: MenuRoute): any {
+  return {
+    key: item.path,
+    path: item.path,
+    name: item.name,
+    icon: item.icon ? iconMap[item.icon] : undefined,
+    routes: item.routes?.map(mapMenuRoute),
+  };
+}
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -73,31 +90,30 @@ export default function AdminLayout() {
     );
   }
 
-  const menuItems = menuRoutes.map((item) => ({
-    key: item.path,
-    icon: iconMap[item.icon],
-    name: item.name,
-    path: item.path,
-  }));
-
   return (
     <ProLayout
       title="后台管理"
       logo={null}
-      layout="mix"
+      layout="side"
       fixSiderbar
       fixedHeader
-      route={{ path: '/', routes: menuItems }}
+      menu={{ defaultOpenAll: true }}
+      route={{ path: '/', routes: menuRoutes.map(mapMenuRoute) }}
       location={{ pathname: location.pathname }}
-      menuItemRender={(item: any, dom: any) => (
-        <a
-          onClick={() => {
-            navigate(item.path || item.key);
-          }}
-        >
-          {dom}
-        </a>
-      )}
+      menuItemRender={(item: any, dom: any) => {
+        if (item.routes?.length) {
+          return dom;
+        }
+        return (
+          <a
+            onClick={() => {
+              navigate(item.path || item.key);
+            }}
+          >
+            {dom}
+          </a>
+        );
+      }}
       avatarProps={{
         src: user?.userAvatar,
         size: 'small',

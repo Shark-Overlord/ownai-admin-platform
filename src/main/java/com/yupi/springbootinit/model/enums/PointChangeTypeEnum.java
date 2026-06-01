@@ -7,6 +7,8 @@ public enum PointChangeTypeEnum {
 
     PURCHASE_REWARD("购买返积分", "purchase_reward"),
     REDEEM_CONSUME("积分兑换消耗", "redeem_consume"),
+    IMAGE_GENERATE_FREEZE("图片生成冻结", "image_generate_freeze"),
+    IMAGE_GENERATE_REFUND("图片生成退款", "image_generate_refund"),
     CHECK_IN_REWARD("每日签到奖励", "check_in_reward"),
     MANUAL_ADJUST("后台调整", "manual_adjust");
 

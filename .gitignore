@@ -9,6 +9,12 @@ target/
 sql/*.sql
 !sql/prompt_asset_schema.sql
 !sql/prompt_asset_cloud_fields_migration.sql
+!sql/image_generation_message.sql
+!sql/image_generation_provider_config.sql
+!sql/image_generation_provider_config_migration.sql
+!sql/user_email_migration.sql
+!sql/image_generation_monitor_migration.sql
+!sql/image_generation_aspect_ratio_model_config_migration.sql
 web-admin/node_modules/
 web-admin/dist/
 !.mvn/wrapper/maven-wrapper.jar

@@ -19,11 +19,9 @@ request.interceptors.response.use(
     const data = response.data;
     if (data.code !== 0) {
       message.error(data.message || '请求失败');
-      // 未登录
       if (data.code === 40100) {
         window.location.href = '/login';
       }
-      // 无权限
       if (data.code === 40101) {
         message.error('无权访问');
       }

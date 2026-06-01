@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.common.ErrorCode;
@@ -46,10 +47,11 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
         LocalDate today = LocalDate.now();
         if (lastCheckInDate != null) {
             LocalDate lastCheckInLocalDate = lastCheckInDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-            ThrowUtils.throwIf(today.equals(lastCheckInLocalDate), ErrorCode.OPERATION_ERROR, "今天已经签到过了");
+            ThrowUtils.throwIf(today.equals(lastCheckInLocalDate), ErrorCode.OPERATION_ERROR,
+                    "Already checked in today");
         }
         addPoints(loginUser.getId(), DAILY_CHECK_IN_REWARD, PointChangeTypeEnum.CHECK_IN_REWARD, "check_in",
-                loginUser.getId(), "每日签到奖励");
+                loginUser.getId(), "Daily check-in reward");
         User updateUser = new User();
         updateUser.setId(loginUser.getId());
         updateUser.setLastCheckInDate(new Date());
@@ -75,36 +77,44 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
     @Transactional(rollbackFor = Exception.class)
     public void addPoints(Long userId, int amount, PointChangeTypeEnum pointChangeTypeEnum, String relatedType,
             Long relatedId, String description) {
-        ThrowUtils.throwIf(amount <= 0, ErrorCode.PARAMS_ERROR, "积分变动值必须大于 0");
+        validatePointChange(userId, amount, pointChangeTypeEnum);
+        int updatedRows = userMapper.update(null, new UpdateWrapper<User>()
+                .eq("id", userId)
+                .setSql("pointBalance = pointBalance + " + amount));
+        ThrowUtils.throwIf(updatedRows <= 0, ErrorCode.NOT_FOUND_ERROR, "User does not exist");
         User user = getUserById(userId);
-        int newBalance = getSafeBalance(user) + amount;
-        User updateUser = new User();
-        updateUser.setId(userId);
-        updateUser.setPointBalance(newBalance);
-        userMapper.updateById(updateUser);
-        savePointRecord(userId, amount, newBalance, pointChangeTypeEnum, relatedType, relatedId, description);
+        savePointRecord(userId, amount, getSafeBalance(user), pointChangeTypeEnum, relatedType, relatedId, description);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deductPoints(Long userId, int amount, PointChangeTypeEnum pointChangeTypeEnum, String relatedType,
             Long relatedId, String description) {
-        ThrowUtils.throwIf(amount <= 0, ErrorCode.PARAMS_ERROR, "积分变动值必须大于 0");
+        validatePointChange(userId, amount, pointChangeTypeEnum);
+        int updatedRows = userMapper.update(null, new UpdateWrapper<User>()
+                .eq("id", userId)
+                .ge("pointBalance", amount)
+                .setSql("pointBalance = pointBalance - " + amount));
+        if (updatedRows <= 0) {
+            User user = getUserById(userId);
+            ThrowUtils.throwIf(getSafeBalance(user) < amount, ErrorCode.OPERATION_ERROR, "Insufficient points");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "Failed to deduct points");
+        }
         User user = getUserById(userId);
-        int currentBalance = getSafeBalance(user);
-        ThrowUtils.throwIf(currentBalance < amount, ErrorCode.OPERATION_ERROR, "积分余额不足");
-        int newBalance = currentBalance - amount;
-        User updateUser = new User();
-        updateUser.setId(userId);
-        updateUser.setPointBalance(newBalance);
-        userMapper.updateById(updateUser);
-        savePointRecord(userId, -amount, newBalance, pointChangeTypeEnum, relatedType, relatedId, description);
+        savePointRecord(userId, -amount, getSafeBalance(user), pointChangeTypeEnum, relatedType, relatedId,
+                description);
+    }
+
+    private void validatePointChange(Long userId, int amount, PointChangeTypeEnum pointChangeTypeEnum) {
+        ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.PARAMS_ERROR, "Invalid user id");
+        ThrowUtils.throwIf(amount <= 0, ErrorCode.PARAMS_ERROR, "Point amount must be greater than 0");
+        ThrowUtils.throwIf(pointChangeTypeEnum == null, ErrorCode.PARAMS_ERROR, "Point change type is required");
     }
 
     private User getUserById(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "User does not exist");
         }
         return user;
     }
@@ -124,6 +134,6 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
         pointRecord.setRelatedId(relatedId);
         pointRecord.setDescription(description);
         boolean result = this.save(pointRecord);
-        ThrowUtils.throwIf(!result, ErrorCode.SYSTEM_ERROR, "积分流水写入失败");
+        ThrowUtils.throwIf(!result, ErrorCode.SYSTEM_ERROR, "Failed to write point record");
     }
 }

@@ -1,19 +1,54 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LoginForm, ProFormText } from '@ant-design/pro-components';
 import { message, Tabs } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { login } from '../../api/user';
+import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
+import { getLoginCaptcha, login, type LoginCaptchaVO } from '../../api/user';
+
+function buildCaptchaSrc(captcha?: LoginCaptchaVO) {
+  if (!captcha) {
+    return '';
+  }
+  if (captcha.imageUrl) {
+    return captcha.imageUrl;
+  }
+  if (!captcha.imageBase64) {
+    return '';
+  }
+  return captcha.imageBase64.startsWith('data:image')
+    ? captcha.imageBase64
+    : `data:image/png;base64,${captcha.imageBase64}`;
+}
 
 export default function Login() {
   const navigate = useNavigate();
   const [loginType, setLoginType] = useState<'account'>('account');
+  const [captcha, setCaptcha] = useState<LoginCaptchaVO>();
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+
+  const fetchCaptcha = async () => {
+    setCaptchaLoading(true);
+    try {
+      const res = await getLoginCaptcha();
+      setCaptcha(res.data);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCaptcha();
+  }, []);
 
   const handleSubmit = async (values: any) => {
     try {
-      const res = await login(values);
+      const res = await login({
+        ...values,
+        captchaId: captcha?.captchaId,
+      });
       if (res.data.userRole !== 'admin') {
-        message.error('您没有管理员权限');
+        message.error('当前账号没有管理员权限');
+        await fetchCaptcha();
         return;
       }
       if (res.data.token) {
@@ -22,7 +57,7 @@ export default function Login() {
       message.success('登录成功');
       navigate('/dashboard');
     } catch (err) {
-      // 错误已在拦截器提示
+      await fetchCaptcha();
     }
   };
 
@@ -36,12 +71,7 @@ export default function Login() {
         background: '#f0f2f5',
       }}
     >
-      <LoginForm
-        logo=""
-        title="后台管理系统"
-        subTitle="SpringBoot Init Admin"
-        onFinish={handleSubmit}
-      >
+      <LoginForm logo="" title="后台管理系统" subTitle="OwnAI Admin" onFinish={handleSubmit}>
         <Tabs
           centered
           activeKey={loginType}
@@ -57,7 +87,7 @@ export default function Login() {
                 prefix: <UserOutlined />,
               }}
               placeholder="请输入管理员账号"
-              rules={[{ required: true, message: '请输入账号!' }]}
+              rules={[{ required: true, message: '请输入账号' }]}
             />
             <ProFormText.Password
               name="userPassword"
@@ -66,8 +96,45 @@ export default function Login() {
                 prefix: <LockOutlined />,
               }}
               placeholder="请输入密码"
-              rules={[{ required: true, message: '请输入密码!' }]}
+              rules={[{ required: true, message: '请输入密码' }]}
             />
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <ProFormText
+                name="captchaCode"
+                fieldProps={{
+                  size: 'large',
+                  prefix: <SafetyCertificateOutlined />,
+                }}
+                placeholder="请输入验证码"
+                rules={[{ required: true, message: '请输入验证码' }]}
+              />
+              <button
+                type="button"
+                onClick={fetchCaptcha}
+                disabled={captchaLoading}
+                style={{
+                  width: 132,
+                  height: 40,
+                  padding: 0,
+                  border: '1px solid #d9d9d9',
+                  borderRadius: 6,
+                  background: '#fff',
+                  cursor: captchaLoading ? 'default' : 'pointer',
+                  overflow: 'hidden',
+                }}
+                title="点击刷新验证码"
+              >
+                {buildCaptchaSrc(captcha) ? (
+                  <img
+                    src={buildCaptchaSrc(captcha)}
+                    alt="captcha"
+                    style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <span style={{ color: '#999' }}>刷新验证码</span>
+                )}
+              </button>
+            </div>
           </>
         )}
       </LoginForm>
