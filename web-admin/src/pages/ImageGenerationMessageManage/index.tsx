@@ -8,7 +8,10 @@ import {
   Descriptions,
   Drawer,
   Empty,
+  Form,
   Image,
+  Input,
+  message,
   Progress,
   Row,
   Space,
@@ -18,7 +21,10 @@ import {
   Tag,
   Timeline,
   Typography,
+  Upload,
 } from 'antd';
+import type { UploadFile } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   getImageGenerationConversation,
@@ -26,6 +32,7 @@ import {
   getImageGenerationMonitorOverview,
   listImageGenerationConversations,
   listImageGenerationMessages,
+  manualCompleteImageGenerationTask,
   type ImageGenerationConversationDetail,
   type ImageGenerationConversationSummary,
   type ImageGenerationDailyTrend,
@@ -310,10 +317,13 @@ function MonitorCards({ overview }: { overview: ImageGenerationMonitorOverview }
 export default function ImageGenerationMessageManage() {
   const conversationActionRef = useRef<any>(null);
   const taskActionRef = useRef<any>(null);
+  const [manualForm] = Form.useForm();
   const [overview, setOverview] = useState<ImageGenerationMonitorOverview>(defaultOverview);
   const [detail, setDetail] = useState<ImageGenerationConversationDetail | null>(null);
   const [taskDetail, setTaskDetail] = useState<ImageGenerationMessageItem | null>(null);
   const [taskConversation, setTaskConversation] = useState<ImageGenerationMessageItem[]>([]);
+  const [manualTask, setManualTask] = useState<ImageGenerationMessageItem | null>(null);
+  const [manualFileList, setManualFileList] = useState<UploadFile[]>([]);
 
   const loadOverview = async () => {
     const res = await getImageGenerationMonitorOverview({});
@@ -338,6 +348,32 @@ export default function ImageGenerationMessageManage() {
     }
     const conversationRes = await getImageGenerationConversation(detailRes.data.conversationId, detailRes.data.userId);
     setTaskConversation(conversationRes.data.messages || []);
+  };
+
+  const openManualComplete = (record: ImageGenerationMessageItem) => {
+    setManualTask(record);
+    setManualFileList([]);
+    manualForm.resetFields();
+    manualForm.setFieldsValue({ taskId: record.taskId });
+  };
+
+  const submitManualComplete = async () => {
+    const values = await manualForm.validateFields();
+    const res = await manualCompleteImageGenerationTask({
+      taskId: values.taskId,
+      imageUrl: values.imageUrl,
+      note: values.note,
+    });
+    message.success('已人工完成任务');
+    setManualTask(null);
+    setManualFileList([]);
+    manualForm.resetFields();
+    loadOverview();
+    conversationActionRef.current?.reload();
+    taskActionRef.current?.reload();
+    if (taskDetail?.taskId === res.data.taskId && res.data.id) {
+      openTaskDetail(res.data.id);
+    }
   };
 
   const conversationColumns: any[] = [
@@ -564,9 +600,16 @@ export default function ImageGenerationMessageManage() {
       valueType: 'option',
       width: 90,
       render: (_: unknown, record: ImageGenerationMessageItem) => (
-        <Button type="link" onClick={() => openTaskDetail(record.id)}>
-          详情
-        </Button>
+        <Space>
+          <Button type="link" onClick={() => openTaskDetail(record.id)}>
+            详情
+          </Button>
+          {record.role === 'assistant' && (record.status === 'pending' || record.status === 'running') ? (
+            <Button type="link" onClick={() => openManualComplete(record)}>
+              人工完成
+            </Button>
+          ) : null}
+        </Space>
       ),
     },
   ];
@@ -707,6 +750,11 @@ export default function ImageGenerationMessageManage() {
                         {message.imageSize ? <Tag>{message.imageSize.toUpperCase()}</Tag> : null}
                         {message.pointCost ? <Tag>积分 {message.pointCost}</Tag> : null}
                         {message.taskId ? <Text copyable>task: {message.taskId}</Text> : null}
+                        {message.role === 'assistant' && (message.status === 'pending' || message.status === 'running') ? (
+                          <Button size="small" type="link" onClick={() => openManualComplete(message)}>
+                            人工完成
+                          </Button>
+                        ) : null}
                         <Text type="secondary">{message.createTime ? dayjs(message.createTime).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
                       </Space>
                       {renderThumbnails(getMessageImages(message), 86)}
@@ -725,6 +773,11 @@ export default function ImageGenerationMessageManage() {
       <Drawer title="图片生成任务详情" open={!!taskDetail} width={900} onClose={() => { setTaskDetail(null); setTaskConversation([]); }}>
         {taskDetail ? (
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            {taskDetail.status === 'pending' || taskDetail.status === 'running' ? (
+              <Button type="primary" onClick={() => openManualComplete(taskDetail)}>
+                上传结果图并人工完成
+              </Button>
+            ) : null}
             <Descriptions bordered column={2} size="small">
               <Descriptions.Item label="ID">{taskDetail.id}</Descriptions.Item>
               <Descriptions.Item label="用户 ID">{taskDetail.userId || '-'}</Descriptions.Item>
@@ -799,6 +852,75 @@ export default function ImageGenerationMessageManage() {
               {renderLongText(formatJsonText(taskDetail.responsePayload))}
             </div>
           </Space>
+        ) : null}
+      </Drawer>
+
+      <Drawer
+        title="人工完成图片生成任务"
+        open={!!manualTask}
+        width={520}
+        onClose={() => {
+          setManualTask(null);
+          setManualFileList([]);
+          manualForm.resetFields();
+        }}
+      >
+        {manualTask ? (
+          <Form form={manualForm} layout="vertical" onFinish={submitManualComplete}>
+            <Form.Item label="Task ID" name="taskId" rules={[{ required: true }]}>
+              <Input readOnly />
+            </Form.Item>
+            <Form.Item label="上传结果图片">
+              <Upload
+                name="file"
+                action="/api/file/upload?biz=image_generation_result"
+                listType="picture-card"
+                maxCount={1}
+                accept="image/*"
+                headers={{ Authorization: `Bearer ${localStorage.getItem('token') || ''}` }}
+                fileList={manualFileList}
+                onChange={(info) => {
+                  setManualFileList(info.fileList);
+                  if (info.file.status === 'done') {
+                    const res = info.file.response;
+                    if (res?.code === 0) {
+                      manualForm.setFieldsValue({ imageUrl: res.data });
+                      message.success('结果图片上传成功');
+                    } else {
+                      message.error(res?.message || '上传失败');
+                    }
+                  }
+                  if (info.file.status === 'removed') {
+                    manualForm.setFieldsValue({ imageUrl: undefined });
+                  }
+                }}
+                showUploadList={{ showPreviewIcon: true, showRemoveIcon: true }}
+              >
+                {manualFileList.length >= 1 ? null : (
+                  <div>
+                    <UploadOutlined />
+                    <div style={{ marginTop: 8 }}>上传图片</div>
+                  </div>
+                )}
+              </Upload>
+            </Form.Item>
+            <Form.Item
+              label="结果图片 URL"
+              name="imageUrl"
+              rules={[{ required: true, message: '请先上传结果图片，或填写图片 URL' }]}
+            >
+              <Input placeholder="上传后自动填充，也可粘贴已在 COS 的图片 URL" />
+            </Form.Item>
+            <Form.Item label="处理备注" name="note">
+              <Input.TextArea rows={3} placeholder="例如：超时任务由管理员手动补图" />
+            </Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">
+                确认人工完成
+              </Button>
+              <Button onClick={() => setManualTask(null)}>取消</Button>
+            </Space>
+          </Form>
         ) : null}
       </Drawer>
     </PageContainer>

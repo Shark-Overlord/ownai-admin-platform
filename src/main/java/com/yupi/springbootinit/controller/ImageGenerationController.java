@@ -8,6 +8,7 @@ import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationCreateRequest;
+import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationManualCompleteRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationMessageQueryRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationTaskUpdateRequest;
 import com.yupi.springbootinit.model.entity.User;
@@ -136,6 +137,16 @@ public class ImageGenerationController {
             HttpServletRequest request) {
         checkWorkerOrAdmin(request);
         return ResultUtils.success(imageGenerationMessageService.updateTaskResult(updateRequest));
+    }
+
+    @PostMapping("/admin/task/manual-complete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation("Admin manually complete an image generation task")
+    public BaseResponse<ImageGenerationMessageVO> manualCompleteTask(
+            @RequestBody ImageGenerationManualCompleteRequest completeRequest,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(imageGenerationMessageService.manualCompleteTask(completeRequest, loginUser));
     }
 
     private void checkWorkerOrAdmin(HttpServletRequest request) {

@@ -178,6 +178,16 @@ export async function getImageGenerationMessage(id: number) {
   }>;
 }
 
+export async function manualCompleteImageGenerationTask(params: {
+  taskId: string;
+  imageUrl: string;
+  note?: string;
+}) {
+  return request.post('/image/generation/admin/task/manual-complete', params) as Promise<{
+    data: ImageGenerationMessageItem;
+  }>;
+}
+
 export async function listImageGenerationProviders() {
   return request.get('/image/generation/config/admin/provider/list') as Promise<{
     data: ImageGenerationProviderConfig[];

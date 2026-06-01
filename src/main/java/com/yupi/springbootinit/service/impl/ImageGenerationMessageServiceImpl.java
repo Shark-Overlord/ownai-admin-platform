@@ -11,6 +11,7 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.mapper.ImageGenerationMessageMapper;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationCreateRequest;
+import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationManualCompleteRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationMessageQueryRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationTaskUpdateRequest;
 import com.yupi.springbootinit.model.entity.ImageGenerationModelConfig;
@@ -449,6 +450,60 @@ public class ImageGenerationMessageServiceImpl
             pointService.addPoints(taskMessage.getUserId(), taskMessage.getPointCost(),
                     PointChangeTypeEnum.IMAGE_GENERATE_REFUND, RELATED_TYPE_IMAGE_GENERATION, taskMessage.getId(),
                     String.format("图片生成失败退款 %s", taskId));
+        }
+        return toVO(this.getById(taskMessage.getId()));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ImageGenerationMessageVO manualCompleteTask(ImageGenerationManualCompleteRequest request, User adminUser) {
+        if (request == null || StringUtils.isBlank(request.getTaskId()) || StringUtils.isBlank(request.getImageUrl())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        String taskId = StringUtils.trim(request.getTaskId());
+        String imageUrl = StringUtils.trim(request.getImageUrl());
+        ImageGenerationMessage taskMessage = this.getOne(new QueryWrapper<ImageGenerationMessage>()
+                .eq("taskId", taskId)
+                .eq("role", ROLE_ASSISTANT)
+                .last("limit 1"));
+        if (taskMessage == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+        if (!STATUS_PENDING.equals(taskMessage.getStatus()) && !STATUS_RUNNING.equals(taskMessage.getStatus())) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "Only pending or running tasks can be manually completed");
+        }
+
+        Date now = new Date();
+        Map<String, Object> responsePayload = new LinkedHashMap<>();
+        responsePayload.put("provider", "admin-manual-upload");
+        responsePayload.put("taskId", taskId);
+        responsePayload.put("imageUrl", imageUrl);
+        responsePayload.put("adminUserId", adminUser == null ? null : adminUser.getId());
+        responsePayload.put("note", StringUtils.trimToNull(request.getNote()));
+        responsePayload.put("completedAt", now.getTime());
+
+        ImageGenerationMessage updateMessage = new ImageGenerationMessage();
+        updateMessage.setId(taskMessage.getId());
+        updateMessage.setStatus(STATUS_SUCCESS);
+        if (taskMessage.getStartedTime() == null) {
+            updateMessage.setStartedTime(now);
+        }
+        updateMessage.setFinishedTime(now);
+        updateMessage.setResultImageUrls(JSONUtil.toJsonStr(Arrays.asList(imageUrl)));
+        updateMessage.setResponsePayload(JSONUtil.toJsonStr(responsePayload));
+        updateMessage.setErrorMessage(null);
+        updateMessage.setUpdateTime(now);
+        if (POINT_STATUS_FROZEN.equals(taskMessage.getPointStatus())) {
+            updateMessage.setPointStatus(POINT_STATUS_CONSUMED);
+        }
+
+        boolean result = this.update(updateMessage, new QueryWrapper<ImageGenerationMessage>()
+                .eq("id", taskMessage.getId())
+                .eq("taskId", taskId)
+                .eq("role", ROLE_ASSISTANT)
+                .in("status", Arrays.asList(STATUS_PENDING, STATUS_RUNNING)));
+        if (!result) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "Task status changed, please refresh and retry");
         }
         return toVO(this.getById(taskMessage.getId()));
     }

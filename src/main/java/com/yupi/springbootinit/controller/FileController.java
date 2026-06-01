@@ -60,6 +60,10 @@ public class FileController {
         }
         validFile(multipartFile, fileUploadBizEnum);
         User loginUser = userService.getLoginUser(request);
+        if (FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum)
+                && !userService.isAdmin(loginUser)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
         String uuid = RandomStringUtils.randomAlphanumeric(8);
         String filename = uuid + "-" + multipartFile.getOriginalFilename();
         String filepath = String.format("/%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
@@ -99,10 +103,15 @@ public class FileController {
             return;
         }
         if (FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
-                || FileUploadBizEnum.PROMPT_ASSET_COVER.equals(fileUploadBizEnum)) {
+                || FileUploadBizEnum.PROMPT_ASSET_COVER.equals(fileUploadBizEnum)
+                || FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum)) {
             validSuffix(fileSuffix, Arrays.asList("jpeg", "jpg", "png", "webp"));
-            if (fileSize > TEN_M) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR, "Cover file cannot exceed 10MB");
+            long maxSize = FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum) ? FIFTY_M : TEN_M;
+            if (fileSize > maxSize) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR,
+                        FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum)
+                                ? "Image result file cannot exceed 50MB"
+                                : "Cover file cannot exceed 10MB");
             }
             return;
         }

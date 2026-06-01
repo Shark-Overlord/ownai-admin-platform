@@ -10,6 +10,7 @@ public enum FileUploadBizEnum {
     USER_AVATAR("用户头像", "user_avatar"),
     ARTWORK_COVER("作品封面", "artwork_cover"),
     PROMPT_ASSET_COVER("Prompt 资产封面", "prompt_asset_cover"),
+    IMAGE_GENERATION_RESULT("图片生成结果", "image_generation_result"),
     ARTWORK_VIDEO("作品视频", "artwork_video"),
     ARTWORK_PROMPT("作品 Prompt", "artwork_prompt");
 

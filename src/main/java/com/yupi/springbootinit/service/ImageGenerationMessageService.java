@@ -3,6 +3,7 @@ package com.yupi.springbootinit.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationCreateRequest;
+import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationManualCompleteRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationMessageQueryRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationTaskUpdateRequest;
 import com.yupi.springbootinit.model.entity.ImageGenerationMessage;
@@ -38,6 +39,8 @@ public interface ImageGenerationMessageService extends IService<ImageGenerationM
     Page<ImageGenerationTaskContextVO> listPendingTaskContextByPage(ImageGenerationMessageQueryRequest request);
 
     ImageGenerationMessageVO updateTaskResult(ImageGenerationTaskUpdateRequest request);
+
+    ImageGenerationMessageVO manualCompleteTask(ImageGenerationManualCompleteRequest request, User adminUser);
 
     int recoverStaleRunningTasks(int timeoutMinutes);
 }
