@@ -167,7 +167,7 @@ export async function importVisualPromptDb(params: {
   }
   return request.post('/promptAsset/admin/import/visual-prompt-db', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 120000,
+    timeout: 600000,
   }) as Promise<{ data: PromptAssetImportResultVO }>;
 }
 
