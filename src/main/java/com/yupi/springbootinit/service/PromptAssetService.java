@@ -21,6 +21,8 @@ public interface PromptAssetService extends IService<PromptAsset> {
 
     Boolean updatePromptAsset(PromptAssetUpdateRequest request);
 
+    Boolean updatePromptAssetTags(PromptAssetUpdateRequest request);
+
     Boolean deletePromptAsset(Long id);
 
     Boolean deletePromptAssetBatch(List<Long> ids);

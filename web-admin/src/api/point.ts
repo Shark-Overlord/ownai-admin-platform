@@ -9,12 +9,23 @@ export interface PointOverviewVO {
 
 export interface PointRecord {
   id: number;
+  userId?: number;
+  userAccount?: string;
+  userName?: string;
   changeType: string;
   changeAmount: number;
   balanceAfter: number;
   relatedType?: string;
+  relatedId?: number;
   description?: string;
   createTime?: string;
+}
+
+export interface PointAdjustRequest {
+  userId: number;
+  operation: 'grant' | 'deduct';
+  amount: number;
+  description: string;
 }
 
 export async function getMyPointOverview() {
@@ -27,4 +38,12 @@ export async function dailyCheckIn() {
 
 export async function listMyPointRecords(params: any) {
   return request.post('/point/record/list/page', params) as Promise<any>;
+}
+
+export async function adminAdjustPoints(params: PointAdjustRequest) {
+  return request.post('/point/admin/adjust', params) as Promise<{ data: number }>;
+}
+
+export async function listAdminPointRecords(params: any) {
+  return request.post('/point/admin/record/list/page', params) as Promise<any>;
 }

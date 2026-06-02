@@ -18,6 +18,10 @@ public class PromptAssetQueryRequest extends PageRequest implements Serializable
 
     private List<Long> tagIdList;
 
+    private List<Long> sceneTagIdList;
+
+    private List<Long> assetTagIdList;
+
     private String mediaType;
 
     private String visualAssetType;

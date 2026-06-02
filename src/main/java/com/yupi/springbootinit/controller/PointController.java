@@ -1,13 +1,17 @@
 package com.yupi.springbootinit.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yupi.springbootinit.annotation.AuthCheck;
 import com.yupi.springbootinit.annotation.OperationLog;
 import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.ResultUtils;
+import com.yupi.springbootinit.constant.UserConstant;
+import com.yupi.springbootinit.model.dto.point.PointAdjustRequest;
 import com.yupi.springbootinit.model.dto.point.PointRecordQueryRequest;
 import com.yupi.springbootinit.model.entity.PointRecord;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.point.PointOverviewVO;
+import com.yupi.springbootinit.model.vo.point.PointRecordAdminVO;
 import com.yupi.springbootinit.service.PointService;
 import com.yupi.springbootinit.service.UserService;
 import io.swagger.annotations.Api;
@@ -69,5 +73,23 @@ public class PointController {
             HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         return ResultUtils.success(pointService.listMyPointRecords(pointRecordQueryRequest, loginUser));
+    }
+
+    @PostMapping("/admin/adjust")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "point", action = "admin_adjust_points")
+    @ApiOperation("Admin grant or deduct user points")
+    public BaseResponse<Integer> adminAdjustPoints(@RequestBody PointAdjustRequest pointAdjustRequest,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(pointService.adminAdjustPoints(pointAdjustRequest, loginUser));
+    }
+
+    @PostMapping("/admin/record/list/page")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation("Admin page query point records")
+    public BaseResponse<Page<PointRecordAdminVO>> listAdminPointRecords(
+            @RequestBody(required = false) PointRecordQueryRequest pointRecordQueryRequest) {
+        return ResultUtils.success(pointService.listAdminPointRecords(pointRecordQueryRequest));
     }
 }

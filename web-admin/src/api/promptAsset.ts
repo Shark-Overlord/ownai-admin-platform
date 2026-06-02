@@ -55,7 +55,12 @@ export interface PromptAssetVO {
   memberOnly?: number;
   status?: number;
   sort?: number;
-  tagList?: { id: number; name: string }[];
+  tagList?: { id: number | string; name: string }[];
+  sceneTagList?: { id: number | string; name: string }[];
+  assetTagList?: { id: number | string; name: string }[];
+  tagIdList?: Array<number | string>;
+  sceneTagIdList?: Array<number | string>;
+  assetTagIdList?: Array<number | string>;
   mediaList?: PromptAssetMediaVO[];
   createTime?: string;
   updateTime?: string;
@@ -111,6 +116,14 @@ export async function getPromptAssetVOById(id: number) {
 
 export async function updatePromptAsset(params: Partial<PromptAssetVO> & { id: number }) {
   return request.post('/promptAsset/admin/update', params) as Promise<{ data: boolean }>;
+}
+
+export async function updatePromptAssetTags(params: {
+  id: number;
+  sceneTagIdList?: Array<number | string>;
+  assetTagIdList?: Array<number | string>;
+}) {
+  return request.post('/promptAsset/admin/update/tags', params) as Promise<{ data: boolean }>;
 }
 
 export async function deletePromptAsset(params: { id: number }) {

@@ -77,6 +77,14 @@ public class PromptAssetController {
         return ResultUtils.success(promptAssetService.updatePromptAsset(request));
     }
 
+    @PostMapping("/admin/update/tags")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "prompt_asset", action = "update_prompt_asset_tags")
+    @ApiOperation("Admin update prompt asset tags")
+    public BaseResponse<Boolean> updatePromptAssetTags(@RequestBody PromptAssetUpdateRequest request) {
+        return ResultUtils.success(promptAssetService.updatePromptAssetTags(request));
+    }
+
     @PostMapping("/admin/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "delete_prompt_asset")

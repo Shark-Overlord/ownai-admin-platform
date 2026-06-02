@@ -9,16 +9,24 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.mapper.PointRecordMapper;
 import com.yupi.springbootinit.mapper.UserMapper;
+import com.yupi.springbootinit.model.dto.point.PointAdjustRequest;
 import com.yupi.springbootinit.model.dto.point.PointRecordQueryRequest;
 import com.yupi.springbootinit.model.entity.PointRecord;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.PointChangeTypeEnum;
+import com.yupi.springbootinit.model.vo.point.PointRecordAdminVO;
 import com.yupi.springbootinit.model.vo.point.PointOverviewVO;
 import com.yupi.springbootinit.service.PointService;
 import com.yupi.springbootinit.utils.SqlUtils;
+import java.util.Collections;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
@@ -29,6 +37,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord> implements PointService {
 
     private static final int DAILY_CHECK_IN_REWARD = 5;
+
+    private static final String OPERATION_GRANT = "grant";
+
+    private static final String OPERATION_DEDUCT = "deduct";
+
+    private static final String RELATED_TYPE_ADMIN_POINT_ADJUST = "admin_point_adjust";
 
     @Resource
     private UserMapper userMapper;
@@ -71,6 +85,63 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
         }
         queryWrapper.orderByDesc("id");
         return this.page(new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize()), queryWrapper);
+    }
+
+    @Override
+    public Page<PointRecordAdminVO> listAdminPointRecords(PointRecordQueryRequest pointRecordQueryRequest) {
+        PointRecordQueryRequest safeRequest = pointRecordQueryRequest == null ? new PointRecordQueryRequest()
+                : pointRecordQueryRequest;
+        QueryWrapper<PointRecord> queryWrapper = buildAdminRecordQueryWrapper(safeRequest);
+        Page<PointRecord> recordPage = this.page(new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize()),
+                queryWrapper);
+        Page<PointRecordAdminVO> voPage =
+                new Page<>(recordPage.getCurrent(), recordPage.getSize(), recordPage.getTotal());
+        List<PointRecord> records = recordPage.getRecords();
+        if (records == null || records.isEmpty()) {
+            voPage.setRecords(Collections.emptyList());
+            return voPage;
+        }
+        Set<Long> userIds = records.stream()
+                .map(PointRecord::getUserId)
+                .filter(id -> id != null && id > 0)
+                .collect(Collectors.toSet());
+        Map<Long, User> userMap = userIds.isEmpty()
+                ? Collections.emptyMap()
+                : userMapper.selectBatchIds(userIds).stream()
+                        .collect(Collectors.toMap(User::getId, Function.identity(), (a, b) -> a));
+        voPage.setRecords(records.stream()
+                .map(record -> toAdminVO(record, userMap.get(record.getUserId())))
+                .collect(Collectors.toList()));
+        return voPage;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Integer adminAdjustPoints(PointAdjustRequest pointAdjustRequest, User adminUser) {
+        if (pointAdjustRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long userId = pointAdjustRequest.getUserId();
+        Integer amount = pointAdjustRequest.getAmount();
+        String operation = StringUtils.trimToEmpty(pointAdjustRequest.getOperation()).toLowerCase();
+        String description = StringUtils.trimToNull(pointAdjustRequest.getDescription());
+        ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.PARAMS_ERROR, "Invalid user id");
+        ThrowUtils.throwIf(amount == null || amount <= 0, ErrorCode.PARAMS_ERROR,
+                "Point amount must be greater than 0");
+        ThrowUtils.throwIf(StringUtils.isBlank(description), ErrorCode.PARAMS_ERROR, "Description is required");
+        ThrowUtils.throwIf(description.length() > 200, ErrorCode.PARAMS_ERROR,
+                "Description cannot exceed 200 characters");
+        Long adminUserId = adminUser == null ? null : adminUser.getId();
+        if (OPERATION_GRANT.equals(operation)) {
+            addPoints(userId, amount, PointChangeTypeEnum.MANUAL_ADJUST, RELATED_TYPE_ADMIN_POINT_ADJUST,
+                    adminUserId, description);
+        } else if (OPERATION_DEDUCT.equals(operation)) {
+            deductPoints(userId, amount, PointChangeTypeEnum.MANUAL_ADJUST, RELATED_TYPE_ADMIN_POINT_ADJUST,
+                    adminUserId, description);
+        } else {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Operation must be grant or deduct");
+        }
+        return getSafeBalance(getUserById(userId));
     }
 
     @Override
@@ -135,5 +206,28 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
         pointRecord.setDescription(description);
         boolean result = this.save(pointRecord);
         ThrowUtils.throwIf(!result, ErrorCode.SYSTEM_ERROR, "Failed to write point record");
+    }
+
+    private QueryWrapper<PointRecord> buildAdminRecordQueryWrapper(PointRecordQueryRequest request) {
+        QueryWrapper<PointRecord> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq(request.getUserId() != null && request.getUserId() > 0, "userId", request.getUserId());
+        queryWrapper.eq(StringUtils.isNotBlank(request.getChangeType()), "changeType", request.getChangeType());
+        queryWrapper.ge(request.getStartTime() != null, "createTime", request.getStartTime());
+        queryWrapper.le(request.getEndTime() != null, "createTime", request.getEndTime());
+        if (SqlUtils.validSortField(request.getSortField())) {
+            queryWrapper.orderBy(true, "ascend".equals(request.getSortOrder()), request.getSortField());
+        }
+        queryWrapper.orderByDesc("id");
+        return queryWrapper;
+    }
+
+    private PointRecordAdminVO toAdminVO(PointRecord pointRecord, User user) {
+        PointRecordAdminVO vo = new PointRecordAdminVO();
+        BeanUtils.copyProperties(pointRecord, vo);
+        if (user != null) {
+            vo.setUserAccount(user.getUserAccount());
+            vo.setUserName(user.getUserName());
+        }
+        return vo;
     }
 }

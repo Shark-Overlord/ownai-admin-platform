@@ -202,7 +202,7 @@ export const menuRoutes = [
       },
       {
         path: '/point',
-        name: '积分中心',
+        name: '积分管理',
         icon: 'DollarOutlined',
       },
       {

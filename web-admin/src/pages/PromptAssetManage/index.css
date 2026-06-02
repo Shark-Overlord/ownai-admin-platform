@@ -78,3 +78,83 @@
   color: rgba(0, 0, 0, 0.75);
   font-weight: 600;
 }
+
+.prompt-asset-tag-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prompt-asset-tag-section {
+  padding: 14px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.prompt-asset-tag-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.prompt-asset-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+  align-items: center;
+}
+
+.prompt-asset-selected-tags .ant-tag {
+  margin-inline-end: 0;
+}
+
+.prompt-asset-tag-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.prompt-asset-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 280px;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.prompt-asset-tag-cloud-compact {
+  max-height: 180px;
+  margin-top: 12px;
+}
+
+.prompt-asset-checkable-tag {
+  margin-inline-end: 0;
+  padding: 5px 10px;
+  border: 1px solid #d9d9d9;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.prompt-asset-checkable-tag.ant-tag-checkable-checked {
+  border-color: #1677ff;
+}
+
+.prompt-asset-tag-empty {
+  width: 100%;
+  padding: 32px 0;
+  color: rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.prompt-asset-custom-tag {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}

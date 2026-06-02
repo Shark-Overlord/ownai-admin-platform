@@ -52,8 +52,10 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -63,6 +65,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -150,6 +153,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean updatePromptAsset(PromptAssetUpdateRequest request) {
         if (request == null || request.getId() == null || request.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -163,6 +167,33 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         boolean result = this.updateById(asset);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         syncPrimaryMediaAfterManualUpdate(request, oldAsset);
+        if (request.getSceneTagIdList() != null || request.getAssetTagIdList() != null) {
+            PromptAsset tagAsset = new PromptAsset();
+            BeanUtils.copyProperties(oldAsset, tagAsset);
+            if (request.getCategoryId() != null) {
+                tagAsset.setCategoryId(request.getCategoryId());
+            }
+            syncPromptAssetSplitTags(tagAsset, request.getSceneTagIdList(), request.getAssetTagIdList());
+        } else if (request.getTagIdList() != null) {
+            syncPromptAssetTags(request.getId(), request.getTagIdList());
+        }
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean updatePromptAssetTags(PromptAssetUpdateRequest request) {
+        if (request == null || request.getId() == null || request.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (request.getSceneTagIdList() == null && request.getAssetTagIdList() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "标签列表不能为空");
+        }
+        PromptAsset asset = this.getById(request.getId());
+        if (asset == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+        syncPromptAssetSplitTags(asset, request.getSceneTagIdList(), request.getAssetTagIdList());
         return true;
     }
 
@@ -296,38 +327,24 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         queryWrapper.eq(request.getMemberOnly() != null, "memberOnly", request.getMemberOnly());
         queryWrapper.eq(request.getStatus() != null, "status", request.getStatus());
         queryWrapper.like(StringUtils.isNotBlank(request.getSourceRepoName()), "sourceRepoName", request.getSourceRepoName());
-        if (CollUtil.isNotEmpty(request.getTagIdList())) {
-            List<Long> tagIdList = request.getTagIdList().stream()
-                    .filter(tagId -> tagId != null && tagId > 0)
-                    .distinct()
-                    .collect(Collectors.toList());
-            if (CollUtil.isNotEmpty(tagIdList)) {
-                List<Tag> validTags = tagMapper.selectList(new QueryWrapper<Tag>().in("id", tagIdList));
-                if (CollUtil.isEmpty(validTags)) {
-                    queryWrapper.eq("id", -1L);
-                    return queryWrapper;
-                }
-                tagIdList = validTags.stream().map(Tag::getId).collect(Collectors.toList());
-                List<PromptAssetTag> assetTagList = promptAssetTagMapper.selectList(
-                        new QueryWrapper<PromptAssetTag>().in("tagId", tagIdList));
-                if (CollUtil.isEmpty(assetTagList)) {
-                    queryWrapper.eq("id", -1L);
-                } else {
-                    List<Long> promptAssetIdList = assetTagList.stream()
-                            .map(PromptAssetTag::getPromptAssetId)
-                            .filter(promptAssetId -> promptAssetId != null && promptAssetId > 0)
-                            .distinct()
-                            .collect(Collectors.toList());
-                    queryWrapper.in(CollUtil.isNotEmpty(promptAssetIdList), "id", promptAssetIdList);
-                    queryWrapper.eq(CollUtil.isEmpty(promptAssetIdList), "id", -1L);
-                }
-            }
-        }
+        applyTagFilter(queryWrapper, request.getTagIdList());
+        applyTagFilter(queryWrapper, request.getSceneTagIdList());
+        applyTagFilter(queryWrapper, request.getAssetTagIdList());
         if (StringUtils.isNotBlank(request.getSearchText())) {
-            queryWrapper.and(wrapper -> wrapper.like("title", request.getSearchText())
-                    .or().like("summary", request.getSearchText())
-                    .or().like("promptContent", request.getSearchText())
-                    .or().like("promptCn", request.getSearchText()));
+            List<String> keywordList = splitSearchKeywords(request.getSearchText());
+            for (String keyword : keywordList) {
+                List<Long> promptAssetIdsByTag = findPromptAssetIdsByTagKeyword(keyword);
+                queryWrapper.and(wrapper -> {
+                    wrapper.like("title", keyword)
+                            .or().like("summary", keyword)
+                            .or().like("promptContent", keyword)
+                            .or().like("promptCn", keyword)
+                            .or().like("sourceRepoName", keyword);
+                    if (CollUtil.isNotEmpty(promptAssetIdsByTag)) {
+                        wrapper.or().in("id", promptAssetIdsByTag);
+                    }
+                });
+            }
         }
         String sortField = request.getSortField();
         String sortOrder = request.getSortOrder();
@@ -335,6 +352,70 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                 CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
         queryWrapper.orderByDesc("sort", "id");
         return queryWrapper;
+    }
+
+    private List<String> splitSearchKeywords(String searchText) {
+        String[] keywords = StringUtils.split(StringUtils.trimToEmpty(searchText));
+        if (keywords == null || keywords.length == 0) {
+            return new ArrayList<>();
+        }
+        List<String> result = new ArrayList<>();
+        for (String keyword : keywords) {
+            String trimmed = StringUtils.trimToNull(keyword);
+            if (trimmed != null) {
+                result.add(trimmed);
+            }
+        }
+        return result;
+    }
+
+    private void applyTagFilter(QueryWrapper<PromptAsset> queryWrapper, List<Long> rawTagIds) {
+        List<Long> tagIds = normalizeTagIds(rawTagIds);
+        if (CollUtil.isEmpty(tagIds)) {
+            return;
+        }
+        List<Tag> validTags = tagMapper.selectList(new QueryWrapper<Tag>().in("id", tagIds).eq("isDelete", 0));
+        if (CollUtil.isEmpty(validTags)) {
+            queryWrapper.eq("id", -1L);
+            return;
+        }
+        List<Long> validTagIds = validTags.stream().map(Tag::getId).collect(Collectors.toList());
+        List<Long> promptAssetIds = findPromptAssetIdsByTagIds(validTagIds);
+        if (CollUtil.isEmpty(promptAssetIds)) {
+            queryWrapper.eq("id", -1L);
+            return;
+        }
+        queryWrapper.in("id", promptAssetIds);
+    }
+
+    private List<Long> findPromptAssetIdsByTagKeyword(String keyword) {
+        if (StringUtils.isBlank(keyword)) {
+            return new ArrayList<>();
+        }
+        List<Tag> tags = tagMapper.selectList(new QueryWrapper<Tag>()
+                .like("name", keyword)
+                .eq("isDelete", 0));
+        if (CollUtil.isEmpty(tags)) {
+            return new ArrayList<>();
+        }
+        List<Long> tagIds = tags.stream().map(Tag::getId).collect(Collectors.toList());
+        return findPromptAssetIdsByTagIds(tagIds);
+    }
+
+    private List<Long> findPromptAssetIdsByTagIds(List<Long> tagIds) {
+        if (CollUtil.isEmpty(tagIds)) {
+            return new ArrayList<>();
+        }
+        List<PromptAssetTag> assetTagList = promptAssetTagMapper.selectList(
+                new QueryWrapper<PromptAssetTag>().in("tagId", tagIds));
+        if (CollUtil.isEmpty(assetTagList)) {
+            return new ArrayList<>();
+        }
+        return assetTagList.stream()
+                .map(PromptAssetTag::getPromptAssetId)
+                .filter(promptAssetId -> promptAssetId != null && promptAssetId > 0)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private void importOneRow(Connection sourceConnection, Long batchId, SourcePromptRow row,
@@ -568,6 +649,27 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
 
     private void saveTags(Connection sourceConnection, Long assetId, SourcePromptRow row,
             Long categoryId, boolean syncTagsToCategory) throws Exception {
+        List<String> sceneTagNames = splitTagNames(row.getSceneTagList());
+        List<String> assetTagNames = splitTagNames(row.getAssetTagList());
+        if (CollUtil.isNotEmpty(sceneTagNames) || CollUtil.isNotEmpty(assetTagNames)) {
+            Set<Long> insertedTagIds = new LinkedHashSet<>();
+            promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
+            for (String tagName : sceneTagNames) {
+                Long tagId = ensureTag(tagName);
+                if (insertedTagIds.add(tagId)) {
+                    insertPromptAssetTag(assetId, tagId);
+                }
+                ensureCategoryTag(categoryId, tagId);
+            }
+            for (String tagName : assetTagNames) {
+                Long tagId = ensureTag(tagName);
+                if (insertedTagIds.add(tagId)) {
+                    insertPromptAssetTag(assetId, tagId);
+                }
+            }
+            return;
+        }
+
         Set<String> tagNames = new LinkedHashSet<>();
         addIfNotBlank(tagNames, row.getAssetType());
         addIfNotBlank(tagNames, row.getVisualAssetType());
@@ -589,15 +691,110 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
         for (String tagName : tagNames) {
             Long tagId = ensureTag(tagName);
-            PromptAssetTag assetTag = new PromptAssetTag();
-            assetTag.setPromptAssetId(assetId);
-            assetTag.setTagId(tagId);
-            assetTag.setCreateTime(new Date());
-            promptAssetTagMapper.insert(assetTag);
+            insertPromptAssetTag(assetId, tagId);
             if (syncTagsToCategory) {
                 ensureCategoryTag(categoryId, tagId);
             }
         }
+    }
+
+    private void syncPromptAssetTags(Long assetId, List<Long> tagIdList) {
+        Set<Long> distinctTagIds = new LinkedHashSet<>(normalizeTagIds(tagIdList));
+        if (CollUtil.isEmpty(distinctTagIds)) {
+            promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
+            return;
+        }
+        List<Tag> validTags = tagMapper.selectList(
+                new QueryWrapper<Tag>().in("id", distinctTagIds).eq("isDelete", 0));
+        if (validTags.size() != distinctTagIds.size()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "标签不存在或已删除");
+        }
+        promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
+        for (Long tagId : distinctTagIds) {
+            insertPromptAssetTag(assetId, tagId);
+        }
+    }
+
+    private void insertPromptAssetTag(Long assetId, Long tagId) {
+        PromptAssetTag assetTag = new PromptAssetTag();
+        assetTag.setPromptAssetId(assetId);
+        assetTag.setTagId(tagId);
+        assetTag.setCreateTime(new Date());
+        promptAssetTagMapper.insert(assetTag);
+    }
+
+    private List<String> splitTagNames(String rawValue) {
+        if (StringUtils.isBlank(rawValue)) {
+            return new ArrayList<>();
+        }
+        String normalized = rawValue.trim()
+                .replace("[", "")
+                .replace("]", "")
+                .replace("\"", "")
+                .replace("'", "")
+                .replace("，", ",")
+                .replace("、", ",")
+                .replace("；", ",")
+                .replace(";", ",")
+                .replace("|", ",")
+                .replace("\r", ",")
+                .replace("\n", ",");
+        String[] parts = StringUtils.split(normalized, ",");
+        if (parts == null || parts.length == 0) {
+            return new ArrayList<>();
+        }
+        List<String> result = new ArrayList<>();
+        for (String part : parts) {
+            String tagName = StringUtils.trimToNull(part);
+            if (tagName != null) {
+                result.add(StringUtils.left(tagName, 64));
+            }
+        }
+        return result.stream()
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .collect(Collectors.toList());
+    }
+
+    private void syncPromptAssetSplitTags(PromptAsset asset, List<Long> sceneTagIdList, List<Long> assetTagIdList) {
+        List<Long> sceneTagIds = normalizeTagIds(sceneTagIdList);
+        List<Long> assetTagIds = normalizeTagIds(assetTagIdList);
+        if (CollUtil.isNotEmpty(sceneTagIds)) {
+            Set<Long> allowedSceneTagIds = getSceneTagIdsByCategory(asset.getCategoryId());
+            if (CollUtil.isEmpty(allowedSceneTagIds) || !allowedSceneTagIds.containsAll(sceneTagIds)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "二级场景标签不属于当前分类");
+            }
+        }
+        List<Long> mergedTagIds = new ArrayList<>();
+        mergedTagIds.addAll(sceneTagIds);
+        mergedTagIds.addAll(assetTagIds);
+        syncPromptAssetTags(asset.getId(), mergedTagIds);
+    }
+
+    private List<Long> normalizeTagIds(List<Long> tagIdList) {
+        if (CollUtil.isEmpty(tagIdList)) {
+            return new ArrayList<>();
+        }
+        return tagIdList.stream()
+                .filter(tagId -> tagId != null && tagId > 0)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .collect(Collectors.toList());
+    }
+
+    private Set<Long> getSceneTagIdsByCategory(Long categoryId) {
+        if (categoryId == null || categoryId <= 0) {
+            return new LinkedHashSet<>();
+        }
+        List<CategoryTag> categoryTags = categoryTagMapper.selectList(
+                new QueryWrapper<CategoryTag>().eq("categoryId", categoryId));
+        if (CollUtil.isEmpty(categoryTags)) {
+            return new LinkedHashSet<>();
+        }
+        return categoryTags.stream()
+                .map(CategoryTag::getTagId)
+                .filter(tagId -> tagId != null && tagId > 0)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private Long ensureTag(String name) {
@@ -695,13 +892,38 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             vo.setMediaList(mediaVOList);
 
             List<PromptAssetTag> assetTags = promptAssetTagMapper.selectList(
-                    new QueryWrapper<PromptAssetTag>().eq("promptAssetId", asset.getId()));
+                    new QueryWrapper<PromptAssetTag>().eq("promptAssetId", asset.getId()).orderByAsc("createTime", "id"));
             if (CollUtil.isNotEmpty(assetTags)) {
                 List<Long> tagIds = assetTags.stream().map(PromptAssetTag::getTagId).collect(Collectors.toList());
                 List<Tag> tags = tagMapper.selectList(new QueryWrapper<Tag>().in("id", tagIds).eq("isDelete", 0));
-                vo.setTagList(tagService.getTagVO(tags));
+                Map<Long, TagVO> tagVOMap = tags.stream().collect(Collectors.toMap(
+                        Tag::getId,
+                        tagService::getTagVO,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+                Set<Long> sceneTagIds = getSceneTagIdsByCategory(asset.getCategoryId());
+                List<TagVO> tagList = new ArrayList<>();
+                List<TagVO> sceneTagList = new ArrayList<>();
+                List<TagVO> assetTagList = new ArrayList<>();
+                for (PromptAssetTag assetTag : assetTags) {
+                    TagVO tagVO = tagVOMap.get(assetTag.getTagId());
+                    if (tagVO == null) {
+                        continue;
+                    }
+                    tagList.add(tagVO);
+                    if (sceneTagIds.contains(assetTag.getTagId())) {
+                        sceneTagList.add(tagVO);
+                    } else {
+                        assetTagList.add(tagVO);
+                    }
+                }
+                vo.setTagList(tagList);
+                vo.setSceneTagList(sceneTagList);
+                vo.setAssetTagList(assetTagList);
             } else {
                 vo.setTagList(new ArrayList<TagVO>());
+                vo.setSceneTagList(new ArrayList<TagVO>());
+                vo.setAssetTagList(new ArrayList<TagVO>());
             }
         }
         return vo;
@@ -874,6 +1096,8 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         private String license;
         private String commercialRisk;
         private String visualAssetType;
+        private String sceneTagList;
+        private String assetTagList;
         private String sourceCreatedAt;
         private String sourceUpdatedAt;
         private String syncKey;
@@ -913,6 +1137,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             row.setLicense(rs.getString("license"));
             row.setCommercialRisk(defaultIfBlank(rs.getString("commercial_risk"), "unknown"));
             row.setVisualAssetType(rs.getString("visual_asset_type"));
+            row.setSceneTagList(firstNotBlank(optionalString(rs, "sceneTagList"),
+                    optionalString(rs, "scene_tag_list")));
+            row.setAssetTagList(firstNotBlank(optionalString(rs, "assetTagList"),
+                    optionalString(rs, "asset_tag_list")));
             row.setSourceCreatedAt(rs.getString("created_at"));
             row.setSourceUpdatedAt(rs.getString("updated_at"));
             row.setSyncKey(buildSyncKey(row));
