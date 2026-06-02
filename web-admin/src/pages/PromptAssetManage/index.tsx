@@ -22,6 +22,7 @@ import {
   message,
 } from 'antd';
 import {
+  CheckCircleOutlined,
   CloudUploadOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -41,6 +42,7 @@ import {
   importVisualPromptDb,
   listPromptAssetByPageForAdmin,
   listPromptAssetImportBatchByPage,
+  publishPromptAssetBatch,
   syncPromptAssetImagesToCos,
   updatePromptAsset,
   type PromptAssetImportBatch,
@@ -335,6 +337,13 @@ export default function PromptAssetManage() {
     reloadTables();
   };
 
+  const handleBatchPublish = async () => {
+    await publishPromptAssetBatch({ ids: selectedRows.map((item) => item.id) });
+    message.success('批量发布成功');
+    setSelectedRows([]);
+    reloadTables();
+  };
+
   const handleSyncImages = async () => {
     const res = await syncPromptAssetImagesToCos({ ids: selectedRows.map((item) => item.id) });
     const data = res.data;
@@ -547,6 +556,16 @@ export default function PromptAssetManage() {
           >
             同步图片
           </Button>,
+          <Popconfirm
+            key="batch-publish"
+            title="确认批量发布选中的 Prompt 资产？"
+            disabled={selectedRows.length === 0}
+            onConfirm={handleBatchPublish}
+          >
+            <Button icon={<CheckCircleOutlined />} disabled={selectedRows.length === 0}>
+              批量发布
+            </Button>
+          </Popconfirm>,
           <Popconfirm
             key="batch-delete"
             title="确认批量删除选中的资产？"

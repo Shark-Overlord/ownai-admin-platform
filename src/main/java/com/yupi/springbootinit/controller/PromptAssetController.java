@@ -107,6 +107,17 @@ public class PromptAssetController {
         return ResultUtils.success(promptAssetService.deletePromptAssetBatch(request.getIds()));
     }
 
+    @PostMapping("/admin/publish/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "prompt_asset", action = "batch_publish_prompt_asset")
+    @ApiOperation("Admin batch publish prompt assets")
+    public BaseResponse<Boolean> publishPromptAssetBatch(@RequestBody BatchDeleteRequest request) {
+        if (request == null || CollUtil.isEmpty(request.getIds())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(promptAssetService.publishPromptAssetBatch(request.getIds()));
+    }
+
     @PostMapping("/admin/sync/image/cos")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "sync_prompt_asset_image_cos")

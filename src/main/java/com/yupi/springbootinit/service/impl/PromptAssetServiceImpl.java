@@ -225,6 +225,22 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     }
 
     @Override
+    public Boolean publishPromptAssetBatch(List<Long> ids) {
+        List<Long> distinctIds = normalizeTagIds(ids);
+        if (CollUtil.isEmpty(distinctIds)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        for (Long id : distinctIds) {
+            PromptAsset updateAsset = new PromptAsset();
+            updateAsset.setId(id);
+            updateAsset.setStatus(1);
+            updateAsset.setUpdateTime(new Date());
+            this.updateById(updateAsset);
+        }
+        return true;
+    }
+
+    @Override
     public PromptAssetImageSyncResultVO syncImagesToCos(List<Long> ids) {
         if (CollUtil.isEmpty(ids)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);

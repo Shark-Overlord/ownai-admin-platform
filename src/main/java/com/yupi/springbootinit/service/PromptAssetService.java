@@ -27,6 +27,8 @@ public interface PromptAssetService extends IService<PromptAsset> {
 
     Boolean deletePromptAssetBatch(List<Long> ids);
 
+    Boolean publishPromptAssetBatch(List<Long> ids);
+
     PromptAssetImageSyncResultVO syncImagesToCos(List<Long> ids);
 
     PromptAssetImportResultVO importVisualPromptLibrary(MultipartFile file, Boolean dryRun, String assetTypeFilter,

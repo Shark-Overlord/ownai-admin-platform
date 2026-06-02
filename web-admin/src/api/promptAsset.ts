@@ -134,6 +134,10 @@ export async function deletePromptAssetBatch(params: { ids: number[] }) {
   return request.post('/promptAsset/admin/delete/batch', params) as Promise<{ data: boolean }>;
 }
 
+export async function publishPromptAssetBatch(params: { ids: number[] }) {
+  return request.post('/promptAsset/admin/publish/batch', params) as Promise<{ data: boolean }>;
+}
+
 export async function syncPromptAssetImagesToCos(params: { ids: number[] }) {
   return request.post('/promptAsset/admin/sync/image/cos', params) as Promise<{ data: PromptAssetImageSyncResultVO }>;
 }
