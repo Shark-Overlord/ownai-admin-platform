@@ -671,6 +671,9 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             Long categoryId, boolean syncTagsToCategory) throws Exception {
         List<String> sceneTagNames = splitTagNames(row.getSceneTagList());
         List<String> assetTagNames = splitTagNames(row.getAssetTagList());
+        if (sceneTagNames.size() > 1) {
+            sceneTagNames = sceneTagNames.subList(0, 1);
+        }
         if (CollUtil.isNotEmpty(sceneTagNames) || CollUtil.isNotEmpty(assetTagNames)) {
             Set<Long> insertedTagIds = new LinkedHashSet<>();
             promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
