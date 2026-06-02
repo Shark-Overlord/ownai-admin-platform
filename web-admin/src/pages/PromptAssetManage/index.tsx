@@ -96,6 +96,7 @@ export default function PromptAssetManage() {
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [coverFileList, setCoverFileList] = useState<UploadFile[]>([]);
   const [previewImage, setPreviewImage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -283,15 +284,14 @@ export default function PromptAssetManage() {
 
   const handleImport = async () => {
     const values = await importForm.validateFields();
-    const file = fileList[0]?.originFileObj;
-    if (!file) {
+    if (!importFile) {
       message.error('请先选择 visual_prompt_library.db');
       return;
     }
     setImporting(true);
     try {
       const res = await importVisualPromptDb({
-        file,
+        file: importFile,
         categoryId: values.categoryId,
         dryRun: values.dryRun !== false,
         assetType: values.assetType,
@@ -303,6 +303,29 @@ export default function PromptAssetManage() {
       reloadTables();
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleImportFileChange = async ({ fileList: nextFileList }: { fileList: UploadFile[] }) => {
+    const nextFile = nextFileList[0];
+    if (!nextFile?.originFileObj) {
+      setFileList([]);
+      setImportFile(null);
+      return;
+    }
+    try {
+      const rawFile = nextFile.originFileObj as File;
+      const buffer = await rawFile.arrayBuffer();
+      const stableFile = new File([buffer], rawFile.name, {
+        type: rawFile.type || 'application/octet-stream',
+        lastModified: Date.now(),
+      });
+      setImportFile(stableFile);
+      setFileList([{ ...nextFile, status: 'done' }]);
+    } catch (error) {
+      setFileList([]);
+      setImportFile(null);
+      message.error('文件读取失败，请重新选择 SQLite 文件');
     }
   };
 
@@ -582,6 +605,8 @@ export default function PromptAssetManage() {
             icon={<UploadOutlined />}
             onClick={() => {
               setImportResult(null);
+              setFileList([]);
+              setImportFile(null);
               setImportOpen(true);
             }}
           >
@@ -634,7 +659,7 @@ export default function PromptAssetManage() {
               maxCount={1}
               beforeUpload={() => false}
               fileList={fileList}
-              onChange={({ fileList: nextFileList }) => setFileList(nextFileList)}
+              onChange={handleImportFileChange}
             >
               <p className="ant-upload-drag-icon">
                 <InboxOutlined />
