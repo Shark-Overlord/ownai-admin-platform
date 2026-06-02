@@ -6,6 +6,8 @@ import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.config.CosClientConfig;
 import com.yupi.springbootinit.constant.CommonConstant;
@@ -74,6 +76,8 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         implements PromptAssetService {
 
     private static final String SOURCE_NAME = "visual_prompt_library";
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String[] STALE_CN_MARKERS = {
             "该 Prompt 适合用于图像生成场景",
@@ -743,7 +747,17 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         if (StringUtils.isBlank(rawValue)) {
             return new ArrayList<>();
         }
-        String normalized = rawValue.trim()
+        String trimmedValue = rawValue.trim();
+        if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
+            try {
+                List<String> tagNames = OBJECT_MAPPER.readValue(trimmedValue, new TypeReference<List<String>>() {
+                });
+                return normalizeTagNames(tagNames);
+            } catch (Exception e) {
+                log.warn("parse prompt asset json tag list failed, rawValue={}", rawValue, e);
+            }
+        }
+        String normalized = trimmedValue
                 .replace("[", "")
                 .replace("]", "")
                 .replace("\"", "")
@@ -763,10 +777,20 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         for (String part : parts) {
             String tagName = StringUtils.trimToNull(part);
             if (tagName != null) {
-                result.add(StringUtils.left(tagName, 64));
+                result.add(tagName);
             }
         }
-        return result.stream()
+        return normalizeTagNames(result);
+    }
+
+    private List<String> normalizeTagNames(List<String> rawTagNames) {
+        if (CollUtil.isEmpty(rawTagNames)) {
+            return new ArrayList<>();
+        }
+        return rawTagNames.stream()
+                .map(StringUtils::trimToNull)
+                .filter(StringUtils::isNotBlank)
+                .map(tagName -> StringUtils.left(tagName, 64))
                 .collect(Collectors.toCollection(LinkedHashSet::new))
                 .stream()
                 .collect(Collectors.toList());
