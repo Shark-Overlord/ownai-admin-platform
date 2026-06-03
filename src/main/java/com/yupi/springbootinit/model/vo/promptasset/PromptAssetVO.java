@@ -84,6 +84,8 @@ public class PromptAssetVO implements Serializable {
 
     private List<TagVO> assetTagList;
 
+    private String assetTagText;
+
     private Date createTime;
 
     private Date updateTime;

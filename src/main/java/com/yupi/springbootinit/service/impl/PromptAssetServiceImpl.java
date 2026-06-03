@@ -359,6 +359,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                             .or().like("summary", keyword)
                             .or().like("promptContent", keyword)
                             .or().like("promptCn", keyword)
+                            .or().like("assetTagText", keyword)
                             .or().like("sourceRepoName", keyword);
                     if (CollUtil.isNotEmpty(promptAssetIdsByTag)) {
                         wrapper.or().in("id", promptAssetIdsByTag);
@@ -481,7 +482,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             uploadImageToCosIfPossible(asset, existing);
         }
         saveMedia(asset, row);
-        saveTags(sourceConnection, asset.getId(), row, categoryId, syncTagsToCategory);
+        saveTags(sourceConnection, asset, row, categoryId, syncTagsToCategory);
     }
 
     private void saveMedia(PromptAsset asset, SourcePromptRow row) {
@@ -667,8 +668,9 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
     }
 
-    private void saveTags(Connection sourceConnection, Long assetId, SourcePromptRow row,
+    private void saveTags(Connection sourceConnection, PromptAsset asset, SourcePromptRow row,
             Long categoryId, boolean syncTagsToCategory) throws Exception {
+        Long assetId = asset.getId();
         List<String> sceneTagNames = splitTagNames(row.getSceneTagList());
         List<String> assetTagNames = splitTagNames(row.getAssetTagList());
         if (sceneTagNames.size() > 1) {
@@ -684,14 +686,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                 }
                 ensureCategoryTag(categoryId, tagId);
             }
-            for (String tagName : assetTagNames) {
-                Long tagId = ensureTag(tagName);
-                if (insertedTagIds.add(tagId)) {
-                    insertPromptAssetTag(assetId, tagId);
-                }
-            }
+            updateAssetTagText(assetId, assetTagNames);
             return;
         }
+        updateAssetTagText(assetId, new ArrayList<>());
 
         Set<String> tagNames = new LinkedHashSet<>();
         addIfNotBlank(tagNames, row.getAssetType());
@@ -744,6 +742,21 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         assetTag.setTagId(tagId);
         assetTag.setCreateTime(new Date());
         promptAssetTagMapper.insert(assetTag);
+    }
+
+    private void updateAssetTagText(Long assetId, List<String> assetTagNames) {
+        PromptAsset updateAsset = new PromptAsset();
+        updateAsset.setId(assetId);
+        updateAsset.setAssetTagText(toJsonTagText(assetTagNames));
+        this.updateById(updateAsset);
+    }
+
+    private String toJsonTagText(List<String> tagNames) {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(normalizeTagNames(tagNames));
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "asset tag json serialize failed");
+        }
     }
 
     private List<String> splitTagNames(String rawValue) {
@@ -960,16 +973,35 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                         assetTagList.add(tagVO);
                     }
                 }
+                List<TagVO> textAssetTags = toAssetTagVOList(asset.getAssetTagText());
+                assetTagList.addAll(textAssetTags);
+                tagList.addAll(textAssetTags);
                 vo.setTagList(tagList);
                 vo.setSceneTagList(sceneTagList);
                 vo.setAssetTagList(assetTagList);
             } else {
-                vo.setTagList(new ArrayList<TagVO>());
+                List<TagVO> textAssetTags = toAssetTagVOList(asset.getAssetTagText());
+                vo.setTagList(new ArrayList<TagVO>(textAssetTags));
                 vo.setSceneTagList(new ArrayList<TagVO>());
-                vo.setAssetTagList(new ArrayList<TagVO>());
+                vo.setAssetTagList(textAssetTags);
             }
         }
         return vo;
+    }
+
+    private List<TagVO> toAssetTagVOList(String assetTagText) {
+        List<String> tagNames = splitTagNames(assetTagText);
+        if (CollUtil.isEmpty(tagNames)) {
+            return new ArrayList<>();
+        }
+        return tagNames.stream().map(tagName -> {
+            TagVO tagVO = new TagVO();
+            tagVO.setId(-Math.abs((long) tagName.hashCode()));
+            tagVO.setName(tagName);
+            tagVO.setDescription("asset_tag_text");
+            tagVO.setSort(0);
+            return tagVO;
+        }).collect(Collectors.toList());
     }
 
     private PromptAssetImportBatch createBatch(String filename, boolean dryRun, String assetTypeFilter,
