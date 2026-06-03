@@ -46,6 +46,8 @@ public class ImageGenerationApiWorkerJob {
 
     private static final String AUTH_TYPE_BEARER = "bearer";
 
+    private static final String REQUEST_TYPE_MULTIPART = "multipart";
+
     private static final int DEFAULT_HTTP_TIMEOUT_MS = 180000;
 
     private static final int MAX_BATCH_SIZE = 5;
@@ -154,20 +156,18 @@ public class ImageGenerationApiWorkerJob {
                 String.valueOf(providerRequest.get("providerCode")));
         ImageGenerationWorkerProviderConfigVO providerConfig =
                 providerConfigService.getWorkerProviderConfig(providerCode);
-        String url = buildProviderUrl(providerConfig);
+        String url = buildProviderUrl(providerConfig, providerRequest);
         Object requestBody = providerRequest.get("requestBody");
         if (requestBody == null) {
             throw new BusinessException(com.yupi.springbootinit.common.ErrorCode.OPERATION_ERROR,
                     "Missing provider request body");
         }
-        HttpRequest httpRequest = HttpRequest.post(url)
-                .header(Header.CONTENT_TYPE, "application/json")
-                .timeout(resolveTimeout(providerConfig))
-                .body(JSONUtil.toJsonStr(requestBody));
-        if (AUTH_TYPE_BEARER.equalsIgnoreCase(providerConfig.getAuthType())) {
-            httpRequest.header(Header.AUTHORIZATION, "Bearer " + providerConfig.getApiKey());
+        HttpResponse response;
+        if (shouldUseMultipart(providerRequest, requestBody)) {
+            response = executeMultipartProviderRequest(url, providerConfig, requestBody);
+        } else {
+            response = executeJsonProviderRequest(url, providerConfig, requestBody);
         }
-        HttpResponse response = httpRequest.execute();
         String responseBody = response.body();
         if (response.getStatus() < 200 || response.getStatus() >= 300) {
             throw new BusinessException(com.yupi.springbootinit.common.ErrorCode.OPERATION_ERROR,
@@ -185,9 +185,93 @@ public class ImageGenerationApiWorkerJob {
         return result;
     }
 
-    private String buildProviderUrl(ImageGenerationWorkerProviderConfigVO providerConfig) {
+    private HttpResponse executeJsonProviderRequest(String url, ImageGenerationWorkerProviderConfigVO providerConfig,
+            Object requestBody) {
+        HttpRequest httpRequest = HttpRequest.post(url)
+                .header(Header.CONTENT_TYPE, "application/json")
+                .timeout(resolveTimeout(providerConfig))
+                .body(JSONUtil.toJsonStr(requestBody));
+        fillAuthHeader(httpRequest, providerConfig);
+        return httpRequest.execute();
+    }
+
+    private HttpResponse executeMultipartProviderRequest(String url, ImageGenerationWorkerProviderConfigVO providerConfig,
+            Object requestBody) {
+        JSONObject body = JSONUtil.parseObj(requestBody);
+        List<File> referenceFiles = downloadReferenceImages(body);
+        try {
+            HttpRequest httpRequest = HttpRequest.post(url)
+                    .timeout(resolveTimeout(providerConfig))
+                    .form("model", body.getStr("model"))
+                    .form("prompt", body.getStr("prompt"))
+                    .form("size", body.getStr("size"));
+            for (File referenceFile : referenceFiles) {
+                httpRequest.form("image[]", referenceFile);
+            }
+            fillAuthHeader(httpRequest, providerConfig);
+            return httpRequest.execute();
+        } finally {
+            referenceFiles.forEach(FileUtil::del);
+        }
+    }
+
+    private void fillAuthHeader(HttpRequest httpRequest, ImageGenerationWorkerProviderConfigVO providerConfig) {
+        if (AUTH_TYPE_BEARER.equalsIgnoreCase(providerConfig.getAuthType())) {
+            httpRequest.header(Header.AUTHORIZATION, "Bearer " + providerConfig.getApiKey());
+        }
+    }
+
+    private boolean shouldUseMultipart(Map<String, Object> providerRequest, Object requestBody) {
+        if (REQUEST_TYPE_MULTIPART.equalsIgnoreCase(String.valueOf(providerRequest.get("requestType")))) {
+            return true;
+        }
+        JSONObject body = JSONUtil.parseObj(requestBody);
+        JSONArray referenceImages = body.getJSONArray("reference_images");
+        return referenceImages != null && !referenceImages.isEmpty();
+    }
+
+    private List<File> downloadReferenceImages(JSONObject body) {
+        JSONArray referenceImages = body.getJSONArray("reference_images");
+        if (referenceImages == null || referenceImages.isEmpty()) {
+            throw new BusinessException(com.yupi.springbootinit.common.ErrorCode.OPERATION_ERROR,
+                    "Missing reference image for image edit request");
+        }
+        List<File> files = new ArrayList<>();
+        try {
+            for (Object referenceImageValue : referenceImages) {
+                String referenceImageUrl = String.valueOf(referenceImageValue);
+                if (!StringUtils.startsWithAny(referenceImageUrl, "http://", "https://")) {
+                    throw new BusinessException(com.yupi.springbootinit.common.ErrorCode.OPERATION_ERROR,
+                            "Reference image must be a public URL");
+                }
+                HttpResponse imageResponse = HttpRequest.get(referenceImageUrl).timeout(DEFAULT_HTTP_TIMEOUT_MS).execute();
+                if (imageResponse.getStatus() < 200 || imageResponse.getStatus() >= 300) {
+                    throw new BusinessException(com.yupi.springbootinit.common.ErrorCode.OPERATION_ERROR,
+                            "Failed to download reference image: HTTP " + imageResponse.getStatus());
+                }
+                String contentType = StringUtils.substringBefore(
+                        StringUtils.defaultString(imageResponse.header(Header.CONTENT_TYPE)), ";");
+                String format = resolveImageFormat(referenceImageUrl, contentType);
+                File tempFile = FileUtil.createTempFile("ownai-reference-image-", "." + format, true);
+                FileUtil.writeBytes(imageResponse.bodyBytes(), tempFile);
+                files.add(tempFile);
+            }
+            return files;
+        } catch (Exception e) {
+            files.forEach(FileUtil::del);
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new BusinessException(com.yupi.springbootinit.common.ErrorCode.OPERATION_ERROR,
+                    "Failed to prepare reference image: " + e.getMessage());
+        }
+    }
+
+    private String buildProviderUrl(ImageGenerationWorkerProviderConfigVO providerConfig, Map<String, Object> providerRequest) {
         String baseUrl = StringUtils.removeEnd(providerConfig.getBaseUrl(), "/");
-        String generationPath = providerConfig.getGenerationPath();
+        Object requestPath = providerRequest.get("generationPath");
+        String generationPath = requestPath == null ? providerConfig.getGenerationPath()
+                : StringUtils.defaultIfBlank(String.valueOf(requestPath), providerConfig.getGenerationPath());
         if (!StringUtils.startsWith(generationPath, "/")) {
             generationPath = "/" + generationPath;
         }

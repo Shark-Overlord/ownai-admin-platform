@@ -713,7 +713,6 @@ public class ImageGenerationMessageServiceImpl
         payload.put("providerCode", providerConfig.getProviderCode());
         payload.put("providerName", providerConfig.getProviderName());
         payload.put("baseUrl", providerConfig.getBaseUrl());
-        payload.put("generationPath", providerConfig.getGenerationPath());
         payload.put("authType", providerConfig.getAuthType());
         payload.put("timeoutSeconds", providerConfig.getTimeoutSeconds());
         payload.put("generationMode", normalizeGenerationMode(request.getGenerationMode()));
@@ -733,11 +732,14 @@ public class ImageGenerationMessageServiceImpl
             referenceImages.add(referenceImageUrl);
             payload.put("reference_images", referenceImages);
         }
+        boolean editMode = !referenceImages.isEmpty();
+        payload.put("requestType", editMode ? "multipart" : "json");
+        payload.put("generationPath", editMode ? "/v1/images/edits" : providerConfig.getGenerationPath());
         Map<String, Object> requestBody = new LinkedHashMap<>();
         requestBody.put("model", modelConfig.getModelCode());
         requestBody.put("prompt", prompt);
         requestBody.put("size", modelConfig.getVendorSize());
-        if (!referenceImages.isEmpty()) {
+        if (editMode) {
             requestBody.put("reference_images", referenceImages);
         }
         payload.put("requestBody", requestBody);
