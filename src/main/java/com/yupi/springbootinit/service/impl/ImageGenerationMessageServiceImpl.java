@@ -24,6 +24,7 @@ import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationCreateVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationDailyTrendVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationMessageVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationMonitorOverviewVO;
+import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationQuoteVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationTaskContextVO;
 import com.yupi.springbootinit.model.enums.PointChangeTypeEnum;
 import com.yupi.springbootinit.service.ImageGenerationMessageService;
@@ -216,6 +217,44 @@ public class ImageGenerationMessageServiceImpl
         vo.setPointCost(pointCost);
         vo.setApiCostCny(apiCostCny);
         vo.setManualCostCny(manualCostCny);
+        return vo;
+    }
+
+    @Override
+    public ImageGenerationQuoteVO quoteGeneration(ImageGenerationCreateRequest request, User loginUser) {
+        validateQuoteRequest(request);
+        ImageGenerationProviderConfig providerConfig = resolveProviderConfig(request.getProviderCode());
+        String modelCode = normalizeModelCode(request.getModelCode());
+        String imageSize = normalizeImageSize(request.getImageSize());
+        String generationMode = normalizeGenerationMode(request.getGenerationMode());
+        String resolvedAspectRatio = normalizeConfigAspectRatio(request.getAspectRatio());
+        ImageGenerationModelConfig modelConfig = modelConfigService.getEnabledModelConfig(
+                providerConfig.getProviderCode(), modelCode, imageSize, resolvedAspectRatio);
+        String referenceImageUrl = normalizeReferenceImageUrl(request.getReferenceImageUrl());
+        if (StringUtils.isNotBlank(referenceImageUrl)
+                && !Integer.valueOf(1).equals(modelConfig.getSupportsReferenceImage())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "This model size does not support reference images");
+        }
+        int imageCount = normalizeImageCount(request.getImageCount());
+        boolean manualMode = GENERATION_MODE_MANUAL.equals(generationMode);
+        int pointCost = manualMode ? calculateManualPointCost(modelConfig, imageCount)
+                : calculatePointCost(modelConfig, imageCount);
+        int unitPointCost = imageCount <= 0 ? pointCost : pointCost / imageCount;
+        int pointBalance = loginUser.getPointBalance() == null ? 0 : loginUser.getPointBalance();
+
+        ImageGenerationQuoteVO vo = new ImageGenerationQuoteVO();
+        vo.setProviderCode(providerConfig.getProviderCode());
+        vo.setProviderName(providerConfig.getProviderName());
+        vo.setModelCode(modelCode);
+        vo.setImageSize(imageSize);
+        vo.setAspectRatio(resolvedAspectRatio);
+        vo.setVendorSize(modelConfig.getVendorSize());
+        vo.setGenerationMode(generationMode);
+        vo.setImageCount(imageCount);
+        vo.setUnitPointCost(unitPointCost);
+        vo.setPointCost(pointCost);
+        vo.setPointBalance(pointBalance);
+        vo.setEnough(pointBalance >= pointCost);
         return vo;
     }
 
@@ -571,6 +610,18 @@ public class ImageGenerationMessageServiceImpl
         if (StringUtils.isBlank(request.getPrompt()) && StringUtils.isBlank(request.getReferenceImageUrl())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        normalizeModelCode(request.getModelCode());
+        normalizeImageSize(request.getImageSize());
+        normalizeGenerationMode(request.getGenerationMode());
+        normalizeImageCount(request.getImageCount());
+        normalizeReferenceImageUrl(request.getReferenceImageUrl());
+    }
+
+    private void validateQuoteRequest(ImageGenerationCreateRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        normalizeConfigAspectRatio(request.getAspectRatio());
         normalizeModelCode(request.getModelCode());
         normalizeImageSize(request.getImageSize());
         normalizeGenerationMode(request.getGenerationMode());

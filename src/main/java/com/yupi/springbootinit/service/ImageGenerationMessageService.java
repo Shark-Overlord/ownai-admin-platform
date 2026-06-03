@@ -13,11 +13,14 @@ import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationConversat
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationCreateVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationMessageVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationMonitorOverviewVO;
+import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationQuoteVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationTaskContextVO;
 
 public interface ImageGenerationMessageService extends IService<ImageGenerationMessage> {
 
     ImageGenerationCreateVO createGeneration(ImageGenerationCreateRequest request, User loginUser);
+
+    ImageGenerationQuoteVO quoteGeneration(ImageGenerationCreateRequest request, User loginUser);
 
     ImageGenerationConversationVO getCurrentConversation(User loginUser);
 

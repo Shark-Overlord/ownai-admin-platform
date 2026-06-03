@@ -17,6 +17,7 @@ import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationConversat
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationCreateVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationMessageVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationMonitorOverviewVO;
+import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationQuoteVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationTaskContextVO;
 import com.yupi.springbootinit.service.ImageGenerationMessageService;
 import com.yupi.springbootinit.service.UserService;
@@ -54,6 +55,15 @@ public class ImageGenerationController {
             HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         return ResultUtils.success(imageGenerationMessageService.createGeneration(createRequest, loginUser));
+    }
+
+    @PostMapping("/config/quote")
+    @ApiOperation("Quote image generation point cost")
+    public BaseResponse<ImageGenerationQuoteVO> quoteImageGeneration(
+            @RequestBody ImageGenerationCreateRequest quoteRequest,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(imageGenerationMessageService.quoteGeneration(quoteRequest, loginUser));
     }
 
     @GetMapping("/conversation/current")
