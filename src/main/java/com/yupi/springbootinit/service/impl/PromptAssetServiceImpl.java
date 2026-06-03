@@ -442,13 +442,14 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     private void importOneRow(Connection sourceConnection, Long batchId, SourcePromptRow row,
             boolean dryRun, Long categoryId, boolean syncTagsToCategory, boolean uploadImagesToCos,
             ImportCounter counter) throws Exception {
-        PromptAsset existing = this.getOne(new QueryWrapper<PromptAsset>().eq("syncKey", row.getSyncKey()), false);
+        PromptAsset existing = baseMapper.selectBySyncKeyIncludeDeleted(row.getSyncKey());
+        boolean existingDeleted = existing != null && existing.getIsDelete() != null && existing.getIsDelete() != 0;
         if (dryRun) {
             if (existing == null) {
                 counter.insertCount++;
                 saveImportItem(batchId, row.getSourcePairId(), row.getSyncKey(), null,
                         "insert", "dry_run", null);
-            } else if (row.hasChanged(existing, categoryId)) {
+            } else if (existingDeleted || row.hasChanged(existing, categoryId)) {
                 counter.updateCount++;
                 saveImportItem(batchId, row.getSourcePairId(), row.getSyncKey(), existing.getId(),
                         "update", "dry_run", null);
@@ -466,8 +467,11 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             counter.insertCount++;
             saveImportItem(batchId, row.getSourcePairId(), row.getSyncKey(), asset.getId(),
                     "insert", "success", null);
-        } else if (row.hasChanged(existing, categoryId)) {
+        } else if (existingDeleted || row.hasChanged(existing, categoryId)) {
             asset.setId(existing.getId());
+            if (existingDeleted) {
+                baseMapper.restoreById(existing.getId());
+            }
             this.updateById(asset);
             counter.updateCount++;
             saveImportItem(batchId, row.getSourcePairId(), row.getSyncKey(), existing.getId(),
@@ -494,17 +498,26 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
         QueryWrapper<PromptAssetMedia> queryWrapper = new QueryWrapper<PromptAssetMedia>()
                 .eq("promptAssetId", asset.getId());
+        PromptAssetMedia existing;
         if (StringUtils.isNotBlank(asset.getSourceImageHash())) {
             queryWrapper.eq("fileHash", asset.getSourceImageHash());
+            existing = promptAssetMediaMapper.selectByAssetIdAndFileHashIncludeDeleted(
+                    asset.getId(), asset.getSourceImageHash());
         } else if (StringUtils.isNotBlank(asset.getSourceImageOriginalUrl())) {
             queryWrapper.eq("originalUrl", asset.getSourceImageOriginalUrl());
+            existing = promptAssetMediaMapper.selectOne(queryWrapper.last("limit 1"));
         } else if (StringUtils.isNotBlank(asset.getSourceCloudStorageUrl())) {
             queryWrapper.eq("cloudUrl", asset.getSourceCloudStorageUrl());
+            existing = promptAssetMediaMapper.selectOne(queryWrapper.last("limit 1"));
         } else {
             queryWrapper.eq("sourceLocalPath", asset.getSourceImageLocalPath());
+            existing = promptAssetMediaMapper.selectOne(queryWrapper.last("limit 1"));
         }
-        PromptAssetMedia existing = promptAssetMediaMapper.selectOne(queryWrapper.last("limit 1"));
         if (existing != null) {
+            if (existing.getIsDelete() != null && existing.getIsDelete() != 0) {
+                promptAssetMediaMapper.restoreById(existing.getId());
+                existing.setIsDelete(0);
+            }
             if (StringUtils.isNotBlank(asset.getCoverUrl())
                     && !StringUtils.equals(existing.getLocalUrl(), asset.getCoverUrl())) {
                 existing.setLocalUrl(asset.getCoverUrl());
