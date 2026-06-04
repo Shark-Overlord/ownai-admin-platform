@@ -14,6 +14,7 @@ import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.mapper.PromptAssetImportBatchMapper;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
 import com.yupi.springbootinit.model.entity.PromptAssetImportBatch;
@@ -67,6 +68,14 @@ public class PromptAssetController {
     @ApiOperation("Admin get prompt asset detail")
     public BaseResponse<PromptAssetVO> getPromptAssetVO(Long id) {
         return ResultUtils.success(promptAssetService.getPromptAssetVO(id));
+    }
+
+    @PostMapping("/admin/add")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "prompt_asset", action = "add_prompt_asset")
+    @ApiOperation("Admin add prompt asset")
+    public BaseResponse<Long> addPromptAsset(@RequestBody PromptAssetAddRequest request) {
+        return ResultUtils.success(promptAssetService.addPromptAsset(request));
     }
 
     @PostMapping("/admin/update")

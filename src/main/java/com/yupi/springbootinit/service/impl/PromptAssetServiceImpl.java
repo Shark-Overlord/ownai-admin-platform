@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -22,6 +23,7 @@ import com.yupi.springbootinit.mapper.PromptAssetMapper;
 import com.yupi.springbootinit.mapper.PromptAssetMediaMapper;
 import com.yupi.springbootinit.mapper.PromptAssetTagMapper;
 import com.yupi.springbootinit.mapper.TagMapper;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
 import com.yupi.springbootinit.model.entity.Category;
@@ -76,6 +78,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         implements PromptAssetService {
 
     private static final String SOURCE_NAME = "visual_prompt_library";
+
+    private static final String MANUAL_SOURCE_NAME = "admin_manual";
+
+    private static final String DEFAULT_MANUAL_SELECTION_STATUS = "manual";
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -154,6 +160,39 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         return toVO(asset, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long addPromptAsset(PromptAssetAddRequest request) {
+        validateAddRequest(request);
+        PromptAsset asset = new PromptAsset();
+        asset.setAssetType(StringUtils.trim(request.getAssetType()));
+        asset.setCategoryId(request.getCategoryId());
+        asset.setTitle(StringUtils.left(StringUtils.trim(request.getTitle()), 255));
+        asset.setSummary(StringUtils.left(StringUtils.trimToNull(request.getSummary()), 500));
+        asset.setPromptContent(StringUtils.trim(request.getPromptContent()));
+        asset.setPromptCn(StringUtils.trimToNull(request.getPromptCn()));
+        asset.setCoverUrl(StringUtils.trimToNull(request.getCoverUrl()));
+        asset.setPreviewMediaUrl(StringUtils.defaultIfBlank(StringUtils.trimToNull(request.getPreviewMediaUrl()),
+                StringUtils.trimToNull(request.getCoverUrl())));
+        asset.setMediaType("image");
+        asset.setSourceName(MANUAL_SOURCE_NAME);
+        asset.setSelectionStatus(DEFAULT_MANUAL_SELECTION_STATUS);
+        asset.setMemberOnly(request.getMemberOnly() == null ? 0 : request.getMemberOnly());
+        asset.setStatus(request.getStatus() == null ? 0 : request.getStatus());
+        asset.setSort(request.getSort() == null ? 0 : request.getSort());
+        asset.setSyncKey("manual_" + IdWorker.getIdStr());
+        asset.setCreateTime(new Date());
+        asset.setUpdateTime(new Date());
+        asset.setIsDelete(0);
+        boolean saved = this.save(asset);
+        ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR);
+        syncPrimaryMediaAfterManualAdd(asset);
+        if (request.getSceneTagIdList() != null || request.getAssetTagIdList() != null) {
+            syncPromptAssetSplitTags(asset, request.getSceneTagIdList(), request.getAssetTagIdList());
+        }
+        return asset.getId();
     }
 
     @Override
@@ -596,6 +635,52 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         media.setThumbnailCloudUrl(null);
         media.setThumbnailLocalUrl(null);
         promptAssetMediaMapper.updateById(media);
+    }
+
+    private void syncPrimaryMediaAfterManualAdd(PromptAsset asset) {
+        if (asset == null || asset.getId() == null || StringUtils.isBlank(asset.getCoverUrl())) {
+            return;
+        }
+        PromptAssetMedia media = new PromptAssetMedia();
+        media.setPromptAssetId(asset.getId());
+        media.setMediaType(StringUtils.defaultIfBlank(asset.getMediaType(), "image"));
+        media.setOriginalUrl(asset.getCoverUrl());
+        media.setLocalUrl(asset.getCoverUrl());
+        media.setCloudUrl(asset.getPreviewMediaUrl());
+        media.setSort(0);
+        media.setCreateTime(new Date());
+        media.setIsDelete(0);
+        promptAssetMediaMapper.insert(media);
+    }
+
+    private void validateAddRequest(PromptAssetAddRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (!StringUtils.equalsAny(StringUtils.trim(request.getAssetType()), "image_prompt", "video_prompt")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported prompt asset type");
+        }
+        if (request.getCategoryId() == null || request.getCategoryId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Category is required");
+        }
+        Category category = categoryMapper.selectById(request.getCategoryId());
+        if (category == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Category does not exist");
+        }
+        if (StringUtils.isBlank(request.getTitle())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Title is required");
+        }
+        if (StringUtils.isBlank(request.getPromptContent())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Prompt is required");
+        }
+        if (request.getStatus() != null && !Integer.valueOf(0).equals(request.getStatus())
+                && !Integer.valueOf(1).equals(request.getStatus()) && !Integer.valueOf(2).equals(request.getStatus())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported status");
+        }
+        if (request.getMemberOnly() != null && !Integer.valueOf(0).equals(request.getMemberOnly())
+                && !Integer.valueOf(1).equals(request.getMemberOnly())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported member flag");
+        }
     }
 
     private String uploadImageToCosIfPossible(PromptAsset asset, PromptAsset existing) throws Exception {

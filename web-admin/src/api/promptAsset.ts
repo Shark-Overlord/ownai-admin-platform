@@ -115,6 +115,10 @@ export async function getPromptAssetVOById(id: number) {
   return request.get('/promptAsset/admin/get/vo', { params: { id } }) as Promise<{ data: PromptAssetVO }>;
 }
 
+export async function addPromptAsset(params: Partial<PromptAssetVO>) {
+  return request.post('/promptAsset/admin/add', params) as Promise<{ data: number }>;
+}
+
 export async function updatePromptAsset(params: Partial<PromptAssetVO> & { id: number }) {
   return request.post('/promptAsset/admin/update', params) as Promise<{ data: boolean }>;
 }

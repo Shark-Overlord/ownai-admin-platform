@@ -36,6 +36,7 @@ import type { UploadFile } from 'antd';
 import { listCategory, listTagsByCategory, type CategoryVO } from '../../api/category';
 import { addTag, listTag, type TagVO } from '../../api/tag';
 import {
+  addPromptAsset,
   deletePromptAsset,
   deletePromptAssetBatch,
   getPromptAssetVOById,
@@ -93,6 +94,7 @@ export default function PromptAssetManage() {
   const [tags, setTags] = useState<TagVO[]>([]);
   const [detail, setDetail] = useState<PromptAssetVO | null>(null);
   const [editing, setEditing] = useState<PromptAssetVO | null>(null);
+  const [editMode, setEditMode] = useState<'create' | 'edit'>('edit');
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -236,6 +238,34 @@ export default function PromptAssetManage() {
     setDetail(res.data);
   };
 
+  const openCreate = () => {
+    setEditMode('create');
+    setEditing({
+      id: 0,
+      assetType: 'image_prompt',
+      title: '',
+      status: 0,
+      memberOnly: 0,
+      sort: 0,
+    });
+    setEditActiveTab('base');
+    form.resetFields();
+    form.setFieldsValue({
+      assetType: 'image_prompt',
+      status: 0,
+      memberOnly: false,
+      sort: 0,
+      sceneTagIdList: [],
+      assetTagIdList: [],
+    });
+    setCoverFileList([]);
+    setPreviewImage('');
+    setPreviewOpen(false);
+    setTagKeyword('');
+    setCustomTagName('');
+    setSceneTags([]);
+  };
+
   const openEdit = async (id: number, activeTab = 'base') => {
     const res = await getPromptAssetVOById(id);
     const sceneTagIdList = res.data.sceneTagList?.map((item) => String(item.id)) || [];
@@ -243,6 +273,7 @@ export default function PromptAssetManage() {
       res.data.assetTagList?.map((item) => String(item.id)) ||
       res.data.tagList?.map((item) => String(item.id)) ||
       [];
+    setEditMode('edit');
     setEditing(res.data);
     setEditActiveTab(activeTab);
     form.setFieldsValue({
@@ -268,6 +299,8 @@ export default function PromptAssetManage() {
 
   const closeEdit = () => {
     setEditing(null);
+    setEditMode('edit');
+    form.resetFields();
     setCoverFileList([]);
     setPreviewImage('');
     setPreviewOpen(false);
@@ -334,16 +367,24 @@ export default function PromptAssetManage() {
     if (!editing) {
       return;
     }
-    await updatePromptAsset({
+    const payload = {
       ...values,
-      id: editing.id,
       categoryId: values.categoryId,
       sceneTagIdList: values.sceneTagIdList || [],
       assetTagIdList: values.assetTagIdList || [],
       memberOnly: values.memberOnly ? 1 : 0,
-    });
-    message.success('保存成功');
-    setEditing(null);
+    };
+    if (editMode === 'create') {
+      await addPromptAsset(payload);
+      message.success('新增成功');
+    } else {
+      await updatePromptAsset({
+        ...payload,
+        id: editing.id,
+      });
+      message.success('保存成功');
+    }
+    closeEdit();
     reloadTables();
   };
 
@@ -568,6 +609,9 @@ export default function PromptAssetManage() {
           pageSizeOptions: [10, 20, 30, 50, 100],
         }}
         toolBarRender={() => [
+          <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            新增 Prompt
+          </Button>,
           <Button key="refresh" icon={<ReloadOutlined />} onClick={reloadTables}>
             刷新
           </Button>,
@@ -810,7 +854,7 @@ export default function PromptAssetManage() {
         ) : null}
       </Drawer>
 
-      <Drawer title="编辑 Prompt 资产" open={!!editing} width={820} onClose={closeEdit}>
+      <Drawer title={editMode === 'create' ? '新增 Prompt 资产' : '编辑 Prompt 资产'} open={!!editing} width={820} onClose={closeEdit}>
         <Form form={form} layout="vertical">
           <Tabs
             activeKey={editActiveTab}
@@ -821,6 +865,9 @@ export default function PromptAssetManage() {
                 label: '基础信息',
                 children: (
                   <>
+                    <Form.Item label="资产类型" name="assetType" rules={[{ required: true, message: '请选择资产类型' }]}>
+                      <Select options={assetTypeOptions} />
+                    </Form.Item>
                     <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
                       <Input />
                     </Form.Item>
@@ -843,7 +890,7 @@ export default function PromptAssetManage() {
                       <Form.Item label="会员专享" name="memberOnly" valuePropName="checked">
                         <Switch />
                       </Form.Item>
-                      <Form.Item label="排序" name="sort">
+                      <Form.Item label="排序" name="sort" extra="数值越大越靠前">
                         <InputNumber />
                       </Form.Item>
                     </Space>

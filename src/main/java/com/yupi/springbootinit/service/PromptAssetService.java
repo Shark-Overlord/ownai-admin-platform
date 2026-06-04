@@ -3,6 +3,7 @@ package com.yupi.springbootinit.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import java.util.List;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
 import com.yupi.springbootinit.model.entity.PromptAsset;
@@ -18,6 +19,8 @@ public interface PromptAssetService extends IService<PromptAsset> {
     Page<PromptAssetVO> listPublishedPromptAssetVOByPage(PromptAssetQueryRequest request);
 
     PromptAssetVO getPromptAssetVO(Long id);
+
+    Long addPromptAsset(PromptAssetAddRequest request);
 
     Boolean updatePromptAsset(PromptAssetUpdateRequest request);
 
