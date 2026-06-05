@@ -75,6 +75,6 @@ jobs:
 
       - name: Deploy admin frontend
         run: |
-          rsync -az --delete \
+          rsync -az --delete --no-times --omit-dir-times \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
             web-admin/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$FRONTEND_PATH/"
