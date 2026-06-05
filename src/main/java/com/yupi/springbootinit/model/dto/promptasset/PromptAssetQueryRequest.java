@@ -36,6 +36,8 @@ public class PromptAssetQueryRequest extends PageRequest implements Serializable
 
     private Integer status;
 
+    private Integer aiTagStatus;
+
     private String sourceRepoName;
 
     private static final long serialVersionUID = 1L;

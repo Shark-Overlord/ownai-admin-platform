@@ -84,6 +84,8 @@ public class PromptAsset implements Serializable {
 
     private String assetTagText;
 
+    private Integer aiTagStatus;
+
     private Integer memberOnly;
 
     private Integer status;

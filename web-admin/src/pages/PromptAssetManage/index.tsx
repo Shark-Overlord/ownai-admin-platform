@@ -85,6 +85,13 @@ const renderStatus = (value?: number) => {
   return <Tag>草稿</Tag>;
 };
 
+const renderAiTagStatus = (value?: number) => {
+  if (value === 1) {
+    return <Tag color="green">已处理</Tag>;
+  }
+  return <Tag>未处理</Tag>;
+};
+
 export default function PromptAssetManage() {
   const actionRef = useRef<any>(null);
   const batchActionRef = useRef<any>(null);
@@ -476,6 +483,17 @@ export default function PromptAssetManage() {
       valueEnum: statusValueEnum,
       width: 120,
       render: (_: unknown, record: PromptAssetVO) => renderStatus(record.status),
+    },
+    {
+      title: 'AI处理',
+      dataIndex: 'aiTagStatus',
+      valueType: 'select',
+      valueEnum: {
+        0: { text: '未处理', status: 'Default' },
+        1: { text: '已处理', status: 'Success' },
+      },
+      width: 110,
+      render: (_: unknown, record: PromptAssetVO) => renderAiTagStatus(record.aiTagStatus),
     },
     {
       title: '更新时间',

@@ -19,21 +19,25 @@ import com.yupi.springbootinit.mapper.CategoryMapper;
 import com.yupi.springbootinit.mapper.CategoryTagMapper;
 import com.yupi.springbootinit.mapper.PromptAssetImportBatchMapper;
 import com.yupi.springbootinit.mapper.PromptAssetImportItemMapper;
+import com.yupi.springbootinit.mapper.PromptAssetFavoriteMapper;
 import com.yupi.springbootinit.mapper.PromptAssetMapper;
 import com.yupi.springbootinit.mapper.PromptAssetMediaMapper;
 import com.yupi.springbootinit.mapper.PromptAssetTagMapper;
 import com.yupi.springbootinit.mapper.TagMapper;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetFavoriteRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
 import com.yupi.springbootinit.model.entity.Category;
 import com.yupi.springbootinit.model.entity.CategoryTag;
 import com.yupi.springbootinit.model.entity.PromptAsset;
+import com.yupi.springbootinit.model.entity.PromptAssetFavorite;
 import com.yupi.springbootinit.model.entity.PromptAssetImportBatch;
 import com.yupi.springbootinit.model.entity.PromptAssetImportItem;
 import com.yupi.springbootinit.model.entity.PromptAssetMedia;
 import com.yupi.springbootinit.model.entity.PromptAssetTag;
 import com.yupi.springbootinit.model.entity.Tag;
+import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.CategoryVO;
 import com.yupi.springbootinit.model.vo.TagVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImageSyncResultVO;
@@ -60,8 +64,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import lombok.Data;
@@ -111,6 +117,9 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     private PromptAssetImportItemMapper promptAssetImportItemMapper;
 
     @Resource
+    private PromptAssetFavoriteMapper promptAssetFavoriteMapper;
+
+    @Resource
     private TagMapper tagMapper;
 
     @Resource
@@ -138,6 +147,11 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
 
     @Override
     public Page<PromptAssetVO> listPublishedPromptAssetVOByPage(PromptAssetQueryRequest request) {
+        return listPublishedPromptAssetVOByPage(request, null);
+    }
+
+    @Override
+    public Page<PromptAssetVO> listPublishedPromptAssetVOByPage(PromptAssetQueryRequest request, User loginUser) {
         PromptAssetQueryRequest safeRequest = request == null ? new PromptAssetQueryRequest() : request;
         PromptAssetQueryRequest publicRequest = new PromptAssetQueryRequest();
         BeanUtils.copyProperties(safeRequest, publicRequest);
@@ -146,7 +160,9 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         long pageSize = Math.min(Math.max(publicRequest.getPageSize(), 1), 50);
         Page<PromptAsset> page = this.page(new Page<>(current, pageSize), getQueryWrapper(publicRequest));
         Page<PromptAssetVO> voPage = new Page<>(current, pageSize, page.getTotal());
-        voPage.setRecords(toPublicVOList(page.getRecords()));
+        List<PromptAssetVO> records = toPublicVOList(page.getRecords());
+        fillFavoriteInfo(records, loginUser == null ? null : loginUser.getId());
+        voPage.setRecords(records);
         return voPage;
     }
 
@@ -160,6 +176,88 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         return toVO(asset, true);
+    }
+
+    @Override
+    public PromptAssetVO getPublishedPromptAssetVO(Long id, User loginUser) {
+        PromptAsset asset = getPublishedPromptAsset(id);
+        PromptAssetVO vo = sanitizePublicVO(toVO(asset, true));
+        fillFavoriteInfo(Collections.singletonList(vo), loginUser == null ? null : loginUser.getId());
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean addFavorite(PromptAssetFavoriteRequest request, User loginUser) {
+        Long promptAssetId = normalizeFavoritePromptAssetId(request);
+        getPublishedPromptAsset(promptAssetId);
+        PromptAssetFavorite existing = getFavoriteRecord(loginUser.getId(), promptAssetId);
+        Date now = new Date();
+        if (existing != null) {
+            if (existing.getIsDelete() == null || existing.getIsDelete() == 0) {
+                return true;
+            }
+            PromptAssetFavorite update = new PromptAssetFavorite();
+            update.setId(existing.getId());
+            update.setIsDelete(0);
+            update.setUpdateTime(now);
+            boolean result = promptAssetFavoriteMapper.updateById(update) > 0;
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+            return true;
+        }
+        PromptAssetFavorite favorite = new PromptAssetFavorite();
+        favorite.setUserId(loginUser.getId());
+        favorite.setPromptAssetId(promptAssetId);
+        favorite.setCreateTime(now);
+        favorite.setUpdateTime(now);
+        favorite.setIsDelete(0);
+        boolean result = promptAssetFavoriteMapper.insert(favorite) > 0;
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean cancelFavorite(PromptAssetFavoriteRequest request, User loginUser) {
+        Long promptAssetId = normalizeFavoritePromptAssetId(request);
+        PromptAssetFavorite existing = getFavoriteRecord(loginUser.getId(), promptAssetId);
+        if (existing == null || (existing.getIsDelete() != null && existing.getIsDelete() == 1)) {
+            return true;
+        }
+        PromptAssetFavorite update = new PromptAssetFavorite();
+        update.setId(existing.getId());
+        update.setIsDelete(1);
+        update.setUpdateTime(new Date());
+        boolean result = promptAssetFavoriteMapper.updateById(update) > 0;
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return true;
+    }
+
+    @Override
+    public Boolean isFavorited(Long promptAssetId, User loginUser) {
+        if (promptAssetId == null || promptAssetId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return isFavoritedByUser(promptAssetId, loginUser.getId());
+    }
+
+    @Override
+    public Page<PromptAssetVO> listMyFavoritePromptAssetVOByPage(PromptAssetQueryRequest request, User loginUser) {
+        PromptAssetQueryRequest safeRequest = request == null ? new PromptAssetQueryRequest() : request;
+        PromptAssetQueryRequest favoriteRequest = new PromptAssetQueryRequest();
+        BeanUtils.copyProperties(safeRequest, favoriteRequest);
+        favoriteRequest.setStatus(1);
+        long current = Math.max(favoriteRequest.getCurrent(), 1);
+        long pageSize = Math.min(Math.max(favoriteRequest.getPageSize(), 1), 50);
+        QueryWrapper<PromptAsset> queryWrapper = getQueryWrapper(favoriteRequest);
+        queryWrapper.inSql("id", "SELECT promptAssetId FROM prompt_asset_favorite WHERE userId = "
+                + loginUser.getId() + " AND isDelete = 0");
+        Page<PromptAsset> page = this.page(new Page<>(current, pageSize), queryWrapper);
+        Page<PromptAssetVO> voPage = new Page<>(current, pageSize, page.getTotal());
+        List<PromptAssetVO> records = toPublicVOList(page.getRecords());
+        fillFavoriteInfo(records, loginUser.getId());
+        voPage.setRecords(records);
+        return voPage;
     }
 
     @Override
@@ -385,6 +483,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         queryWrapper.eq(StringUtils.isNotBlank(request.getCommercialRisk()), "commercialRisk", request.getCommercialRisk());
         queryWrapper.eq(request.getMemberOnly() != null, "memberOnly", request.getMemberOnly());
         queryWrapper.eq(request.getStatus() != null, "status", request.getStatus());
+        queryWrapper.eq(request.getAiTagStatus() != null, "aiTagStatus", request.getAiTagStatus());
         queryWrapper.like(StringUtils.isNotBlank(request.getSourceRepoName()), "sourceRepoName", request.getSourceRepoName());
         applyTagFilter(queryWrapper, request.getTagIdList());
         applyTagFilter(queryWrapper, request.getSceneTagIdList());
@@ -1020,6 +1119,76 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             });
         }
         return vo;
+    }
+
+    private PromptAsset getPublishedPromptAsset(Long id) {
+        if (id == null || id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        PromptAsset asset = this.getOne(new QueryWrapper<PromptAsset>()
+                .eq("id", id)
+                .eq("status", 1)
+                .eq("isDelete", 0)
+                .last("limit 1"));
+        if (asset == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "Prompt asset not found");
+        }
+        return asset;
+    }
+
+    private Long normalizeFavoritePromptAssetId(PromptAssetFavoriteRequest request) {
+        if (request == null || request.getPromptAssetId() == null || request.getPromptAssetId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return request.getPromptAssetId();
+    }
+
+    private PromptAssetFavorite getFavoriteRecord(Long userId, Long promptAssetId) {
+        return promptAssetFavoriteMapper.selectOne(new QueryWrapper<PromptAssetFavorite>()
+                .eq("userId", userId)
+                .eq("promptAssetId", promptAssetId)
+                .last("limit 1"));
+    }
+
+    private boolean isFavoritedByUser(Long promptAssetId, Long userId) {
+        if (userId == null || promptAssetId == null) {
+            return false;
+        }
+        Long count = promptAssetFavoriteMapper.selectCount(new QueryWrapper<PromptAssetFavorite>()
+                .eq("userId", userId)
+                .eq("promptAssetId", promptAssetId)
+                .eq("isDelete", 0));
+        return count != null && count > 0;
+    }
+
+    private void fillFavoriteInfo(List<PromptAssetVO> records, Long userId) {
+        if (CollUtil.isEmpty(records)) {
+            return;
+        }
+        List<Long> promptAssetIds = records.stream()
+                .map(PromptAssetVO::getId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+        if (CollUtil.isEmpty(promptAssetIds)) {
+            return;
+        }
+        List<PromptAssetFavorite> favoriteList = promptAssetFavoriteMapper.selectList(
+                new QueryWrapper<PromptAssetFavorite>()
+                        .in("promptAssetId", promptAssetIds)
+                        .eq("isDelete", 0));
+        Map<Long, Long> countMap = favoriteList.stream().collect(Collectors.groupingBy(
+                PromptAssetFavorite::getPromptAssetId,
+                Collectors.counting()));
+        Set<Long> myFavoriteIds = userId == null ? Collections.emptySet() : favoriteList.stream()
+                .filter(item -> userId.equals(item.getUserId()))
+                .map(PromptAssetFavorite::getPromptAssetId)
+                .collect(Collectors.toSet());
+        for (PromptAssetVO record : records) {
+            Long promptAssetId = record.getId();
+            record.setFavoriteCount(countMap.getOrDefault(promptAssetId, 0L).intValue());
+            record.setFavorited(myFavoriteIds.contains(promptAssetId));
+        }
     }
 
     private PromptAssetVO toVO(PromptAsset asset, boolean includeRelations) {

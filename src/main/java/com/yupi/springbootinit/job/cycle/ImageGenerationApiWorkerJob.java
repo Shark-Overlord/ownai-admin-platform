@@ -26,7 +26,13 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -50,9 +56,17 @@ public class ImageGenerationApiWorkerJob {
 
     private static final int DEFAULT_HTTP_TIMEOUT_MS = 180000;
 
+    private static final int DEFAULT_CONCURRENCY = 2;
+
+    private static final int MAX_CONCURRENCY = 5;
+
     private static final int MAX_BATCH_SIZE = 5;
 
     private final AtomicBoolean working = new AtomicBoolean(false);
+
+    private final AtomicInteger workerThreadIndex = new AtomicInteger(0);
+
+    private ExecutorService executorService;
 
     @Resource
     private ImageGenerationMessageService imageGenerationMessageService;
@@ -69,8 +83,30 @@ public class ImageGenerationApiWorkerJob {
     @Value("${image.generation.api-worker.enabled:true}")
     private Boolean enabled;
 
-    @Value("${image.generation.api-worker.batch-size:1}")
+    @Value("${image.generation.api-worker.concurrency:2}")
+    private Integer concurrency;
+
+    @Value("${image.generation.api-worker.batch-size:0}")
     private Integer batchSize;
+
+    @PostConstruct
+    public void initExecutor() {
+        int resolvedConcurrency = resolveConcurrency();
+        executorService = Executors.newFixedThreadPool(resolvedConcurrency, runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setName("image-generation-api-worker-" + workerThreadIndex.incrementAndGet());
+            return thread;
+        });
+        log.info("Image generation API worker initialized, concurrency={}, batchSize={}",
+                resolvedConcurrency, resolveBatchSize());
+    }
+
+    @PreDestroy
+    public void shutdownExecutor() {
+        if (executorService != null) {
+            executorService.shutdown();
+        }
+    }
 
     @Scheduled(fixedDelayString = "${image.generation.api-worker.scan-interval-ms:5000}")
     public void processPendingApiTasks() {
@@ -88,17 +124,26 @@ public class ImageGenerationApiWorkerJob {
             if (page.getRecords() == null || page.getRecords().isEmpty()) {
                 return;
             }
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (ImageGenerationTaskContextVO taskContext : page.getRecords()) {
-                processTask(taskContext);
+                futures.add(CompletableFuture.runAsync(() -> processTask(taskContext), executorService));
             }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         } finally {
             working.set(false);
         }
     }
 
+    private int resolveConcurrency() {
+        if (concurrency == null || concurrency <= 0) {
+            return DEFAULT_CONCURRENCY;
+        }
+        return Math.min(concurrency, MAX_CONCURRENCY);
+    }
+
     private int resolveBatchSize() {
         if (batchSize == null || batchSize <= 0) {
-            return 1;
+            return resolveConcurrency();
         }
         return Math.min(batchSize, MAX_BATCH_SIZE);
     }

@@ -14,6 +14,7 @@ import PointManage from '../pages/PointManage';
 import MemberPriceConfigManage from '../pages/MemberPriceConfigManage';
 import OperationLog from '../pages/OperationLog';
 import PromptAssetManage from '../pages/PromptAssetManage';
+import PromptAssetAiTaggingManage from '../pages/PromptAssetAiTaggingManage';
 import ImageGenerationMessageManage from '../pages/ImageGenerationMessageManage';
 import ImageGenerationConfigManage from '../pages/ImageGenerationConfigManage';
 
@@ -49,6 +50,11 @@ export const routes = [
       {
         path: 'prompt-asset',
         element: <PromptAssetManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'prompt-asset-ai-tagging',
+        element: <PromptAssetAiTaggingManage />,
         meta: { requiresAdmin: true },
       },
       {
@@ -145,6 +151,11 @@ export const menuRoutes = [
         path: '/prompt-asset',
         name: 'Prompt 资产',
         icon: 'DatabaseOutlined',
+      },
+      {
+        path: '/prompt-asset-ai-tagging',
+        name: 'AI 标签重标注',
+        icon: 'TagOutlined',
       },
       {
         path: '/category',

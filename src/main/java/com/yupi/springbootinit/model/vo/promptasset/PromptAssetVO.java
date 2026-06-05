@@ -86,6 +86,12 @@ public class PromptAssetVO implements Serializable {
 
     private String assetTagText;
 
+    private Integer aiTagStatus;
+
+    private Boolean favorited;
+
+    private Integer favoriteCount;
+
     private Date createTime;
 
     private Date updateTime;

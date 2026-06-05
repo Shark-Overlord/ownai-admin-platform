@@ -48,7 +48,12 @@ image:
     api-worker:
       enabled: ${IMAGE_GENERATION_API_WORKER_ENABLED:true}
       scan-interval-ms: ${IMAGE_GENERATION_API_WORKER_SCAN_INTERVAL_MS:5000}
-      batch-size: ${IMAGE_GENERATION_API_WORKER_BATCH_SIZE:1}
+      concurrency: ${IMAGE_GENERATION_API_WORKER_CONCURRENCY:2}
+      batch-size: ${IMAGE_GENERATION_API_WORKER_BATCH_SIZE:${IMAGE_GENERATION_API_WORKER_CONCURRENCY:2}}
+prompt:
+  asset:
+    ai-tagging:
+      config-secret: ${PROMPT_ASSET_AI_TAGGING_CONFIG_SECRET:${IMAGE_GENERATION_CONFIG_SECRET:}}
 auth:
   login-captcha-required: ${AUTH_LOGIN_CAPTCHA_REQUIRED:true}
 # 接口文档配置

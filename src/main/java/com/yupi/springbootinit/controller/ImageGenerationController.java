@@ -7,11 +7,13 @@ import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
+import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationCanvasSaveRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationCreateRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationManualCompleteRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationMessageQueryRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationTaskUpdateRequest;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationCanvasVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationConversationVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationConversationSummaryVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationCreateVO;
@@ -19,6 +21,7 @@ import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationMessageVO
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationMonitorOverviewVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationQuoteVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationTaskContextVO;
+import com.yupi.springbootinit.service.ImageGenerationCanvasService;
 import com.yupi.springbootinit.service.ImageGenerationMessageService;
 import com.yupi.springbootinit.service.UserService;
 import io.swagger.annotations.Api;
@@ -44,6 +47,9 @@ public class ImageGenerationController {
 
     @Resource
     private ImageGenerationMessageService imageGenerationMessageService;
+
+    @Resource
+    private ImageGenerationCanvasService imageGenerationCanvasService;
 
     @Value("${image.generation.worker-token:}")
     private String imageGenerationWorkerToken;
@@ -89,6 +95,24 @@ public class ImageGenerationController {
             HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         return ResultUtils.success(imageGenerationMessageService.listMyConversationVOByPage(queryRequest, loginUser));
+    }
+
+    @GetMapping("/canvas/get")
+    @ApiOperation("Get image generation canvas layout")
+    public BaseResponse<ImageGenerationCanvasVO> getCanvas(
+            @RequestParam("conversationId") String conversationId,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(imageGenerationCanvasService.getCanvas(conversationId, loginUser));
+    }
+
+    @PostMapping("/canvas/save")
+    @ApiOperation("Save image generation canvas layout")
+    public BaseResponse<ImageGenerationCanvasVO> saveCanvas(
+            @RequestBody ImageGenerationCanvasSaveRequest saveRequest,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(imageGenerationCanvasService.saveCanvas(saveRequest, loginUser));
     }
 
     @PostMapping("/admin/message/list/page")

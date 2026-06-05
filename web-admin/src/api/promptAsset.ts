@@ -53,6 +53,7 @@ export interface PromptAssetVO {
   license?: string;
   commercialRisk?: string;
   assetTagText?: string;
+  aiTagStatus?: number;
   memberOnly?: number;
   status?: number;
   sort?: number;
