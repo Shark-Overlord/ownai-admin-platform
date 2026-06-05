@@ -74,6 +74,45 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    public long userRegisterByEmail(String userEmail, String userPassword, String checkPassword) {
+        String normalizedEmail = StringUtils.trimToEmpty(userEmail).toLowerCase();
+        if (StringUtils.isAnyBlank(normalizedEmail, userPassword, checkPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Params are empty");
+        }
+        if (!normalizedEmail.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Invalid email");
+        }
+        if (userPassword.length() < 8 || checkPassword.length() < 8) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Password must be at least 8 characters");
+        }
+        if (!userPassword.equals(checkPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Passwords do not match");
+        }
+        synchronized (normalizedEmail.intern()) {
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("userEmail", normalizedEmail).or().eq("userAccount", normalizedEmail);
+            long count = this.baseMapper.selectCount(queryWrapper);
+            if (count > 0) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "Email already registered");
+            }
+            String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+            User user = new User();
+            user.setUserAccount(normalizedEmail);
+            user.setUserEmail(normalizedEmail);
+            user.setUserPassword(encryptPassword);
+            user.setUserName(normalizedEmail.substring(0, normalizedEmail.indexOf("@")));
+            user.setUserRole(UserRoleEnum.USER.getValue());
+            user.setMemberLevel(MemberLevelEnum.NORMAL.getValue());
+            user.setPointBalance(0);
+            boolean saveResult = this.save(user);
+            if (!saveResult) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "Register failed");
+            }
+            return user.getId();
+        }
+    }
+
+    @Override
     public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
@@ -252,6 +291,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 userQueryRequest.getMemberPlanType());
         queryWrapper.like(StringUtils.isNotBlank(userQueryRequest.getUserAccount()), "userAccount",
                 userQueryRequest.getUserAccount());
+        queryWrapper.like(StringUtils.isNotBlank(userQueryRequest.getUserEmail()), "userEmail",
+                userQueryRequest.getUserEmail());
         queryWrapper.like(StringUtils.isNotBlank(userQueryRequest.getUserProfile()), "userProfile",
                 userQueryRequest.getUserProfile());
         queryWrapper.like(StringUtils.isNotBlank(userQueryRequest.getUserName()), "userName", userQueryRequest.getUserName());

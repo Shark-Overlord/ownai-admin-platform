@@ -4,8 +4,11 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.config.CosClientConfig;
 import com.yupi.springbootinit.constant.CommonConstant;
@@ -16,20 +19,25 @@ import com.yupi.springbootinit.mapper.CategoryMapper;
 import com.yupi.springbootinit.mapper.CategoryTagMapper;
 import com.yupi.springbootinit.mapper.PromptAssetImportBatchMapper;
 import com.yupi.springbootinit.mapper.PromptAssetImportItemMapper;
+import com.yupi.springbootinit.mapper.PromptAssetFavoriteMapper;
 import com.yupi.springbootinit.mapper.PromptAssetMapper;
 import com.yupi.springbootinit.mapper.PromptAssetMediaMapper;
 import com.yupi.springbootinit.mapper.PromptAssetTagMapper;
 import com.yupi.springbootinit.mapper.TagMapper;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetFavoriteRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
 import com.yupi.springbootinit.model.entity.Category;
 import com.yupi.springbootinit.model.entity.CategoryTag;
 import com.yupi.springbootinit.model.entity.PromptAsset;
+import com.yupi.springbootinit.model.entity.PromptAssetFavorite;
 import com.yupi.springbootinit.model.entity.PromptAssetImportBatch;
 import com.yupi.springbootinit.model.entity.PromptAssetImportItem;
 import com.yupi.springbootinit.model.entity.PromptAssetMedia;
 import com.yupi.springbootinit.model.entity.PromptAssetTag;
 import com.yupi.springbootinit.model.entity.Tag;
+import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.CategoryVO;
 import com.yupi.springbootinit.model.vo.TagVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImageSyncResultVO;
@@ -52,10 +60,14 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import lombok.Data;
@@ -63,6 +75,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -71,6 +84,12 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         implements PromptAssetService {
 
     private static final String SOURCE_NAME = "visual_prompt_library";
+
+    private static final String MANUAL_SOURCE_NAME = "admin_manual";
+
+    private static final String DEFAULT_MANUAL_SELECTION_STATUS = "manual";
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String[] STALE_CN_MARKERS = {
             "该 Prompt 适合用于图像生成场景",
@@ -96,6 +115,9 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
 
     @Resource
     private PromptAssetImportItemMapper promptAssetImportItemMapper;
+
+    @Resource
+    private PromptAssetFavoriteMapper promptAssetFavoriteMapper;
 
     @Resource
     private TagMapper tagMapper;
@@ -125,6 +147,11 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
 
     @Override
     public Page<PromptAssetVO> listPublishedPromptAssetVOByPage(PromptAssetQueryRequest request) {
+        return listPublishedPromptAssetVOByPage(request, null);
+    }
+
+    @Override
+    public Page<PromptAssetVO> listPublishedPromptAssetVOByPage(PromptAssetQueryRequest request, User loginUser) {
         PromptAssetQueryRequest safeRequest = request == null ? new PromptAssetQueryRequest() : request;
         PromptAssetQueryRequest publicRequest = new PromptAssetQueryRequest();
         BeanUtils.copyProperties(safeRequest, publicRequest);
@@ -133,7 +160,9 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         long pageSize = Math.min(Math.max(publicRequest.getPageSize(), 1), 50);
         Page<PromptAsset> page = this.page(new Page<>(current, pageSize), getQueryWrapper(publicRequest));
         Page<PromptAssetVO> voPage = new Page<>(current, pageSize, page.getTotal());
-        voPage.setRecords(toPublicVOList(page.getRecords()));
+        List<PromptAssetVO> records = toPublicVOList(page.getRecords());
+        fillFavoriteInfo(records, loginUser == null ? null : loginUser.getId());
+        voPage.setRecords(records);
         return voPage;
     }
 
@@ -150,6 +179,122 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     }
 
     @Override
+    public PromptAssetVO getPublishedPromptAssetVO(Long id, User loginUser) {
+        PromptAsset asset = getPublishedPromptAsset(id);
+        PromptAssetVO vo = sanitizePublicVO(toVO(asset, true));
+        fillFavoriteInfo(Collections.singletonList(vo), loginUser == null ? null : loginUser.getId());
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean addFavorite(PromptAssetFavoriteRequest request, User loginUser) {
+        Long promptAssetId = normalizeFavoritePromptAssetId(request);
+        getPublishedPromptAsset(promptAssetId);
+        PromptAssetFavorite existing = getFavoriteRecord(loginUser.getId(), promptAssetId);
+        Date now = new Date();
+        if (existing != null) {
+            if (existing.getIsDelete() == null || existing.getIsDelete() == 0) {
+                return true;
+            }
+            PromptAssetFavorite update = new PromptAssetFavorite();
+            update.setId(existing.getId());
+            update.setIsDelete(0);
+            update.setUpdateTime(now);
+            boolean result = promptAssetFavoriteMapper.updateById(update) > 0;
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+            return true;
+        }
+        PromptAssetFavorite favorite = new PromptAssetFavorite();
+        favorite.setUserId(loginUser.getId());
+        favorite.setPromptAssetId(promptAssetId);
+        favorite.setCreateTime(now);
+        favorite.setUpdateTime(now);
+        favorite.setIsDelete(0);
+        boolean result = promptAssetFavoriteMapper.insert(favorite) > 0;
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean cancelFavorite(PromptAssetFavoriteRequest request, User loginUser) {
+        Long promptAssetId = normalizeFavoritePromptAssetId(request);
+        PromptAssetFavorite existing = getFavoriteRecord(loginUser.getId(), promptAssetId);
+        if (existing == null || (existing.getIsDelete() != null && existing.getIsDelete() == 1)) {
+            return true;
+        }
+        PromptAssetFavorite update = new PromptAssetFavorite();
+        update.setId(existing.getId());
+        update.setIsDelete(1);
+        update.setUpdateTime(new Date());
+        boolean result = promptAssetFavoriteMapper.updateById(update) > 0;
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return true;
+    }
+
+    @Override
+    public Boolean isFavorited(Long promptAssetId, User loginUser) {
+        if (promptAssetId == null || promptAssetId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return isFavoritedByUser(promptAssetId, loginUser.getId());
+    }
+
+    @Override
+    public Page<PromptAssetVO> listMyFavoritePromptAssetVOByPage(PromptAssetQueryRequest request, User loginUser) {
+        PromptAssetQueryRequest safeRequest = request == null ? new PromptAssetQueryRequest() : request;
+        PromptAssetQueryRequest favoriteRequest = new PromptAssetQueryRequest();
+        BeanUtils.copyProperties(safeRequest, favoriteRequest);
+        favoriteRequest.setStatus(1);
+        long current = Math.max(favoriteRequest.getCurrent(), 1);
+        long pageSize = Math.min(Math.max(favoriteRequest.getPageSize(), 1), 50);
+        QueryWrapper<PromptAsset> queryWrapper = getQueryWrapper(favoriteRequest);
+        queryWrapper.inSql("id", "SELECT promptAssetId FROM prompt_asset_favorite WHERE userId = "
+                + loginUser.getId() + " AND isDelete = 0");
+        Page<PromptAsset> page = this.page(new Page<>(current, pageSize), queryWrapper);
+        Page<PromptAssetVO> voPage = new Page<>(current, pageSize, page.getTotal());
+        List<PromptAssetVO> records = toPublicVOList(page.getRecords());
+        fillFavoriteInfo(records, loginUser.getId());
+        voPage.setRecords(records);
+        return voPage;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long addPromptAsset(PromptAssetAddRequest request) {
+        validateAddRequest(request);
+        PromptAsset asset = new PromptAsset();
+        asset.setAssetType(StringUtils.trim(request.getAssetType()));
+        asset.setCategoryId(request.getCategoryId());
+        asset.setTitle(StringUtils.left(StringUtils.trim(request.getTitle()), 255));
+        asset.setSummary(StringUtils.left(StringUtils.trimToNull(request.getSummary()), 500));
+        asset.setPromptContent(StringUtils.trim(request.getPromptContent()));
+        asset.setPromptCn(StringUtils.trimToNull(request.getPromptCn()));
+        asset.setCoverUrl(StringUtils.trimToNull(request.getCoverUrl()));
+        asset.setPreviewMediaUrl(StringUtils.defaultIfBlank(StringUtils.trimToNull(request.getPreviewMediaUrl()),
+                StringUtils.trimToNull(request.getCoverUrl())));
+        asset.setMediaType("image");
+        asset.setSourceName(MANUAL_SOURCE_NAME);
+        asset.setSelectionStatus(DEFAULT_MANUAL_SELECTION_STATUS);
+        asset.setMemberOnly(request.getMemberOnly() == null ? 0 : request.getMemberOnly());
+        asset.setStatus(request.getStatus() == null ? 0 : request.getStatus());
+        asset.setSort(request.getSort() == null ? 0 : request.getSort());
+        asset.setSyncKey("manual_" + IdWorker.getIdStr());
+        asset.setCreateTime(new Date());
+        asset.setUpdateTime(new Date());
+        asset.setIsDelete(0);
+        boolean saved = this.save(asset);
+        ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR);
+        syncPrimaryMediaAfterManualAdd(asset);
+        if (request.getSceneTagIdList() != null || request.getAssetTagIdList() != null) {
+            syncPromptAssetSplitTags(asset, request.getSceneTagIdList(), request.getAssetTagIdList());
+        }
+        return asset.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean updatePromptAsset(PromptAssetUpdateRequest request) {
         if (request == null || request.getId() == null || request.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -163,6 +308,33 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         boolean result = this.updateById(asset);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         syncPrimaryMediaAfterManualUpdate(request, oldAsset);
+        if (request.getSceneTagIdList() != null || request.getAssetTagIdList() != null) {
+            PromptAsset tagAsset = new PromptAsset();
+            BeanUtils.copyProperties(oldAsset, tagAsset);
+            if (request.getCategoryId() != null) {
+                tagAsset.setCategoryId(request.getCategoryId());
+            }
+            syncPromptAssetSplitTags(tagAsset, request.getSceneTagIdList(), request.getAssetTagIdList());
+        } else if (request.getTagIdList() != null) {
+            syncPromptAssetTags(request.getId(), request.getTagIdList());
+        }
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean updatePromptAssetTags(PromptAssetUpdateRequest request) {
+        if (request == null || request.getId() == null || request.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (request.getSceneTagIdList() == null && request.getAssetTagIdList() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "标签列表不能为空");
+        }
+        PromptAsset asset = this.getById(request.getId());
+        if (asset == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+        syncPromptAssetSplitTags(asset, request.getSceneTagIdList(), request.getAssetTagIdList());
         return true;
     }
 
@@ -189,6 +361,22 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
         for (Long id : ids) {
             deletePromptAsset(id);
+        }
+        return true;
+    }
+
+    @Override
+    public Boolean publishPromptAssetBatch(List<Long> ids) {
+        List<Long> distinctIds = normalizeTagIds(ids);
+        if (CollUtil.isEmpty(distinctIds)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        for (Long id : distinctIds) {
+            PromptAsset updateAsset = new PromptAsset();
+            updateAsset.setId(id);
+            updateAsset.setStatus(1);
+            updateAsset.setUpdateTime(new Date());
+            this.updateById(updateAsset);
         }
         return true;
     }
@@ -295,39 +483,27 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         queryWrapper.eq(StringUtils.isNotBlank(request.getCommercialRisk()), "commercialRisk", request.getCommercialRisk());
         queryWrapper.eq(request.getMemberOnly() != null, "memberOnly", request.getMemberOnly());
         queryWrapper.eq(request.getStatus() != null, "status", request.getStatus());
+        queryWrapper.eq(request.getAiTagStatus() != null, "aiTagStatus", request.getAiTagStatus());
         queryWrapper.like(StringUtils.isNotBlank(request.getSourceRepoName()), "sourceRepoName", request.getSourceRepoName());
-        if (CollUtil.isNotEmpty(request.getTagIdList())) {
-            List<Long> tagIdList = request.getTagIdList().stream()
-                    .filter(tagId -> tagId != null && tagId > 0)
-                    .distinct()
-                    .collect(Collectors.toList());
-            if (CollUtil.isNotEmpty(tagIdList)) {
-                List<Tag> validTags = tagMapper.selectList(new QueryWrapper<Tag>().in("id", tagIdList));
-                if (CollUtil.isEmpty(validTags)) {
-                    queryWrapper.eq("id", -1L);
-                    return queryWrapper;
-                }
-                tagIdList = validTags.stream().map(Tag::getId).collect(Collectors.toList());
-                List<PromptAssetTag> assetTagList = promptAssetTagMapper.selectList(
-                        new QueryWrapper<PromptAssetTag>().in("tagId", tagIdList));
-                if (CollUtil.isEmpty(assetTagList)) {
-                    queryWrapper.eq("id", -1L);
-                } else {
-                    List<Long> promptAssetIdList = assetTagList.stream()
-                            .map(PromptAssetTag::getPromptAssetId)
-                            .filter(promptAssetId -> promptAssetId != null && promptAssetId > 0)
-                            .distinct()
-                            .collect(Collectors.toList());
-                    queryWrapper.in(CollUtil.isNotEmpty(promptAssetIdList), "id", promptAssetIdList);
-                    queryWrapper.eq(CollUtil.isEmpty(promptAssetIdList), "id", -1L);
-                }
-            }
-        }
+        applyTagFilter(queryWrapper, request.getTagIdList());
+        applyTagFilter(queryWrapper, request.getSceneTagIdList());
+        applyTagFilter(queryWrapper, request.getAssetTagIdList());
         if (StringUtils.isNotBlank(request.getSearchText())) {
-            queryWrapper.and(wrapper -> wrapper.like("title", request.getSearchText())
-                    .or().like("summary", request.getSearchText())
-                    .or().like("promptContent", request.getSearchText())
-                    .or().like("promptCn", request.getSearchText()));
+            List<String> keywordList = splitSearchKeywords(request.getSearchText());
+            for (String keyword : keywordList) {
+                List<Long> promptAssetIdsByTag = findPromptAssetIdsByTagKeyword(keyword);
+                queryWrapper.and(wrapper -> {
+                    wrapper.like("title", keyword)
+                            .or().like("summary", keyword)
+                            .or().like("promptContent", keyword)
+                            .or().like("promptCn", keyword)
+                            .or().like("assetTagText", keyword)
+                            .or().like("sourceRepoName", keyword);
+                    if (CollUtil.isNotEmpty(promptAssetIdsByTag)) {
+                        wrapper.or().in("id", promptAssetIdsByTag);
+                    }
+                });
+            }
         }
         String sortField = request.getSortField();
         String sortOrder = request.getSortOrder();
@@ -337,16 +513,81 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         return queryWrapper;
     }
 
+    private List<String> splitSearchKeywords(String searchText) {
+        String[] keywords = StringUtils.split(StringUtils.trimToEmpty(searchText));
+        if (keywords == null || keywords.length == 0) {
+            return new ArrayList<>();
+        }
+        List<String> result = new ArrayList<>();
+        for (String keyword : keywords) {
+            String trimmed = StringUtils.trimToNull(keyword);
+            if (trimmed != null) {
+                result.add(trimmed);
+            }
+        }
+        return result;
+    }
+
+    private void applyTagFilter(QueryWrapper<PromptAsset> queryWrapper, List<Long> rawTagIds) {
+        List<Long> tagIds = normalizeTagIds(rawTagIds);
+        if (CollUtil.isEmpty(tagIds)) {
+            return;
+        }
+        List<Tag> validTags = tagMapper.selectList(new QueryWrapper<Tag>().in("id", tagIds).eq("isDelete", 0));
+        if (CollUtil.isEmpty(validTags)) {
+            queryWrapper.eq("id", -1L);
+            return;
+        }
+        List<Long> validTagIds = validTags.stream().map(Tag::getId).collect(Collectors.toList());
+        List<Long> promptAssetIds = findPromptAssetIdsByTagIds(validTagIds);
+        if (CollUtil.isEmpty(promptAssetIds)) {
+            queryWrapper.eq("id", -1L);
+            return;
+        }
+        queryWrapper.in("id", promptAssetIds);
+    }
+
+    private List<Long> findPromptAssetIdsByTagKeyword(String keyword) {
+        if (StringUtils.isBlank(keyword)) {
+            return new ArrayList<>();
+        }
+        List<Tag> tags = tagMapper.selectList(new QueryWrapper<Tag>()
+                .like("name", keyword)
+                .eq("isDelete", 0));
+        if (CollUtil.isEmpty(tags)) {
+            return new ArrayList<>();
+        }
+        List<Long> tagIds = tags.stream().map(Tag::getId).collect(Collectors.toList());
+        return findPromptAssetIdsByTagIds(tagIds);
+    }
+
+    private List<Long> findPromptAssetIdsByTagIds(List<Long> tagIds) {
+        if (CollUtil.isEmpty(tagIds)) {
+            return new ArrayList<>();
+        }
+        List<PromptAssetTag> assetTagList = promptAssetTagMapper.selectList(
+                new QueryWrapper<PromptAssetTag>().in("tagId", tagIds));
+        if (CollUtil.isEmpty(assetTagList)) {
+            return new ArrayList<>();
+        }
+        return assetTagList.stream()
+                .map(PromptAssetTag::getPromptAssetId)
+                .filter(promptAssetId -> promptAssetId != null && promptAssetId > 0)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
     private void importOneRow(Connection sourceConnection, Long batchId, SourcePromptRow row,
             boolean dryRun, Long categoryId, boolean syncTagsToCategory, boolean uploadImagesToCos,
             ImportCounter counter) throws Exception {
-        PromptAsset existing = this.getOne(new QueryWrapper<PromptAsset>().eq("syncKey", row.getSyncKey()), false);
+        PromptAsset existing = baseMapper.selectBySyncKeyIncludeDeleted(row.getSyncKey());
+        boolean existingDeleted = existing != null && existing.getIsDelete() != null && existing.getIsDelete() != 0;
         if (dryRun) {
             if (existing == null) {
                 counter.insertCount++;
                 saveImportItem(batchId, row.getSourcePairId(), row.getSyncKey(), null,
                         "insert", "dry_run", null);
-            } else if (row.hasChanged(existing, categoryId)) {
+            } else if (existingDeleted || row.hasChanged(existing, categoryId)) {
                 counter.updateCount++;
                 saveImportItem(batchId, row.getSourcePairId(), row.getSyncKey(), existing.getId(),
                         "update", "dry_run", null);
@@ -364,8 +605,11 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             counter.insertCount++;
             saveImportItem(batchId, row.getSourcePairId(), row.getSyncKey(), asset.getId(),
                     "insert", "success", null);
-        } else if (row.hasChanged(existing, categoryId)) {
+        } else if (existingDeleted || row.hasChanged(existing, categoryId)) {
             asset.setId(existing.getId());
+            if (existingDeleted) {
+                baseMapper.restoreById(existing.getId());
+            }
             this.updateById(asset);
             counter.updateCount++;
             saveImportItem(batchId, row.getSourcePairId(), row.getSyncKey(), existing.getId(),
@@ -380,7 +624,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             uploadImageToCosIfPossible(asset, existing);
         }
         saveMedia(asset, row);
-        saveTags(sourceConnection, asset.getId(), row, categoryId, syncTagsToCategory);
+        saveTags(sourceConnection, asset, row, categoryId, syncTagsToCategory);
     }
 
     private void saveMedia(PromptAsset asset, SourcePromptRow row) {
@@ -392,17 +636,26 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
         QueryWrapper<PromptAssetMedia> queryWrapper = new QueryWrapper<PromptAssetMedia>()
                 .eq("promptAssetId", asset.getId());
+        PromptAssetMedia existing;
         if (StringUtils.isNotBlank(asset.getSourceImageHash())) {
             queryWrapper.eq("fileHash", asset.getSourceImageHash());
+            existing = promptAssetMediaMapper.selectByAssetIdAndFileHashIncludeDeleted(
+                    asset.getId(), asset.getSourceImageHash());
         } else if (StringUtils.isNotBlank(asset.getSourceImageOriginalUrl())) {
             queryWrapper.eq("originalUrl", asset.getSourceImageOriginalUrl());
+            existing = promptAssetMediaMapper.selectOne(queryWrapper.last("limit 1"));
         } else if (StringUtils.isNotBlank(asset.getSourceCloudStorageUrl())) {
             queryWrapper.eq("cloudUrl", asset.getSourceCloudStorageUrl());
+            existing = promptAssetMediaMapper.selectOne(queryWrapper.last("limit 1"));
         } else {
             queryWrapper.eq("sourceLocalPath", asset.getSourceImageLocalPath());
+            existing = promptAssetMediaMapper.selectOne(queryWrapper.last("limit 1"));
         }
-        PromptAssetMedia existing = promptAssetMediaMapper.selectOne(queryWrapper.last("limit 1"));
         if (existing != null) {
+            if (existing.getIsDelete() != null && existing.getIsDelete() != 0) {
+                promptAssetMediaMapper.restoreById(existing.getId());
+                existing.setIsDelete(0);
+            }
             if (StringUtils.isNotBlank(asset.getCoverUrl())
                     && !StringUtils.equals(existing.getLocalUrl(), asset.getCoverUrl())) {
                 existing.setLocalUrl(asset.getCoverUrl());
@@ -481,6 +734,52 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         media.setThumbnailCloudUrl(null);
         media.setThumbnailLocalUrl(null);
         promptAssetMediaMapper.updateById(media);
+    }
+
+    private void syncPrimaryMediaAfterManualAdd(PromptAsset asset) {
+        if (asset == null || asset.getId() == null || StringUtils.isBlank(asset.getCoverUrl())) {
+            return;
+        }
+        PromptAssetMedia media = new PromptAssetMedia();
+        media.setPromptAssetId(asset.getId());
+        media.setMediaType(StringUtils.defaultIfBlank(asset.getMediaType(), "image"));
+        media.setOriginalUrl(asset.getCoverUrl());
+        media.setLocalUrl(asset.getCoverUrl());
+        media.setCloudUrl(asset.getPreviewMediaUrl());
+        media.setSort(0);
+        media.setCreateTime(new Date());
+        media.setIsDelete(0);
+        promptAssetMediaMapper.insert(media);
+    }
+
+    private void validateAddRequest(PromptAssetAddRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (!StringUtils.equalsAny(StringUtils.trim(request.getAssetType()), "image_prompt", "video_prompt")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported prompt asset type");
+        }
+        if (request.getCategoryId() == null || request.getCategoryId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Category is required");
+        }
+        Category category = categoryMapper.selectById(request.getCategoryId());
+        if (category == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Category does not exist");
+        }
+        if (StringUtils.isBlank(request.getTitle())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Title is required");
+        }
+        if (StringUtils.isBlank(request.getPromptContent())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Prompt is required");
+        }
+        if (request.getStatus() != null && !Integer.valueOf(0).equals(request.getStatus())
+                && !Integer.valueOf(1).equals(request.getStatus()) && !Integer.valueOf(2).equals(request.getStatus())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported status");
+        }
+        if (request.getMemberOnly() != null && !Integer.valueOf(0).equals(request.getMemberOnly())
+                && !Integer.valueOf(1).equals(request.getMemberOnly())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported member flag");
+        }
     }
 
     private String uploadImageToCosIfPossible(PromptAsset asset, PromptAsset existing) throws Exception {
@@ -566,8 +865,29 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
     }
 
-    private void saveTags(Connection sourceConnection, Long assetId, SourcePromptRow row,
+    private void saveTags(Connection sourceConnection, PromptAsset asset, SourcePromptRow row,
             Long categoryId, boolean syncTagsToCategory) throws Exception {
+        Long assetId = asset.getId();
+        List<String> sceneTagNames = splitTagNames(row.getSceneTagList());
+        List<String> assetTagNames = splitTagNames(row.getAssetTagList());
+        if (sceneTagNames.size() > 1) {
+            sceneTagNames = sceneTagNames.subList(0, 1);
+        }
+        if (CollUtil.isNotEmpty(sceneTagNames) || CollUtil.isNotEmpty(assetTagNames)) {
+            Set<Long> insertedTagIds = new LinkedHashSet<>();
+            promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
+            for (String tagName : sceneTagNames) {
+                Long tagId = ensureTag(tagName);
+                if (insertedTagIds.add(tagId)) {
+                    insertPromptAssetTag(assetId, tagId);
+                }
+                ensureCategoryTag(categoryId, tagId);
+            }
+            updateAssetTagText(assetId, assetTagNames);
+            return;
+        }
+        updateAssetTagText(assetId, new ArrayList<>());
+
         Set<String> tagNames = new LinkedHashSet<>();
         addIfNotBlank(tagNames, row.getAssetType());
         addIfNotBlank(tagNames, row.getVisualAssetType());
@@ -589,15 +909,145 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
         for (String tagName : tagNames) {
             Long tagId = ensureTag(tagName);
-            PromptAssetTag assetTag = new PromptAssetTag();
-            assetTag.setPromptAssetId(assetId);
-            assetTag.setTagId(tagId);
-            assetTag.setCreateTime(new Date());
-            promptAssetTagMapper.insert(assetTag);
+            insertPromptAssetTag(assetId, tagId);
             if (syncTagsToCategory) {
                 ensureCategoryTag(categoryId, tagId);
             }
         }
+    }
+
+    private void syncPromptAssetTags(Long assetId, List<Long> tagIdList) {
+        Set<Long> distinctTagIds = new LinkedHashSet<>(normalizeTagIds(tagIdList));
+        if (CollUtil.isEmpty(distinctTagIds)) {
+            promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
+            return;
+        }
+        List<Tag> validTags = tagMapper.selectList(
+                new QueryWrapper<Tag>().in("id", distinctTagIds).eq("isDelete", 0));
+        if (validTags.size() != distinctTagIds.size()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "标签不存在或已删除");
+        }
+        promptAssetTagMapper.delete(new QueryWrapper<PromptAssetTag>().eq("promptAssetId", assetId));
+        for (Long tagId : distinctTagIds) {
+            insertPromptAssetTag(assetId, tagId);
+        }
+    }
+
+    private void insertPromptAssetTag(Long assetId, Long tagId) {
+        PromptAssetTag assetTag = new PromptAssetTag();
+        assetTag.setPromptAssetId(assetId);
+        assetTag.setTagId(tagId);
+        assetTag.setCreateTime(new Date());
+        promptAssetTagMapper.insert(assetTag);
+    }
+
+    private void updateAssetTagText(Long assetId, List<String> assetTagNames) {
+        PromptAsset updateAsset = new PromptAsset();
+        updateAsset.setId(assetId);
+        updateAsset.setAssetTagText(toJsonTagText(assetTagNames));
+        this.updateById(updateAsset);
+    }
+
+    private String toJsonTagText(List<String> tagNames) {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(normalizeTagNames(tagNames));
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "asset tag json serialize failed");
+        }
+    }
+
+    private List<String> splitTagNames(String rawValue) {
+        if (StringUtils.isBlank(rawValue)) {
+            return new ArrayList<>();
+        }
+        String trimmedValue = rawValue.trim();
+        if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
+            try {
+                List<String> tagNames = OBJECT_MAPPER.readValue(trimmedValue, new TypeReference<List<String>>() {
+                });
+                return normalizeTagNames(tagNames);
+            } catch (Exception e) {
+                log.warn("parse prompt asset json tag list failed, rawValue={}", rawValue, e);
+            }
+        }
+        String normalized = trimmedValue
+                .replace("[", "")
+                .replace("]", "")
+                .replace("\"", "")
+                .replace("'", "")
+                .replace("，", ",")
+                .replace("、", ",")
+                .replace("；", ",")
+                .replace(";", ",")
+                .replace("|", ",")
+                .replace("\r", ",")
+                .replace("\n", ",");
+        String[] parts = StringUtils.split(normalized, ",");
+        if (parts == null || parts.length == 0) {
+            return new ArrayList<>();
+        }
+        List<String> result = new ArrayList<>();
+        for (String part : parts) {
+            String tagName = StringUtils.trimToNull(part);
+            if (tagName != null) {
+                result.add(tagName);
+            }
+        }
+        return normalizeTagNames(result);
+    }
+
+    private List<String> normalizeTagNames(List<String> rawTagNames) {
+        if (CollUtil.isEmpty(rawTagNames)) {
+            return new ArrayList<>();
+        }
+        return rawTagNames.stream()
+                .map(StringUtils::trimToNull)
+                .filter(StringUtils::isNotBlank)
+                .map(tagName -> StringUtils.left(tagName, 64))
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .collect(Collectors.toList());
+    }
+
+    private void syncPromptAssetSplitTags(PromptAsset asset, List<Long> sceneTagIdList, List<Long> assetTagIdList) {
+        List<Long> sceneTagIds = normalizeTagIds(sceneTagIdList);
+        List<Long> assetTagIds = normalizeTagIds(assetTagIdList);
+        if (CollUtil.isNotEmpty(sceneTagIds)) {
+            Set<Long> allowedSceneTagIds = getSceneTagIdsByCategory(asset.getCategoryId());
+            if (CollUtil.isEmpty(allowedSceneTagIds) || !allowedSceneTagIds.containsAll(sceneTagIds)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "二级场景标签不属于当前分类");
+            }
+        }
+        List<Long> mergedTagIds = new ArrayList<>();
+        mergedTagIds.addAll(sceneTagIds);
+        mergedTagIds.addAll(assetTagIds);
+        syncPromptAssetTags(asset.getId(), mergedTagIds);
+    }
+
+    private List<Long> normalizeTagIds(List<Long> tagIdList) {
+        if (CollUtil.isEmpty(tagIdList)) {
+            return new ArrayList<>();
+        }
+        return tagIdList.stream()
+                .filter(tagId -> tagId != null && tagId > 0)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .collect(Collectors.toList());
+    }
+
+    private Set<Long> getSceneTagIdsByCategory(Long categoryId) {
+        if (categoryId == null || categoryId <= 0) {
+            return new LinkedHashSet<>();
+        }
+        List<CategoryTag> categoryTags = categoryTagMapper.selectList(
+                new QueryWrapper<CategoryTag>().eq("categoryId", categoryId));
+        if (CollUtil.isEmpty(categoryTags)) {
+            return new LinkedHashSet<>();
+        }
+        return categoryTags.stream()
+                .map(CategoryTag::getTagId)
+                .filter(tagId -> tagId != null && tagId > 0)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private Long ensureTag(String name) {
@@ -671,6 +1121,76 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         return vo;
     }
 
+    private PromptAsset getPublishedPromptAsset(Long id) {
+        if (id == null || id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        PromptAsset asset = this.getOne(new QueryWrapper<PromptAsset>()
+                .eq("id", id)
+                .eq("status", 1)
+                .eq("isDelete", 0)
+                .last("limit 1"));
+        if (asset == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "Prompt asset not found");
+        }
+        return asset;
+    }
+
+    private Long normalizeFavoritePromptAssetId(PromptAssetFavoriteRequest request) {
+        if (request == null || request.getPromptAssetId() == null || request.getPromptAssetId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return request.getPromptAssetId();
+    }
+
+    private PromptAssetFavorite getFavoriteRecord(Long userId, Long promptAssetId) {
+        return promptAssetFavoriteMapper.selectOne(new QueryWrapper<PromptAssetFavorite>()
+                .eq("userId", userId)
+                .eq("promptAssetId", promptAssetId)
+                .last("limit 1"));
+    }
+
+    private boolean isFavoritedByUser(Long promptAssetId, Long userId) {
+        if (userId == null || promptAssetId == null) {
+            return false;
+        }
+        Long count = promptAssetFavoriteMapper.selectCount(new QueryWrapper<PromptAssetFavorite>()
+                .eq("userId", userId)
+                .eq("promptAssetId", promptAssetId)
+                .eq("isDelete", 0));
+        return count != null && count > 0;
+    }
+
+    private void fillFavoriteInfo(List<PromptAssetVO> records, Long userId) {
+        if (CollUtil.isEmpty(records)) {
+            return;
+        }
+        List<Long> promptAssetIds = records.stream()
+                .map(PromptAssetVO::getId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+        if (CollUtil.isEmpty(promptAssetIds)) {
+            return;
+        }
+        List<PromptAssetFavorite> favoriteList = promptAssetFavoriteMapper.selectList(
+                new QueryWrapper<PromptAssetFavorite>()
+                        .in("promptAssetId", promptAssetIds)
+                        .eq("isDelete", 0));
+        Map<Long, Long> countMap = favoriteList.stream().collect(Collectors.groupingBy(
+                PromptAssetFavorite::getPromptAssetId,
+                Collectors.counting()));
+        Set<Long> myFavoriteIds = userId == null ? Collections.emptySet() : favoriteList.stream()
+                .filter(item -> userId.equals(item.getUserId()))
+                .map(PromptAssetFavorite::getPromptAssetId)
+                .collect(Collectors.toSet());
+        for (PromptAssetVO record : records) {
+            Long promptAssetId = record.getId();
+            record.setFavoriteCount(countMap.getOrDefault(promptAssetId, 0L).intValue());
+            record.setFavorited(myFavoriteIds.contains(promptAssetId));
+        }
+    }
+
     private PromptAssetVO toVO(PromptAsset asset, boolean includeRelations) {
         if (asset == null) {
             return null;
@@ -695,16 +1215,60 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             vo.setMediaList(mediaVOList);
 
             List<PromptAssetTag> assetTags = promptAssetTagMapper.selectList(
-                    new QueryWrapper<PromptAssetTag>().eq("promptAssetId", asset.getId()));
+                    new QueryWrapper<PromptAssetTag>().eq("promptAssetId", asset.getId()).orderByAsc("createTime", "id"));
             if (CollUtil.isNotEmpty(assetTags)) {
                 List<Long> tagIds = assetTags.stream().map(PromptAssetTag::getTagId).collect(Collectors.toList());
                 List<Tag> tags = tagMapper.selectList(new QueryWrapper<Tag>().in("id", tagIds).eq("isDelete", 0));
-                vo.setTagList(tagService.getTagVO(tags));
+                Map<Long, TagVO> tagVOMap = tags.stream().collect(Collectors.toMap(
+                        Tag::getId,
+                        tagService::getTagVO,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+                Set<Long> sceneTagIds = getSceneTagIdsByCategory(asset.getCategoryId());
+                List<TagVO> tagList = new ArrayList<>();
+                List<TagVO> sceneTagList = new ArrayList<>();
+                List<TagVO> assetTagList = new ArrayList<>();
+                for (PromptAssetTag assetTag : assetTags) {
+                    TagVO tagVO = tagVOMap.get(assetTag.getTagId());
+                    if (tagVO == null) {
+                        continue;
+                    }
+                    tagList.add(tagVO);
+                    if (sceneTagIds.contains(assetTag.getTagId())) {
+                        sceneTagList.add(tagVO);
+                    } else {
+                        assetTagList.add(tagVO);
+                    }
+                }
+                List<TagVO> textAssetTags = toAssetTagVOList(asset.getAssetTagText());
+                assetTagList.addAll(textAssetTags);
+                tagList.addAll(textAssetTags);
+                vo.setTagList(tagList);
+                vo.setSceneTagList(sceneTagList);
+                vo.setAssetTagList(assetTagList);
             } else {
-                vo.setTagList(new ArrayList<TagVO>());
+                List<TagVO> textAssetTags = toAssetTagVOList(asset.getAssetTagText());
+                vo.setTagList(new ArrayList<TagVO>(textAssetTags));
+                vo.setSceneTagList(new ArrayList<TagVO>());
+                vo.setAssetTagList(textAssetTags);
             }
         }
         return vo;
+    }
+
+    private List<TagVO> toAssetTagVOList(String assetTagText) {
+        List<String> tagNames = splitTagNames(assetTagText);
+        if (CollUtil.isEmpty(tagNames)) {
+            return new ArrayList<>();
+        }
+        return tagNames.stream().map(tagName -> {
+            TagVO tagVO = new TagVO();
+            tagVO.setId(-Math.abs((long) tagName.hashCode()));
+            tagVO.setName(tagName);
+            tagVO.setDescription("asset_tag_text");
+            tagVO.setSort(0);
+            return tagVO;
+        }).collect(Collectors.toList());
     }
 
     private PromptAssetImportBatch createBatch(String filename, boolean dryRun, String assetTypeFilter,
@@ -874,6 +1438,8 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         private String license;
         private String commercialRisk;
         private String visualAssetType;
+        private String sceneTagList;
+        private String assetTagList;
         private String sourceCreatedAt;
         private String sourceUpdatedAt;
         private String syncKey;
@@ -913,6 +1479,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             row.setLicense(rs.getString("license"));
             row.setCommercialRisk(defaultIfBlank(rs.getString("commercial_risk"), "unknown"));
             row.setVisualAssetType(rs.getString("visual_asset_type"));
+            row.setSceneTagList(firstNotBlank(optionalString(rs, "sceneTagList"),
+                    optionalString(rs, "scene_tag_list")));
+            row.setAssetTagList(firstNotBlank(optionalString(rs, "assetTagList"),
+                    optionalString(rs, "asset_tag_list")));
             row.setSourceCreatedAt(rs.getString("created_at"));
             row.setSourceUpdatedAt(rs.getString("updated_at"));
             row.setSyncKey(buildSyncKey(row));

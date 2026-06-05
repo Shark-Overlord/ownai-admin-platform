@@ -28,7 +28,22 @@ export interface UserVO {
   createTime?: string;
 }
 
-export async function login(params: { userAccount: string; userPassword: string }) {
+export interface LoginCaptchaVO {
+  captchaId: string;
+  imageBase64?: string;
+  imageUrl?: string;
+}
+
+export async function getLoginCaptcha() {
+  return request.get('/user/login/captcha') as Promise<{ data: LoginCaptchaVO }>;
+}
+
+export async function login(params: {
+  userAccount: string;
+  userPassword: string;
+  captchaId?: string;
+  captchaCode?: string;
+}) {
   return request.post('/user/login', params) as Promise<{ data: LoginUserVO }>;
 }
 

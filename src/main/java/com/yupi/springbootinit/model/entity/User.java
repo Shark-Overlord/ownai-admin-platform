@@ -18,6 +18,8 @@ public class User implements Serializable {
 
     private String userAccount;
 
+    private String userEmail;
+
     private String userPassword;
 
     private String unionId;

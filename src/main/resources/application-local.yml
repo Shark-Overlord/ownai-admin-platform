@@ -57,6 +57,14 @@ cos:
     region: ${COS_REGION:}
     bucket: ${COS_BUCKET:}
 
+image:
+  generation:
+    worker-token: ${IMAGE_GENERATION_WORKER_TOKEN:}
+    config-secret: ${IMAGE_GENERATION_CONFIG_SECRET:}
+    pending-timeout-minutes: ${IMAGE_GENERATION_PENDING_TIMEOUT_MINUTES:20}
+    running-timeout-minutes: ${IMAGE_GENERATION_RUNNING_TIMEOUT_MINUTES:20}
+    running-timeout-scan-interval-ms: ${IMAGE_GENERATION_RUNNING_TIMEOUT_SCAN_INTERVAL_MS:300000}
+
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

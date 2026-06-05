@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { ProTable } from '@ant-design/pro-components';
-import { Button, Modal, Form, Input, Select, message, Popconfirm } from 'antd';
+import { Alert, Button, Modal, Form, Input, Select, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { listUserByPage, updateUser, deleteUser, deleteUserBatch, addUser, type UserVO } from '../../api/user';
 
@@ -225,6 +225,12 @@ export default function UserManage() {
           <Form.Item label="会员到期时间" name="memberExpireTime">
             <Input type="datetime-local" />
           </Form.Item>
+          <Alert
+            style={{ marginBottom: 16 }}
+            type="info"
+            showIcon
+            message="日常发放或扣减积分建议使用“积分管理”页面；这里填写的是用户最终积分余额。"
+          />
           <Form.Item label="积分余额" name="pointBalance">
             <Input type="number" />
           </Form.Item>

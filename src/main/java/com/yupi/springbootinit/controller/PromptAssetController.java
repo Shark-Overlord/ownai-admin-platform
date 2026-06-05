@@ -14,17 +14,22 @@ import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.mapper.PromptAssetImportBatchMapper;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetFavoriteRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
+import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.entity.PromptAssetImportBatch;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImageSyncResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImportResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
 import com.yupi.springbootinit.service.PromptAssetService;
+import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import com.yupi.springbootinit.exception.BusinessException;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,11 +52,63 @@ public class PromptAssetController {
     @Resource
     private PromptAssetImportBatchMapper promptAssetImportBatchMapper;
 
+    @Resource
+    private UserService userService;
+
     @PostMapping("/list/page/vo")
     @ApiOperation("Page query published prompt assets")
     public BaseResponse<Page<PromptAssetVO>> listPublishedPromptAssetVOByPage(
-            @RequestBody(required = false) PromptAssetQueryRequest request) {
-        return ResultUtils.success(promptAssetService.listPublishedPromptAssetVOByPage(request));
+            @RequestBody(required = false) PromptAssetQueryRequest request,
+            HttpServletRequest httpServletRequest) {
+        User loginUser = userService.getLoginUserPermitNull(httpServletRequest);
+        return ResultUtils.success(promptAssetService.listPublishedPromptAssetVOByPage(request, loginUser));
+    }
+
+    @GetMapping("/get/vo")
+    @ApiOperation("Get published prompt asset detail")
+    public BaseResponse<PromptAssetVO> getPublishedPromptAssetVO(
+            @RequestParam("id") Long id,
+            HttpServletRequest httpServletRequest) {
+        User loginUser = userService.getLoginUserPermitNull(httpServletRequest);
+        return ResultUtils.success(promptAssetService.getPublishedPromptAssetVO(id, loginUser));
+    }
+
+    @PostMapping("/favorite/add")
+    @OperationLog(module = "prompt_asset", action = "favorite_prompt_asset")
+    @ApiOperation("Favorite prompt asset")
+    public BaseResponse<Boolean> addFavorite(
+            @RequestBody PromptAssetFavoriteRequest request,
+            HttpServletRequest httpServletRequest) {
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        return ResultUtils.success(promptAssetService.addFavorite(request, loginUser));
+    }
+
+    @PostMapping("/favorite/cancel")
+    @OperationLog(module = "prompt_asset", action = "cancel_favorite_prompt_asset")
+    @ApiOperation("Cancel prompt asset favorite")
+    public BaseResponse<Boolean> cancelFavorite(
+            @RequestBody PromptAssetFavoriteRequest request,
+            HttpServletRequest httpServletRequest) {
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        return ResultUtils.success(promptAssetService.cancelFavorite(request, loginUser));
+    }
+
+    @GetMapping("/favorite/check")
+    @ApiOperation("Check prompt asset favorite status")
+    public BaseResponse<Boolean> checkFavorite(
+            @RequestParam("promptAssetId") Long promptAssetId,
+            HttpServletRequest httpServletRequest) {
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        return ResultUtils.success(promptAssetService.isFavorited(promptAssetId, loginUser));
+    }
+
+    @PostMapping("/favorite/my/list/page")
+    @ApiOperation("Page query my favorite prompt assets")
+    public BaseResponse<Page<PromptAssetVO>> listMyFavoritePromptAssets(
+            @RequestBody(required = false) PromptAssetQueryRequest request,
+            HttpServletRequest httpServletRequest) {
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        return ResultUtils.success(promptAssetService.listMyFavoritePromptAssetVOByPage(request, loginUser));
     }
 
     @PostMapping("/admin/list/page/vo")
@@ -69,12 +126,28 @@ public class PromptAssetController {
         return ResultUtils.success(promptAssetService.getPromptAssetVO(id));
     }
 
+    @PostMapping("/admin/add")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "prompt_asset", action = "add_prompt_asset")
+    @ApiOperation("Admin add prompt asset")
+    public BaseResponse<Long> addPromptAsset(@RequestBody PromptAssetAddRequest request) {
+        return ResultUtils.success(promptAssetService.addPromptAsset(request));
+    }
+
     @PostMapping("/admin/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "update_prompt_asset")
     @ApiOperation("Admin update prompt asset")
     public BaseResponse<Boolean> updatePromptAsset(@RequestBody PromptAssetUpdateRequest request) {
         return ResultUtils.success(promptAssetService.updatePromptAsset(request));
+    }
+
+    @PostMapping("/admin/update/tags")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "prompt_asset", action = "update_prompt_asset_tags")
+    @ApiOperation("Admin update prompt asset tags")
+    public BaseResponse<Boolean> updatePromptAssetTags(@RequestBody PromptAssetUpdateRequest request) {
+        return ResultUtils.success(promptAssetService.updatePromptAssetTags(request));
     }
 
     @PostMapping("/admin/delete")
@@ -97,6 +170,17 @@ public class PromptAssetController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         return ResultUtils.success(promptAssetService.deletePromptAssetBatch(request.getIds()));
+    }
+
+    @PostMapping("/admin/publish/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "prompt_asset", action = "batch_publish_prompt_asset")
+    @ApiOperation("Admin batch publish prompt assets")
+    public BaseResponse<Boolean> publishPromptAssetBatch(@RequestBody BatchDeleteRequest request) {
+        if (request == null || CollUtil.isEmpty(request.getIds())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(promptAssetService.publishPromptAssetBatch(request.getIds()));
     }
 
     @PostMapping("/admin/sync/image/cos")

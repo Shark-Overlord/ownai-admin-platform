@@ -52,10 +52,17 @@ export interface PromptAssetVO {
   selectionStatus?: string;
   license?: string;
   commercialRisk?: string;
+  assetTagText?: string;
+  aiTagStatus?: number;
   memberOnly?: number;
   status?: number;
   sort?: number;
-  tagList?: { id: number; name: string }[];
+  tagList?: { id: number | string; name: string }[];
+  sceneTagList?: { id: number | string; name: string }[];
+  assetTagList?: { id: number | string; name: string }[];
+  tagIdList?: Array<number | string>;
+  sceneTagIdList?: Array<number | string>;
+  assetTagIdList?: Array<number | string>;
   mediaList?: PromptAssetMediaVO[];
   createTime?: string;
   updateTime?: string;
@@ -109,8 +116,20 @@ export async function getPromptAssetVOById(id: number) {
   return request.get('/promptAsset/admin/get/vo', { params: { id } }) as Promise<{ data: PromptAssetVO }>;
 }
 
+export async function addPromptAsset(params: Partial<PromptAssetVO>) {
+  return request.post('/promptAsset/admin/add', params) as Promise<{ data: number }>;
+}
+
 export async function updatePromptAsset(params: Partial<PromptAssetVO> & { id: number }) {
   return request.post('/promptAsset/admin/update', params) as Promise<{ data: boolean }>;
+}
+
+export async function updatePromptAssetTags(params: {
+  id: number;
+  sceneTagIdList?: Array<number | string>;
+  assetTagIdList?: Array<number | string>;
+}) {
+  return request.post('/promptAsset/admin/update/tags', params) as Promise<{ data: boolean }>;
 }
 
 export async function deletePromptAsset(params: { id: number }) {
@@ -119,6 +138,10 @@ export async function deletePromptAsset(params: { id: number }) {
 
 export async function deletePromptAssetBatch(params: { ids: number[] }) {
   return request.post('/promptAsset/admin/delete/batch', params) as Promise<{ data: boolean }>;
+}
+
+export async function publishPromptAssetBatch(params: { ids: number[] }) {
+  return request.post('/promptAsset/admin/publish/batch', params) as Promise<{ data: boolean }>;
 }
 
 export async function syncPromptAssetImagesToCos(params: { ids: number[] }) {
@@ -150,7 +173,7 @@ export async function importVisualPromptDb(params: {
   }
   return request.post('/promptAsset/admin/import/visual-prompt-db', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 120000,
+    timeout: 600000,
   }) as Promise<{ data: PromptAssetImportResultVO }>;
 }
 

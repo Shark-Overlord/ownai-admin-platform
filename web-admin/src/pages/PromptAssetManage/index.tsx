@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
   Select,
   Space,
   Switch,
+  Tabs,
   Tag,
   Tooltip,
   Typography,
@@ -21,6 +22,7 @@ import {
   message,
 } from 'antd';
 import {
+  CheckCircleOutlined,
   CloudUploadOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -31,14 +33,17 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
-import { listCategory, type CategoryVO } from '../../api/category';
+import { listCategory, listTagsByCategory, type CategoryVO } from '../../api/category';
+import { addTag, listTag, type TagVO } from '../../api/tag';
 import {
+  addPromptAsset,
   deletePromptAsset,
   deletePromptAssetBatch,
   getPromptAssetVOById,
   importVisualPromptDb,
   listPromptAssetByPageForAdmin,
   listPromptAssetImportBatchByPage,
+  publishPromptAssetBatch,
   syncPromptAssetImagesToCos,
   updatePromptAsset,
   type PromptAssetImportBatch,
@@ -80,41 +85,209 @@ const renderStatus = (value?: number) => {
   return <Tag>草稿</Tag>;
 };
 
+const renderAiTagStatus = (value?: number) => {
+  if (value === 1) {
+    return <Tag color="green">已处理</Tag>;
+  }
+  return <Tag>未处理</Tag>;
+};
+
 export default function PromptAssetManage() {
   const actionRef = useRef<any>(null);
   const batchActionRef = useRef<any>(null);
   const [form] = Form.useForm();
   const [importForm] = Form.useForm();
   const [categories, setCategories] = useState<CategoryVO[]>([]);
+  const [tags, setTags] = useState<TagVO[]>([]);
   const [detail, setDetail] = useState<PromptAssetVO | null>(null);
   const [editing, setEditing] = useState<PromptAssetVO | null>(null);
+  const [editMode, setEditMode] = useState<'create' | 'edit'>('edit');
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [coverFileList, setCoverFileList] = useState<UploadFile[]>([]);
   const [previewImage, setPreviewImage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<PromptAssetVO[]>([]);
   const [importResult, setImportResult] = useState<PromptAssetImportResultVO | null>(null);
+  const [tagKeyword, setTagKeyword] = useState('');
+  const [customTagName, setCustomTagName] = useState('');
+  const [addingTag, setAddingTag] = useState(false);
+  const [sceneTags, setSceneTags] = useState<TagVO[]>([]);
+  const [editActiveTab, setEditActiveTab] = useState('base');
+  const selectedSceneTagIdList = (Form.useWatch('sceneTagIdList', form) || []) as Array<number | string>;
+  const selectedAssetTagIdList = (Form.useWatch('assetTagIdList', form) || []) as Array<number | string>;
+  const editingCategoryId = Form.useWatch('categoryId', form);
 
   useEffect(() => {
     listCategory().then((res) => setCategories(res.data || []));
+    listTag().then((res) => setTags(res.data || []));
   }, []);
 
   const categoryOptions = categories.map((item) => ({ label: item.name, value: item.id }));
+  const tagOptions = tags.map((item) => ({ label: item.name, value: String(item.id) }));
   const categoryNameMap = new Map(categories.map((item) => [String(item.id), item.name]));
+  const selectedSceneTagIdSet = useMemo(
+    () => new Set(selectedSceneTagIdList.map((item) => String(item))),
+    [selectedSceneTagIdList],
+  );
+  const selectedAssetTagIdSet = useMemo(
+    () => new Set(selectedAssetTagIdList.map((item) => String(item))),
+    [selectedAssetTagIdList],
+  );
+  const selectedSceneTagList = useMemo(
+    () =>
+      selectedSceneTagIdList
+        .map((id) => sceneTags.find((tag) => String(tag.id) === String(id)))
+        .filter(Boolean) as TagVO[],
+    [selectedSceneTagIdList, sceneTags],
+  );
+  const selectedAssetTagList = useMemo(
+    () =>
+      selectedAssetTagIdList
+        .map((id) => tags.find((tag) => String(tag.id) === String(id)))
+        .filter(Boolean) as TagVO[],
+    [selectedAssetTagIdList, tags],
+  );
+  const visibleTagList = useMemo(() => {
+    const keyword = tagKeyword.trim().toLowerCase();
+    const sceneTagIds = new Set(sceneTags.map((tag) => String(tag.id)));
+    const availableTags = tags.filter((tag) => !sceneTagIds.has(String(tag.id)));
+    if (!keyword) {
+      return availableTags;
+    }
+    return availableTags.filter((tag) => tag.name.toLowerCase().includes(keyword));
+  }, [tagKeyword, tags, sceneTags]);
+
+  useEffect(() => {
+    if (!editing || !editingCategoryId) {
+      setSceneTags([]);
+      return;
+    }
+    let active = true;
+    listTagsByCategory(String(editingCategoryId)).then((res) => {
+      if (!active) {
+        return;
+      }
+      const nextSceneTags = (res.data || []) as TagVO[];
+      setSceneTags(nextSceneTags);
+      const allowedIds = new Set(nextSceneTags.map((tag) => String(tag.id)));
+      const currentSceneIds = (form.getFieldValue('sceneTagIdList') || []) as Array<number | string>;
+      const validSceneIds = currentSceneIds.filter((id) => allowedIds.has(String(id)));
+      if (validSceneIds.length !== currentSceneIds.length) {
+        form.setFieldsValue({ sceneTagIdList: validSceneIds.map((id) => String(id)) });
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [editing, editingCategoryId, form]);
+
+  const setSelectedSceneTags = (tagIds: Array<number | string>) => {
+    form.setFieldsValue({ sceneTagIdList: Array.from(new Set(tagIds.map((item) => String(item)))) });
+  };
+
+  const setSelectedAssetTags = (tagIds: Array<number | string>) => {
+    form.setFieldsValue({ assetTagIdList: Array.from(new Set(tagIds.map((item) => String(item)))) });
+  };
+
+  const toggleSceneTag = (tagId: number | string) => {
+    const id = String(tagId);
+    const next = new Set(selectedSceneTagIdList.map((item) => String(item)));
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedSceneTags(Array.from(next));
+  };
+
+  const toggleAssetTag = (tagId: number | string) => {
+    const id = String(tagId);
+    const next = new Set(selectedAssetTagIdList.map((item) => String(item)));
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedAssetTags(Array.from(next));
+  };
+
+  const createCustomTag = async () => {
+    const name = customTagName.trim();
+    if (!name) {
+      message.warning('请输入标签名称');
+      return;
+    }
+    const existingTag = tags.find((tag) => tag.name.trim().toLowerCase() === name.toLowerCase());
+    if (existingTag) {
+      setSelectedAssetTags([...selectedAssetTagIdList, existingTag.id]);
+      setCustomTagName('');
+      message.info('标签已存在，已自动选中');
+      return;
+    }
+    setAddingTag(true);
+    try {
+      const res = await addTag({ name, description: 'Prompt 资产自定义标签' });
+      const newTag = { id: String(res.data), name, description: 'Prompt 资产自定义标签' };
+      setTags((prev) => [newTag, ...prev]);
+      setSelectedAssetTags([...selectedAssetTagIdList, newTag.id]);
+      setCustomTagName('');
+      message.success('标签已创建并选中');
+    } finally {
+      setAddingTag(false);
+    }
+  };
 
   const openDetail = async (id: number) => {
     const res = await getPromptAssetVOById(id);
     setDetail(res.data);
   };
 
-  const openEdit = async (id: number) => {
+  const openCreate = () => {
+    setEditMode('create');
+    setEditing({
+      id: 0,
+      assetType: 'image_prompt',
+      title: '',
+      status: 0,
+      memberOnly: 0,
+      sort: 0,
+    });
+    setEditActiveTab('base');
+    form.resetFields();
+    form.setFieldsValue({
+      assetType: 'image_prompt',
+      status: 0,
+      memberOnly: false,
+      sort: 0,
+      sceneTagIdList: [],
+      assetTagIdList: [],
+    });
+    setCoverFileList([]);
+    setPreviewImage('');
+    setPreviewOpen(false);
+    setTagKeyword('');
+    setCustomTagName('');
+    setSceneTags([]);
+  };
+
+  const openEdit = async (id: number, activeTab = 'base') => {
     const res = await getPromptAssetVOById(id);
+    const sceneTagIdList = res.data.sceneTagList?.map((item) => String(item.id)) || [];
+    const assetTagIdList =
+      res.data.assetTagList?.map((item) => String(item.id)) ||
+      res.data.tagList?.map((item) => String(item.id)) ||
+      [];
+    setEditMode('edit');
     setEditing(res.data);
+    setEditActiveTab(activeTab);
     form.setFieldsValue({
       ...res.data,
       categoryId: res.data.categoryId ? String(res.data.categoryId) : undefined,
+      sceneTagIdList,
+      assetTagIdList,
       memberOnly: res.data.memberOnly === 1,
     });
     setCoverFileList(
@@ -133,9 +306,15 @@ export default function PromptAssetManage() {
 
   const closeEdit = () => {
     setEditing(null);
+    setEditMode('edit');
+    form.resetFields();
     setCoverFileList([]);
     setPreviewImage('');
     setPreviewOpen(false);
+    setTagKeyword('');
+    setCustomTagName('');
+    setSceneTags([]);
+    setEditActiveTab('base');
   };
 
   const reloadTables = () => {
@@ -145,15 +324,14 @@ export default function PromptAssetManage() {
 
   const handleImport = async () => {
     const values = await importForm.validateFields();
-    const file = fileList[0]?.originFileObj;
-    if (!file) {
+    if (!importFile) {
       message.error('请先选择 visual_prompt_library.db');
       return;
     }
     setImporting(true);
     try {
       const res = await importVisualPromptDb({
-        file,
+        file: importFile,
         categoryId: values.categoryId,
         dryRun: values.dryRun !== false,
         assetType: values.assetType,
@@ -168,19 +346,52 @@ export default function PromptAssetManage() {
     }
   };
 
+  const handleImportFileChange = async ({ fileList: nextFileList }: { fileList: UploadFile[] }) => {
+    const nextFile = nextFileList[0];
+    if (!nextFile?.originFileObj) {
+      setFileList([]);
+      setImportFile(null);
+      return;
+    }
+    try {
+      const rawFile = nextFile.originFileObj as File;
+      const buffer = await rawFile.arrayBuffer();
+      const stableFile = new File([buffer], rawFile.name, {
+        type: rawFile.type || 'application/octet-stream',
+        lastModified: Date.now(),
+      });
+      setImportFile(stableFile);
+      setFileList([{ ...nextFile, status: 'done' }]);
+    } catch (error) {
+      setFileList([]);
+      setImportFile(null);
+      message.error('文件读取失败，请重新选择 SQLite 文件');
+    }
+  };
+
   const handleSave = async () => {
     const values = await form.validateFields();
     if (!editing) {
       return;
     }
-    await updatePromptAsset({
+    const payload = {
       ...values,
-      id: editing.id,
       categoryId: values.categoryId,
+      sceneTagIdList: values.sceneTagIdList || [],
+      assetTagIdList: values.assetTagIdList || [],
       memberOnly: values.memberOnly ? 1 : 0,
-    });
-    message.success('保存成功');
-    setEditing(null);
+    };
+    if (editMode === 'create') {
+      await addPromptAsset(payload);
+      message.success('新增成功');
+    } else {
+      await updatePromptAsset({
+        ...payload,
+        id: editing.id,
+      });
+      message.success('保存成功');
+    }
+    closeEdit();
     reloadTables();
   };
 
@@ -193,6 +404,13 @@ export default function PromptAssetManage() {
   const handleBatchDelete = async () => {
     await deletePromptAssetBatch({ ids: selectedRows.map((item) => item.id) });
     message.success('批量删除成功');
+    setSelectedRows([]);
+    reloadTables();
+  };
+
+  const handleBatchPublish = async () => {
+    await publishPromptAssetBatch({ ids: selectedRows.map((item) => item.id) });
+    message.success('批量发布成功');
     setSelectedRows([]);
     reloadTables();
   };
@@ -265,6 +483,17 @@ export default function PromptAssetManage() {
       valueEnum: statusValueEnum,
       width: 120,
       render: (_: unknown, record: PromptAssetVO) => renderStatus(record.status),
+    },
+    {
+      title: 'AI处理',
+      dataIndex: 'aiTagStatus',
+      valueType: 'select',
+      valueEnum: {
+        0: { text: '未处理', status: 'Default' },
+        1: { text: '已处理', status: 'Success' },
+      },
+      width: 110,
+      render: (_: unknown, record: PromptAssetVO) => renderAiTagStatus(record.aiTagStatus),
     },
     {
       title: '更新时间',
@@ -393,10 +622,14 @@ export default function PromptAssetManage() {
           };
         }}
         pagination={{
-          pageSize: 10,
+          defaultPageSize: 10,
           showSizeChanger: true,
+          pageSizeOptions: [10, 20, 30, 50, 100],
         }}
         toolBarRender={() => [
+          <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            新增 Prompt
+          </Button>,
           <Button key="refresh" icon={<ReloadOutlined />} onClick={reloadTables}>
             刷新
           </Button>,
@@ -408,6 +641,16 @@ export default function PromptAssetManage() {
           >
             同步图片
           </Button>,
+          <Popconfirm
+            key="batch-publish"
+            title="确认批量发布选中的 Prompt 资产？"
+            disabled={selectedRows.length === 0}
+            onConfirm={handleBatchPublish}
+          >
+            <Button icon={<CheckCircleOutlined />} disabled={selectedRows.length === 0}>
+              批量发布
+            </Button>
+          </Popconfirm>,
           <Popconfirm
             key="batch-delete"
             title="确认批量删除选中的资产？"
@@ -424,6 +667,8 @@ export default function PromptAssetManage() {
             icon={<UploadOutlined />}
             onClick={() => {
               setImportResult(null);
+              setFileList([]);
+              setImportFile(null);
               setImportOpen(true);
             }}
           >
@@ -476,7 +721,7 @@ export default function PromptAssetManage() {
               maxCount={1}
               beforeUpload={() => false}
               fileList={fileList}
-              onChange={({ fileList: nextFileList }) => setFileList(nextFileList)}
+              onChange={handleImportFileChange}
             >
               <p className="ant-upload-drag-icon">
                 <InboxOutlined />
@@ -568,16 +813,53 @@ export default function PromptAssetManage() {
               <Descriptions.Item label="Object Key" span={2}>
                 {detail.cloudStorageKey || '-'}
               </Descriptions.Item>
-              <Descriptions.Item label="Tags" span={2}>
-                {detail.tagList?.length ? (
-                  <Space size={[0, 4]} wrap>
-                    {detail.tagList.map((item) => (
-                      <Tag key={item.id}>{item.name}</Tag>
-                    ))}
-                  </Space>
-                ) : (
-                  '-'
-                )}
+              <Descriptions.Item label="二级场景标签" span={2}>
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  {detail.sceneTagList?.length ? (
+                    <Space size={[0, 4]} wrap>
+                      {detail.sceneTagList.map((item) => (
+                        <Tag color="geekblue" key={item.id}>
+                          {item.name}
+                        </Tag>
+                      ))}
+                    </Space>
+                  ) : (
+                    <Text type="secondary">暂无二级场景标签</Text>
+                  )}
+                  <Button
+                    size="small"
+                    type="link"
+                    onClick={() => {
+                      setDetail(null);
+                      openEdit(detail.id, 'tags');
+                    }}
+                  >
+                    编辑二级场景标签
+                  </Button>
+                </Space>
+              </Descriptions.Item>
+              <Descriptions.Item label="资产描述标签" span={2}>
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  {detail.assetTagList?.length ? (
+                    <Space size={[0, 4]} wrap>
+                      {detail.assetTagList.map((item) => (
+                        <Tag key={item.id}>{item.name}</Tag>
+                      ))}
+                    </Space>
+                  ) : (
+                    <Text type="secondary">暂无资产描述标签</Text>
+                  )}
+                  <Button
+                    size="small"
+                    type="link"
+                    onClick={() => {
+                      setDetail(null);
+                      openEdit(detail.id, 'tags');
+                    }}
+                  >
+                    编辑资产描述标签
+                  </Button>
+                </Space>
               </Descriptions.Item>
               <Descriptions.Item label="Prompt" span={2}>
                 <Input.TextArea value={detail.promptContent} rows={8} readOnly />
@@ -590,98 +872,257 @@ export default function PromptAssetManage() {
         ) : null}
       </Drawer>
 
-      <Drawer title="编辑 Prompt 资产" open={!!editing} width={820} onClose={closeEdit}>
+      <Drawer title={editMode === 'create' ? '新增 Prompt 资产' : '编辑 Prompt 资产'} open={!!editing} width={820} onClose={closeEdit}>
         <Form form={form} layout="vertical">
-          <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="分类" name="categoryId" rules={[{ required: true, message: '请选择分类' }]}>
-            <Select showSearch placeholder="选择分类" options={categoryOptions} optionFilterProp="label" />
-          </Form.Item>
-          <Form.Item label="摘要" name="summary">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-          <Form.Item label="Prompt" name="promptContent">
-            <Input.TextArea rows={8} />
-          </Form.Item>
-          <Form.Item label="中文说明" name="promptCn">
-            <Input.TextArea rows={5} />
-          </Form.Item>
-          <Space style={{ width: '100%' }} size="large">
-            <Form.Item label="发布状态" name="status" style={{ minWidth: 180 }}>
-              <Select
-                options={[
-                  { label: '草稿', value: 0 },
-                  { label: '已发布', value: 1 },
-                  { label: '已归档', value: 2 },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item label="会员专享" name="memberOnly" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-            <Form.Item label="排序" name="sort">
-              <InputNumber />
-            </Form.Item>
-          </Space>
-          <Form.Item label="封面图片">
-            <Upload
-              name="file"
-              action="/api/file/upload?biz=prompt_asset_cover"
-              listType="picture-card"
-              maxCount={1}
-              accept="image/*"
-              headers={{ Authorization: `Bearer ${localStorage.getItem('token') || ''}` }}
-              fileList={coverFileList}
-              onChange={(info) => {
-                setCoverFileList(info.fileList);
-                if (info.file.status === 'done') {
-                  const res = info.file.response;
-                  if (res?.code === 0) {
-                    form.setFieldsValue({
-                      coverUrl: res.data,
-                      previewMediaUrl: res.data,
-                    });
-                    message.success('图片上传成功');
-                  } else {
-                    message.error(res?.message || '上传失败');
-                  }
-                }
-                if (info.file.status === 'removed') {
-                  form.setFieldsValue({ coverUrl: undefined, previewMediaUrl: undefined });
-                }
-              }}
-              showUploadList={{ showPreviewIcon: true, showRemoveIcon: true }}
-              onPreview={(file) => {
-                const url = file.url || file.response?.data;
-                if (url) {
-                  setPreviewImage(url);
-                  setPreviewOpen(true);
-                }
-              }}
-            >
-              {coverFileList.length >= 1 ? null : (
-                <div>
-                  <PlusOutlined />
-                  <div style={{ marginTop: 8 }}>上传</div>
-                </div>
-              )}
-            </Upload>
-            <Image
-              wrapperStyle={{ display: 'none' }}
-              src={previewImage}
-              preview={{
-                visible: previewOpen,
-                onVisibleChange: (visible) => setPreviewOpen(visible),
-              }}
-            />
-          </Form.Item>
-          <Form.Item label="封面 URL" name="coverUrl">
-            <Input />
-          </Form.Item>
-          <Form.Item label="预览媒体 URL" name="previewMediaUrl">
-            <Input />
-          </Form.Item>
+          <Tabs
+            activeKey={editActiveTab}
+            onChange={setEditActiveTab}
+            items={[
+              {
+                key: 'base',
+                label: '基础信息',
+                children: (
+                  <>
+                    <Form.Item label="资产类型" name="assetType" rules={[{ required: true, message: '请选择资产类型' }]}>
+                      <Select options={assetTypeOptions} />
+                    </Form.Item>
+                    <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
+                      <Input />
+                    </Form.Item>
+                    <Form.Item label="分类" name="categoryId" rules={[{ required: true, message: '请选择分类' }]}>
+                      <Select showSearch placeholder="选择分类" options={categoryOptions} optionFilterProp="label" />
+                    </Form.Item>
+                    <Form.Item label="摘要" name="summary">
+                      <Input.TextArea rows={2} />
+                    </Form.Item>
+                    <Space style={{ width: '100%' }} size="large">
+                      <Form.Item label="发布状态" name="status" style={{ minWidth: 180 }}>
+                        <Select
+                          options={[
+                            { label: '草稿', value: 0 },
+                            { label: '已发布', value: 1 },
+                            { label: '已归档', value: 2 },
+                          ]}
+                        />
+                      </Form.Item>
+                      <Form.Item label="会员专享" name="memberOnly" valuePropName="checked">
+                        <Switch />
+                      </Form.Item>
+                      <Form.Item label="排序" name="sort" extra="数值越大越靠前">
+                        <InputNumber />
+                      </Form.Item>
+                    </Space>
+                  </>
+                ),
+              },
+              {
+                key: 'content',
+                label: 'Prompt 内容',
+                children: (
+                  <>
+                    <Form.Item label="Prompt" name="promptContent">
+                      <Input.TextArea rows={8} />
+                    </Form.Item>
+                    <Form.Item label="中文说明" name="promptCn">
+                      <Input.TextArea rows={5} />
+                    </Form.Item>
+                  </>
+                ),
+              },
+              {
+                key: 'tags',
+                label: '标签',
+                children: (
+                  <>
+                    <Alert
+                      showIcon
+                      type="info"
+                      message="二级场景标签来自当前分类标签池；资产描述标签是这条 Prompt 自己的自由标注。"
+                      style={{ marginBottom: 16 }}
+                    />
+                    <Form.Item name="sceneTagIdList" hidden>
+                      <Select mode="multiple" options={sceneTags.map((item) => ({ label: item.name, value: String(item.id) }))} />
+                    </Form.Item>
+                    <Form.Item name="assetTagIdList" hidden>
+                      <Select mode="multiple" options={tagOptions} />
+                    </Form.Item>
+                    <div className="prompt-asset-tag-panel">
+                      <div className="prompt-asset-tag-section">
+                        <div className="prompt-asset-tag-section-title">
+                          <Text strong>二级场景标签</Text>
+                          <Text type="secondary">{selectedSceneTagIdList.length} 个</Text>
+                        </div>
+                        <div className="prompt-asset-selected-tags">
+                          {selectedSceneTagList.length > 0 ? (
+                            selectedSceneTagList.map((tag) => (
+                              <Tag
+                                key={tag.id}
+                                color="geekblue"
+                                closable
+                                onClose={(event) => {
+                                  event.preventDefault();
+                                  toggleSceneTag(tag.id);
+                                }}
+                              >
+                                {tag.name}
+                              </Tag>
+                            ))
+                          ) : (
+                            <Text type="secondary">暂未选择二级场景标签</Text>
+                          )}
+                        </div>
+                        <div className="prompt-asset-tag-cloud prompt-asset-tag-cloud-compact">
+                          {sceneTags.length > 0 ? (
+                            sceneTags.map((tag) => (
+                              <Tag.CheckableTag
+                                key={tag.id}
+                                checked={selectedSceneTagIdSet.has(String(tag.id))}
+                                className="prompt-asset-checkable-tag"
+                                onChange={() => toggleSceneTag(tag.id)}
+                              >
+                                {tag.name}
+                              </Tag.CheckableTag>
+                            ))
+                          ) : (
+                            <div className="prompt-asset-tag-empty">当前分类暂无二级场景标签，请先到分类标签树维护</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="prompt-asset-tag-section">
+                        <div className="prompt-asset-tag-section-title">
+                          <Text strong>资产描述标签</Text>
+                          <Text type="secondary">{selectedAssetTagIdList.length} 个</Text>
+                        </div>
+                        <div className="prompt-asset-selected-tags">
+                          {selectedAssetTagList.length > 0 ? (
+                            selectedAssetTagList.map((tag) => (
+                              <Tag
+                                key={tag.id}
+                                color="blue"
+                                closable
+                                onClose={(event) => {
+                                  event.preventDefault();
+                                  toggleAssetTag(tag.id);
+                                }}
+                              >
+                                {tag.name}
+                              </Tag>
+                            ))
+                          ) : (
+                            <Text type="secondary">暂未选择资产描述标签</Text>
+                          )}
+                        </div>
+                      </div>
+                      <div className="prompt-asset-tag-toolbar">
+                        <Input.Search
+                          allowClear
+                          placeholder="搜索已有资产描述标签"
+                          value={tagKeyword}
+                          onChange={(event) => setTagKeyword(event.target.value)}
+                        />
+                        <Button disabled={selectedAssetTagIdList.length === 0} onClick={() => setSelectedAssetTags([])}>
+                          清空描述标签
+                        </Button>
+                      </div>
+                      <div className="prompt-asset-tag-cloud">
+                        {visibleTagList.length > 0 ? (
+                          visibleTagList.map((tag) => (
+                            <Tag.CheckableTag
+                              key={tag.id}
+                              checked={selectedAssetTagIdSet.has(String(tag.id))}
+                              className="prompt-asset-checkable-tag"
+                              onChange={() => toggleAssetTag(tag.id)}
+                            >
+                              {tag.name}
+                            </Tag.CheckableTag>
+                          ))
+                        ) : (
+                          <div className="prompt-asset-tag-empty">没有匹配的描述标签，可以在下方创建自定义标签</div>
+                        )}
+                      </div>
+                      <div className="prompt-asset-custom-tag">
+                        <Input
+                          placeholder="输入自定义描述标签名称"
+                          value={customTagName}
+                          onChange={(event) => setCustomTagName(event.target.value)}
+                          onPressEnter={createCustomTag}
+                        />
+                        <Button type="primary" loading={addingTag} onClick={createCustomTag}>
+                          创建并选中
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ),
+              },
+              {
+                key: 'media',
+                label: '封面与媒体',
+                children: (
+                  <>
+                    <Form.Item label="封面图片">
+                      <Upload
+                        name="file"
+                        action="/api/file/upload?biz=prompt_asset_cover"
+                        listType="picture-card"
+                        maxCount={1}
+                        accept="image/*"
+                        headers={{ Authorization: `Bearer ${localStorage.getItem('token') || ''}` }}
+                        fileList={coverFileList}
+                        onChange={(info) => {
+                          setCoverFileList(info.fileList);
+                          if (info.file.status === 'done') {
+                            const res = info.file.response;
+                            if (res?.code === 0) {
+                              form.setFieldsValue({
+                                coverUrl: res.data,
+                                previewMediaUrl: res.data,
+                              });
+                              message.success('图片上传成功');
+                            } else {
+                              message.error(res?.message || '上传失败');
+                            }
+                          }
+                          if (info.file.status === 'removed') {
+                            form.setFieldsValue({ coverUrl: undefined, previewMediaUrl: undefined });
+                          }
+                        }}
+                        showUploadList={{ showPreviewIcon: true, showRemoveIcon: true }}
+                        onPreview={(file) => {
+                          const url = file.url || file.response?.data;
+                          if (url) {
+                            setPreviewImage(url);
+                            setPreviewOpen(true);
+                          }
+                        }}
+                      >
+                        {coverFileList.length >= 1 ? null : (
+                          <div>
+                            <PlusOutlined />
+                            <div style={{ marginTop: 8 }}>上传</div>
+                          </div>
+                        )}
+                      </Upload>
+                      <Image
+                        wrapperStyle={{ display: 'none' }}
+                        src={previewImage}
+                        preview={{
+                          visible: previewOpen,
+                          onVisibleChange: (visible) => setPreviewOpen(visible),
+                        }}
+                      />
+                    </Form.Item>
+                    <Form.Item label="封面 URL" name="coverUrl">
+                      <Input />
+                    </Form.Item>
+                    <Form.Item label="预览媒体 URL" name="previewMediaUrl">
+                      <Input />
+                    </Form.Item>
+                  </>
+                ),
+              },
+            ]}
+          />
           <Space>
             <Button type="primary" onClick={handleSave}>
               保存
