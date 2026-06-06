@@ -62,6 +62,8 @@ public class ImageGenerationApiWorkerJob {
 
     private static final int MAX_BATCH_SIZE = 5;
 
+    private static final String DEFAULT_PROVIDER_USER_AGENT = "OwnAI-ImageGenerationWorker/1.0";
+
     private final AtomicBoolean working = new AtomicBoolean(false);
 
     private final AtomicInteger workerThreadIndex = new AtomicInteger(0);
@@ -236,6 +238,7 @@ public class ImageGenerationApiWorkerJob {
                 .header(Header.CONTENT_TYPE, "application/json")
                 .timeout(resolveTimeout(providerConfig))
                 .body(JSONUtil.toJsonStr(requestBody));
+        fillCommonHeaders(httpRequest, providerConfig);
         fillAuthHeader(httpRequest, providerConfig);
         return httpRequest.execute();
     }
@@ -250,13 +253,50 @@ public class ImageGenerationApiWorkerJob {
                     .form("model", body.getStr("model"))
                     .form("prompt", body.getStr("prompt"))
                     .form("size", body.getStr("size"));
+            if (body.containsKey("n")) {
+                httpRequest.form("n", body.getStr("n"));
+            }
             for (File referenceFile : referenceFiles) {
                 httpRequest.form("image[]", referenceFile);
             }
+            fillCommonHeaders(httpRequest, providerConfig);
             fillAuthHeader(httpRequest, providerConfig);
             return httpRequest.execute();
         } finally {
             referenceFiles.forEach(FileUtil::del);
+        }
+    }
+
+    private void fillCommonHeaders(HttpRequest httpRequest, ImageGenerationWorkerProviderConfigVO providerConfig) {
+        httpRequest.header("Accept", "application/json");
+        httpRequest.header("User-Agent", DEFAULT_PROVIDER_USER_AGENT);
+        httpRequest.header("Connection", "close");
+        fillConfiguredHeaders(httpRequest, providerConfig.getRequestSchema());
+    }
+
+    private void fillConfiguredHeaders(HttpRequest httpRequest, String requestSchema) {
+        if (StringUtils.isBlank(requestSchema)) {
+            return;
+        }
+        try {
+            JSONObject schema = JSONUtil.parseObj(requestSchema);
+            JSONObject headers = schema.getJSONObject("headers");
+            if (headers == null) {
+                headers = schema.getJSONObject("requestHeaders");
+            }
+            if (headers == null || headers.isEmpty()) {
+                return;
+            }
+            headers.forEach((key, value) -> {
+                String headerName = StringUtils.trimToNull(String.valueOf(key));
+                if (headerName == null || StringUtils.equalsAnyIgnoreCase(headerName,
+                        "Authorization", "Content-Length", "Host")) {
+                    return;
+                }
+                httpRequest.header(headerName, value == null ? "" : String.valueOf(value));
+            });
+        } catch (Exception e) {
+            log.warn("Ignore invalid provider requestSchema headers");
         }
     }
 

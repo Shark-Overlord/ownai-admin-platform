@@ -16,7 +16,6 @@ import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationProviderC
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationProviderTestVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationWorkerProviderConfigVO;
 import com.yupi.springbootinit.service.ImageGenerationProviderConfigService;
-import java.util.HashMap;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -180,14 +179,16 @@ public class ImageGenerationProviderConfigServiceImpl
                 vo.setMessage("Bearer API Key is missing");
                 return vo;
             }
-            HttpRequest httpRequest = HttpRequest.post(url)
+            HttpRequest httpRequest = HttpRequest.options(url)
                     .timeout(Math.max(1, config.getTimeoutSeconds() == null
                             ? DEFAULT_TIMEOUT_SECONDS : config.getTimeoutSeconds()) * 1000)
-                    .header(Header.CONTENT_TYPE, "application/json");
+                    .header(Header.ACCEPT, "application/json")
+                    .header("User-Agent", "OwnAI-ProviderConfigTester/1.0")
+                    .header("Connection", "close");
             if (AUTH_TYPE_BEARER.equalsIgnoreCase(StringUtils.defaultString(config.getAuthType()))) {
                 httpRequest.header(Header.AUTHORIZATION, "Bearer " + apiKey);
             }
-            HttpResponse response = httpRequest.body(JSONUtil.toJsonStr(new HashMap<String, Object>())).execute();
+            HttpResponse response = httpRequest.execute();
             int status = response.getStatus();
             vo.setHttpStatus(status);
             vo.setDurationMs(System.currentTimeMillis() - start);

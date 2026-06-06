@@ -739,6 +739,7 @@ public class ImageGenerationMessageServiceImpl
         requestBody.put("model", modelConfig.getModelCode());
         requestBody.put("prompt", prompt);
         requestBody.put("size", modelConfig.getVendorSize());
+        requestBody.put("n", imageCount);
         if (editMode) {
             requestBody.put("reference_images", referenceImages);
         }
