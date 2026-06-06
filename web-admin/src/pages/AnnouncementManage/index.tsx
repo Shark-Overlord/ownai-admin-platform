@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { Button, DatePicker, Drawer, Form, Input, InputNumber, Modal, Select, Space, Tag, message } from 'antd';
+import { Button, DatePicker, Drawer, Form, Input, InputNumber, Popconfirm, Select, Space, Tag, message } from 'antd';
 import { EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
@@ -92,47 +92,22 @@ export default function AnnouncementManage() {
     }
   };
 
-  const handlePublish = (record: AnnouncementVO) => {
-    Modal.confirm({
-      title: '发布公告',
-      content: `确认发布「${record.title}」？发布后前台用户可见。`,
-      okText: '确认发布',
-      cancelText: '取消',
-      onOk: async () => {
-        await publishAnnouncement(record.id);
-        message.success('公告已发布');
-        reload();
-      },
-    });
+  const handlePublish = async (record: AnnouncementVO) => {
+    await publishAnnouncement(record.id);
+    message.success('公告已发布');
+    reload();
   };
 
-  const handleOffline = (record: AnnouncementVO) => {
-    Modal.confirm({
-      title: '下线公告',
-      content: `确认下线「${record.title}」？下线后前台用户不可见。`,
-      okText: '确认下线',
-      cancelText: '取消',
-      onOk: async () => {
-        await offlineAnnouncement(record.id);
-        message.success('公告已下线');
-        reload();
-      },
-    });
+  const handleOffline = async (record: AnnouncementVO) => {
+    await offlineAnnouncement(record.id);
+    message.success('公告已下线');
+    reload();
   };
 
-  const handleDelete = (record: AnnouncementVO) => {
-    Modal.confirm({
-      title: '删除公告',
-      content: `确认删除「${record.title}」？`,
-      okText: '确认删除',
-      okButtonProps: { danger: true },
-      cancelText: '取消',
-      onOk: async () => {
-        await deleteAnnouncement(record.id);
-        message.success('公告已删除');
-        reload();
-      },
-    });
+  const handleDelete = async (record: AnnouncementVO) => {
+    await deleteAnnouncement(record.id);
+    message.success('公告已删除');
+    reload();
   };
 
   const columns: any[] = [
@@ -207,17 +182,42 @@ export default function AnnouncementManage() {
             编辑
           </Button>
           {record.status !== 'published' ? (
-            <Button type="link" size="small" onClick={() => handlePublish(record)}>
-              发布
-            </Button>
+            <Popconfirm
+              title="发布公告"
+              description={`确认发布「${record.title}」？发布后前台用户可见。`}
+              okText="确认发布"
+              cancelText="取消"
+              onConfirm={() => handlePublish(record)}
+            >
+              <Button type="link" size="small">
+                发布
+              </Button>
+            </Popconfirm>
           ) : (
-            <Button type="link" size="small" onClick={() => handleOffline(record)}>
-              下线
-            </Button>
+            <Popconfirm
+              title="下线公告"
+              description={`确认下线「${record.title}」？下线后前台用户不可见。`}
+              okText="确认下线"
+              cancelText="取消"
+              onConfirm={() => handleOffline(record)}
+            >
+              <Button type="link" size="small">
+                下线
+              </Button>
+            </Popconfirm>
           )}
-          <Button type="link" danger size="small" onClick={() => handleDelete(record)}>
-            删除
-          </Button>
+          <Popconfirm
+            title="删除公告"
+            description={`确认删除「${record.title}」？`}
+            okText="确认删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => handleDelete(record)}
+          >
+            <Button type="link" danger size="small">
+              删除
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },
