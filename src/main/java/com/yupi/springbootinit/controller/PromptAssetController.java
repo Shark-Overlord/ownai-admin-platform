@@ -209,6 +209,18 @@ public class PromptAssetController {
                 file, dryRun, assetType, categoryId, syncTagsToCategory, uploadImagesToCos));
     }
 
+    @PostMapping("/admin/import/meigen-excel")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "prompt_asset", action = "import_meigen_excel")
+    @ApiOperation("Import Meigen prompt asset Excel")
+    public BaseResponse<PromptAssetImportResultVO> importMeigenExcel(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "dryRun", required = false, defaultValue = "true") Boolean dryRun,
+            @RequestParam(value = "categoryId") Long categoryId,
+            @RequestParam(value = "syncTagsToCategory", required = false, defaultValue = "true") Boolean syncTagsToCategory) {
+        return ResultUtils.success(promptAssetService.importMeigenExcel(file, dryRun, categoryId, syncTagsToCategory));
+    }
+
     @PostMapping("/admin/import/batch/list/page")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @ApiOperation("Admin page query prompt asset import batches")

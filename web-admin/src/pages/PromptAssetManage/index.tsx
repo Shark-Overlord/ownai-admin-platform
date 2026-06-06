@@ -40,6 +40,7 @@ import {
   deletePromptAsset,
   deletePromptAssetBatch,
   getPromptAssetVOById,
+  importMeigenExcel,
   importVisualPromptDb,
   listPromptAssetByPageForAdmin,
   listPromptAssetImportBatchByPage,
@@ -119,6 +120,7 @@ export default function PromptAssetManage() {
   const selectedSceneTagIdList = (Form.useWatch('sceneTagIdList', form) || []) as Array<number | string>;
   const selectedAssetTagIdList = (Form.useWatch('assetTagIdList', form) || []) as Array<number | string>;
   const editingCategoryId = Form.useWatch('categoryId', form);
+  const importSource = Form.useWatch('importSource', importForm) || 'sqlite';
 
   useEffect(() => {
     listCategory().then((res) => setCategories(res.data || []));
@@ -331,19 +333,27 @@ export default function PromptAssetManage() {
   const handleImport = async () => {
     const values = await importForm.validateFields();
     if (!importFile) {
-      message.error('请先选择 visual_prompt_library.db');
+      message.error(values.importSource === 'meigen' ? '请先选择 Meigen Excel 文件' : '请先选择 visual_prompt_library.db');
       return;
     }
     setImporting(true);
     try {
-      const res = await importVisualPromptDb({
-        file: importFile,
-        categoryId: values.categoryId,
-        dryRun: values.dryRun !== false,
-        assetType: values.assetType,
-        syncTagsToCategory: values.syncTagsToCategory !== false,
-        uploadImagesToCos: values.uploadImagesToCos === true,
-      });
+      const res =
+        values.importSource === 'meigen'
+          ? await importMeigenExcel({
+              file: importFile,
+              categoryId: values.categoryId,
+              dryRun: values.dryRun !== false,
+              syncTagsToCategory: values.syncTagsToCategory !== false,
+            })
+          : await importVisualPromptDb({
+              file: importFile,
+              categoryId: values.categoryId,
+              dryRun: values.dryRun !== false,
+              assetType: values.assetType,
+              syncTagsToCategory: values.syncTagsToCategory !== false,
+              uploadImagesToCos: values.uploadImagesToCos === true,
+            });
       setImportResult(res.data);
       message.success(values.dryRun === false ? '导入完成' : '预检查完成');
       reloadTables();
@@ -689,10 +699,16 @@ export default function PromptAssetManage() {
               setImportResult(null);
               setFileList([]);
               setImportFile(null);
+              importForm.setFieldsValue({
+                importSource: 'sqlite',
+                dryRun: true,
+                syncTagsToCategory: true,
+                uploadImagesToCos: false,
+              });
               setImportOpen(true);
             }}
           >
-            导入 SQLite
+            导入资产
           </Button>,
         ]}
       />
@@ -722,7 +738,7 @@ export default function PromptAssetManage() {
       />
 
       <Modal
-        title="导入 visual_prompt_library.db"
+        title="导入 Prompt 资产"
         open={importOpen}
         confirmLoading={importing}
         onOk={handleImport}
@@ -733,11 +749,24 @@ export default function PromptAssetManage() {
         <Form
           form={importForm}
           layout="vertical"
-          initialValues={{ dryRun: true, syncTagsToCategory: true, uploadImagesToCos: false }}
+          initialValues={{ importSource: 'sqlite', dryRun: true, syncTagsToCategory: true, uploadImagesToCos: false }}
         >
-          <Form.Item label="SQLite 数据库文件" required>
+          <Form.Item label="导入来源" name="importSource">
+            <Select
+              options={[
+                { label: 'visual_prompt_library SQLite', value: 'sqlite' },
+                { label: 'Meigen Excel', value: 'meigen' },
+              ]}
+              onChange={() => {
+                setFileList([]);
+                setImportFile(null);
+                setImportResult(null);
+              }}
+            />
+          </Form.Item>
+          <Form.Item label={importSource === 'meigen' ? 'Meigen Excel 文件' : 'SQLite 数据库文件'} required>
             <Upload.Dragger
-              accept=".db"
+              accept={importSource === 'meigen' ? '.xlsx' : '.db'}
               maxCount={1}
               beforeUpload={() => false}
               fileList={fileList}
@@ -746,21 +775,29 @@ export default function PromptAssetManage() {
               <p className="ant-upload-drag-icon">
                 <InboxOutlined />
               </p>
-              <p className="ant-upload-text">选择或拖入 visual_prompt_library.db</p>
+              <p className="ant-upload-text">
+                {importSource === 'meigen'
+                  ? '选择或拖入 prompts_with_prompt_zh_scene_asset_tags.xlsx'
+                  : '选择或拖入 visual_prompt_library.db'}
+              </p>
             </Upload.Dragger>
           </Form.Item>
           <Form.Item label="导入分类" name="categoryId" rules={[{ required: true, message: '请选择导入分类' }]}>
             <Select showSearch placeholder="选择分类" options={categoryOptions} optionFilterProp="label" />
           </Form.Item>
-          <Form.Item label="导入类型" name="assetType">
-            <Select allowClear placeholder="不选择则导入图片和视频提示词" options={assetTypeOptions} />
-          </Form.Item>
+          {importSource === 'sqlite' ? (
+            <Form.Item label="导入类型" name="assetType">
+              <Select allowClear placeholder="不选择则导入图片和视频提示词" options={assetTypeOptions} />
+            </Form.Item>
+          ) : null}
           <Form.Item label="同步源库标签到当前分类" name="syncTagsToCategory" valuePropName="checked">
             <Switch checkedChildren="开启" unCheckedChildren="关闭" />
           </Form.Item>
-          <Form.Item label="上传图片到对象存储" name="uploadImagesToCos" valuePropName="checked">
-            <Switch checkedChildren="开启" unCheckedChildren="关闭" />
-          </Form.Item>
+          {importSource === 'sqlite' ? (
+            <Form.Item label="上传图片到对象存储" name="uploadImagesToCos" valuePropName="checked">
+              <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+            </Form.Item>
+          ) : null}
           <Form.Item label="仅预检查，不写入列表" name="dryRun" valuePropName="checked">
             <Switch checkedChildren="预检" unCheckedChildren="正式" />
           </Form.Item>

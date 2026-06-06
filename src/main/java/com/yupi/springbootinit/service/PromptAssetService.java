@@ -50,4 +50,7 @@ public interface PromptAssetService extends IService<PromptAsset> {
 
     PromptAssetImportResultVO importVisualPromptLibrary(MultipartFile file, Boolean dryRun, String assetTypeFilter,
             Long categoryId, Boolean syncTagsToCategory, Boolean uploadImagesToCos);
+
+    PromptAssetImportResultVO importMeigenExcel(MultipartFile file, Boolean dryRun, Long categoryId,
+            Boolean syncTagsToCategory);
 }

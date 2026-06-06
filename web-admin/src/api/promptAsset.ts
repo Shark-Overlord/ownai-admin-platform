@@ -180,6 +180,27 @@ export async function importVisualPromptDb(params: {
   }) as Promise<{ data: PromptAssetImportResultVO }>;
 }
 
+export async function importMeigenExcel(params: {
+  file: File;
+  dryRun?: boolean;
+  categoryId: number | string;
+  syncTagsToCategory?: boolean;
+}) {
+  const formData = new FormData();
+  formData.append('file', params.file);
+  if (params.dryRun !== undefined) {
+    formData.append('dryRun', String(params.dryRun));
+  }
+  formData.append('categoryId', String(params.categoryId));
+  if (params.syncTagsToCategory !== undefined) {
+    formData.append('syncTagsToCategory', String(params.syncTagsToCategory));
+  }
+  return request.post('/promptAsset/admin/import/meigen-excel', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 600000,
+  }) as Promise<{ data: PromptAssetImportResultVO }>;
+}
+
 export async function listPromptAssetImportBatchByPage(params: any) {
   return request.post('/promptAsset/admin/import/batch/list/page', params) as Promise<any>;
 }

@@ -3,6 +3,7 @@ package com.yupi.springbootinit.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -86,6 +87,8 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         implements PromptAssetService {
 
     private static final String SOURCE_NAME = "visual_prompt_library";
+
+    private static final String MEIGEN_SOURCE_NAME = "meigen_featured_excel";
 
     private static final String MANUAL_SOURCE_NAME = "admin_manual";
 
@@ -494,6 +497,62 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
     }
 
+    @Override
+    public PromptAssetImportResultVO importMeigenExcel(MultipartFile file, Boolean dryRun, Long categoryId,
+            Boolean syncTagsToCategory) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "empty excel file");
+        }
+        String filename = file.getOriginalFilename();
+        if (StringUtils.isBlank(filename) || !filename.toLowerCase().endsWith(".xlsx")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "only .xlsx files are supported");
+        }
+
+        boolean dryRunFlag = Boolean.TRUE.equals(dryRun);
+        boolean syncTagsToCategoryFlag = !Boolean.FALSE.equals(syncTagsToCategory);
+        validateCategory(categoryId);
+
+        PromptAssetImportBatch batch = createBatch(MEIGEN_SOURCE_NAME, filename, dryRunFlag, "image_prompt",
+                categoryId, syncTagsToCategoryFlag);
+        ImportCounter counter = new ImportCounter();
+        try (InputStream inputStream = file.getInputStream()) {
+            List<Map<Integer, String>> rawRows = EasyExcel.read(inputStream).sheet("prompts")
+                    .headRowNumber(0).doReadSync();
+            if (CollUtil.isEmpty(rawRows)) {
+                finishBatch(batch, counter, "success", null);
+                return toImportResult(batch, counter, dryRunFlag);
+            }
+            Map<String, Integer> headerIndex = buildMeigenHeaderIndex(rawRows.get(0));
+            validateMeigenHeaders(headerIndex);
+            for (int i = 1; i < rawRows.size(); i++) {
+                Map<Integer, String> rawRow = rawRows.get(i);
+                SourcePromptRow row = SourcePromptRow.fromMeigenExcel(rawRow, headerIndex);
+                if (row == null) {
+                    continue;
+                }
+                counter.totalCount++;
+                try {
+                    importOneRow(null, batch.getId(), row, dryRunFlag, categoryId,
+                            syncTagsToCategoryFlag, false, counter);
+                } catch (Exception rowError) {
+                    counter.errorCount++;
+                    saveImportItem(batch.getId(), row.getSourcePairId(), row.getSyncKey(), null,
+                            "error", "error", rowError.getMessage());
+                    log.warn("import meigen excel row failed, rowIndex={}, sourcePairId={}",
+                            i + 1, row.getSourcePairId(), rowError);
+                }
+            }
+            finishBatch(batch, counter, "success", null);
+            return toImportResult(batch, counter, dryRunFlag);
+        } catch (BusinessException e) {
+            finishBatch(batch, counter, "failed", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            finishBatch(batch, counter, "failed", e.getMessage());
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "import meigen excel failed: " + e.getMessage());
+        }
+    }
+
     private QueryWrapper<PromptAsset> getQueryWrapper(PromptAssetQueryRequest request) {
         QueryWrapper<PromptAsset> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq(StringUtils.isNotBlank(request.getAssetType()), "assetType", request.getAssetType());
@@ -530,6 +589,31 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
         applyPromptAssetListTypeSort(queryWrapper, request);
         return queryWrapper;
+    }
+
+    private Map<String, Integer> buildMeigenHeaderIndex(Map<Integer, String> headerRow) {
+        Map<String, Integer> headerIndex = new LinkedHashMap<>();
+        if (headerRow == null) {
+            return headerIndex;
+        }
+        for (Map.Entry<Integer, String> entry : headerRow.entrySet()) {
+            String header = StringUtils.trimToEmpty(entry.getValue());
+            if (StringUtils.isNotBlank(header)) {
+                headerIndex.put(header, entry.getKey());
+            }
+        }
+        return headerIndex;
+    }
+
+    private void validateMeigenHeaders(Map<String, Integer> headerIndex) {
+        String[] requiredHeaders = {
+                "id", "prompt", "prompt_zh", "scene_tag_list", "asset_tag_list", "COS_Image", "COS_Thumbnail"
+        };
+        for (String header : requiredHeaders) {
+            if (!headerIndex.containsKey(header)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "missing excel header: " + header);
+            }
+        }
     }
 
     private void applyPromptAssetListTypeSort(QueryWrapper<PromptAsset> queryWrapper, PromptAssetQueryRequest request) {
@@ -659,6 +743,11 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             asset.setId(existing.getId());
             if (existingDeleted) {
                 baseMapper.restoreById(existing.getId());
+            }
+            if (Boolean.TRUE.equals(row.getPreserveAdminStateOnUpdate())) {
+                asset.setStatus(existing.getStatus());
+                asset.setSort(existing.getSort());
+                asset.setMemberOnly(existing.getMemberOnly());
             }
             this.updateById(asset);
             counter.updateCount++;
@@ -937,6 +1026,9 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             return;
         }
         updateAssetTagText(assetId, new ArrayList<>());
+        if (sourceConnection == null) {
+            return;
+        }
 
         Set<String> tagNames = new LinkedHashSet<>();
         addIfNotBlank(tagNames, row.getAssetType());
@@ -1331,8 +1423,13 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
 
     private PromptAssetImportBatch createBatch(String filename, boolean dryRun, String assetTypeFilter,
             Long categoryId, boolean syncTagsToCategory) {
+        return createBatch(SOURCE_NAME, filename, dryRun, assetTypeFilter, categoryId, syncTagsToCategory);
+    }
+
+    private PromptAssetImportBatch createBatch(String sourceName, String filename, boolean dryRun, String assetTypeFilter,
+            Long categoryId, boolean syncTagsToCategory) {
         PromptAssetImportBatch batch = new PromptAssetImportBatch();
-        batch.setSourceName(SOURCE_NAME);
+        batch.setSourceName(sourceName);
         batch.setSourceDbName(filename);
         batch.setImportMode("incremental");
         batch.setAssetTypeFilter(assetTypeFilter);
@@ -1501,6 +1598,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         private String sourceCreatedAt;
         private String sourceUpdatedAt;
         private String syncKey;
+        private String sourceName;
+        private Boolean useThumbnailAsCover;
+        private Boolean promptTitlePreferred;
+        private Boolean preserveAdminStateOnUpdate;
 
         static SourcePromptRow from(ResultSet rs) throws Exception {
             SourcePromptRow row = new SourcePromptRow();
@@ -1547,6 +1648,51 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             return row;
         }
 
+        static SourcePromptRow fromMeigenExcel(Map<Integer, String> rawRow, Map<String, Integer> headerIndex) {
+            String sourceId = readExcelCell(rawRow, headerIndex, "id");
+            String prompt = cleanExcelPlaceholder(readExcelCell(rawRow, headerIndex, "prompt"));
+            String promptZh = cleanExcelPlaceholder(readExcelCell(rawRow, headerIndex, "prompt_zh"));
+            String imageUrl = StringUtils.trimToNull(readExcelCell(rawRow, headerIndex, "COS_Image"));
+            String thumbnailUrl = StringUtils.trimToNull(readExcelCell(rawRow, headerIndex, "COS_Thumbnail"));
+            String sceneTags = StringUtils.defaultIfBlank(readExcelCell(rawRow, headerIndex, "scene_tag_list"), "[]");
+            String assetTags = StringUtils.defaultIfBlank(readExcelCell(rawRow, headerIndex, "asset_tag_list"), "[]");
+            if (StringUtils.isBlank(sourceId) && StringUtils.isBlank(prompt) && StringUtils.isBlank(promptZh)
+                    && StringUtils.isBlank(imageUrl) && StringUtils.isBlank(thumbnailUrl)) {
+                return null;
+            }
+            if (StringUtils.isBlank(sourceId)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "meigen excel row id is required");
+            }
+            if (StringUtils.isBlank(imageUrl)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "meigen excel COS_Image is required");
+            }
+            SourcePromptRow row = new SourcePromptRow();
+            row.setSourcePairId(Long.valueOf(sourceId));
+            row.setOriginalPrompt(firstNotBlank(prompt, firstNotBlank(promptZh, "Meigen Prompt " + sourceId)));
+            row.setPromptCn(promptZh);
+            row.setImageOriginalUrl(imageUrl);
+            row.setCloudStorageUrl(imageUrl);
+            row.setThumbnailCloudStorageUrl(thumbnailUrl);
+            row.setImageHash(DigestUtil.md5Hex(imageUrl));
+            row.setCloudStorageProvider("tencent_cos");
+            row.setCloudStorageKey(extractCloudStorageKey(imageUrl));
+            row.setSourceCategory("image_generation_prompt");
+            row.setAssetType("image_prompt");
+            row.setMediaType("image");
+            row.setQualityLevel("pending_review");
+            row.setSelectionStatus("pending_review");
+            row.setCommercialRisk("unknown");
+            row.setVisualAssetType("meigen");
+            row.setSceneTagList(sceneTags);
+            row.setAssetTagList(assetTags);
+            row.setSourceName(MEIGEN_SOURCE_NAME);
+            row.setUseThumbnailAsCover(true);
+            row.setPromptTitlePreferred(true);
+            row.setPreserveAdminStateOnUpdate(true);
+            row.setSyncKey(buildMeigenSyncKey(sourceId, imageUrl));
+            return row;
+        }
+
         PromptAsset toPromptAsset(Long categoryId) {
             PromptAsset asset = new PromptAsset();
             asset.setAssetType(assetType);
@@ -1555,10 +1701,14 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             asset.setSummary(StringUtils.left(promptCn, 500));
             asset.setPromptContent(originalPrompt);
             asset.setPromptCn(promptCn);
-            asset.setCoverUrl(firstNotBlank(cloudStorageUrl, firstNotBlank(imageLocalPath, imageOriginalUrl)));
-            asset.setPreviewMediaUrl(cloudStorageUrl);
+            String cover = Boolean.TRUE.equals(useThumbnailAsCover)
+                    ? firstNotBlank(thumbnailCloudStorageUrl, firstNotBlank(cloudStorageUrl,
+                    firstNotBlank(imageLocalPath, imageOriginalUrl)))
+                    : firstNotBlank(cloudStorageUrl, firstNotBlank(imageLocalPath, imageOriginalUrl));
+            asset.setCoverUrl(cover);
+            asset.setPreviewMediaUrl(firstNotBlank(cloudStorageUrl, firstNotBlank(imageOriginalUrl, cover)));
             asset.setMediaType(mediaType);
-            asset.setSourceName(SOURCE_NAME);
+            asset.setSourceName(defaultIfBlank(sourceName, SOURCE_NAME));
             asset.setSourcePairId(sourcePairId);
             asset.setSourceRepoId(sourceRepoId);
             asset.setSourceRepoName(repoName);
@@ -1608,6 +1758,15 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
 
         private String buildTitle() {
+            if (Boolean.TRUE.equals(promptTitlePreferred)) {
+                String preferred = firstNotBlank(promptCn, originalPrompt);
+                if (StringUtils.isNotBlank(preferred)) {
+                    return StringUtils.left(preferred.replaceAll("\\s+", " ").trim(), 30);
+                }
+                if (sourcePairId != null) {
+                    return "Meigen Prompt " + sourcePairId;
+                }
+            }
             if (StringUtils.isNotBlank(repoName)) {
                 return StringUtils.left(repoName, 120);
             }
@@ -1620,6 +1779,39 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                     + "|" + StringUtils.defaultString(row.getImageHash())
                     + "|" + normalize(row.getOriginalPrompt());
             return DigestUtil.sha256Hex(raw);
+        }
+
+        private static String buildMeigenSyncKey(String sourceId, String imageUrl) {
+            String raw = MEIGEN_SOURCE_NAME + "|" + StringUtils.trimToEmpty(sourceId)
+                    + "|" + normalize(imageUrl);
+            return DigestUtil.sha256Hex(raw);
+        }
+
+        private static String readExcelCell(Map<Integer, String> rawRow, Map<String, Integer> headerIndex, String header) {
+            Integer index = headerIndex.get(header);
+            if (rawRow == null || index == null) {
+                return null;
+            }
+            return rawRow.get(index);
+        }
+
+        private static String cleanExcelPlaceholder(String value) {
+            String trimmed = StringUtils.trimToNull(value);
+            if (trimmed == null) {
+                return null;
+            }
+            if ("[empty]".equalsIgnoreCase(trimmed) || "[空]".equals(trimmed)) {
+                return null;
+            }
+            return trimmed;
+        }
+
+        private static String extractCloudStorageKey(String imageUrl) {
+            String path = StringUtils.substringAfter(imageUrl, ".myqcloud.com/");
+            if (StringUtils.isBlank(path)) {
+                path = StringUtils.substringAfter(imageUrl, ".com/");
+            }
+            return StringUtils.left(path, 512);
         }
 
         private static String normalize(String value) {
