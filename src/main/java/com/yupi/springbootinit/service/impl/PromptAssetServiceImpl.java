@@ -551,8 +551,8 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                 queryWrapper.orderByDesc("createTime", "id");
                 break;
             case LIST_TYPE_HOT:
-                queryWrapper.orderByDesc("(SELECT COUNT(1) FROM prompt_asset_favorite f "
-                        + "WHERE f.promptAssetId = prompt_asset.id AND f.isDelete = 0)", "id");
+                queryWrapper.last("ORDER BY (SELECT COUNT(1) FROM prompt_asset_favorite f "
+                        + "WHERE f.promptAssetId = prompt_asset.id AND f.isDelete = 0) DESC, id DESC");
                 break;
             default:
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported listType");
