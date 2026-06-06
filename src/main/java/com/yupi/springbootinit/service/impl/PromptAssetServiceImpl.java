@@ -1599,6 +1599,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         private String sourceUpdatedAt;
         private String syncKey;
         private String sourceName;
+        private String sourceExternalId;
         private Boolean useThumbnailAsCover;
         private Boolean promptTitlePreferred;
         private Boolean preserveAdminStateOnUpdate;
@@ -1667,7 +1668,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "meigen excel COS_Image is required");
             }
             SourcePromptRow row = new SourcePromptRow();
-            row.setSourcePairId(Long.valueOf(sourceId));
+            row.setSourceExternalId(sourceId);
+            if (StringUtils.isNumeric(sourceId)) {
+                row.setSourcePairId(Long.valueOf(sourceId));
+            }
             row.setOriginalPrompt(firstNotBlank(prompt, firstNotBlank(promptZh, "Meigen Prompt " + sourceId)));
             row.setPromptCn(promptZh);
             row.setImageOriginalUrl(imageUrl);
@@ -1765,6 +1769,9 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                 }
                 if (sourcePairId != null) {
                     return "Meigen Prompt " + sourcePairId;
+                }
+                if (StringUtils.isNotBlank(sourceExternalId)) {
+                    return "Meigen Prompt " + sourceExternalId;
                 }
             }
             if (StringUtils.isNotBlank(repoName)) {
