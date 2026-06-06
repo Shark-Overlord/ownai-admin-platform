@@ -80,10 +80,7 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
     @Override
     public Boolean deleteAnnouncement(Long id) {
         Announcement existing = getValidAnnouncement(id);
-        Announcement update = new Announcement();
-        update.setId(existing.getId());
-        update.setIsDelete(1);
-        boolean result = this.updateById(update);
+        boolean result = this.removeById(existing.getId());
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return true;
     }
