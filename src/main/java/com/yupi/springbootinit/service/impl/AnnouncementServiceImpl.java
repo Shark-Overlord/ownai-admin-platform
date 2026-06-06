@@ -91,12 +91,14 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
     @Override
     public Boolean publishAnnouncement(Long id) {
         Announcement existing = getValidAnnouncement(id);
+        Date now = new Date();
+        if (existing.getExpireTime() != null && !existing.getExpireTime().after(now)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "公告已过期，不能发布");
+        }
         Announcement update = new Announcement();
         update.setId(existing.getId());
         update.setStatus(STATUS_PUBLISHED);
-        if (existing.getPublishTime() == null) {
-            update.setPublishTime(new Date());
-        }
+        update.setPublishTime(now);
         boolean result = this.updateById(update);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return true;
