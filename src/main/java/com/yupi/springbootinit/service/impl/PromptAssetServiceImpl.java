@@ -195,8 +195,13 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         getPublishedPromptAsset(promptAssetId);
         Date now = new Date();
 
-        int restored = restoreFavorite(loginUser.getId(), promptAssetId, now);
-        if (restored > 0) {
+        PromptAssetFavorite existing = getFavoriteRecord(loginUser.getId(), promptAssetId);
+        if (existing != null) {
+            if (existing.getIsDelete() == null || existing.getIsDelete() == 0) {
+                return true;
+            }
+            boolean restored = promptAssetFavoriteMapper.restoreByUserAndAsset(loginUser.getId(), promptAssetId) > 0;
+            ThrowUtils.throwIf(!restored, ErrorCode.OPERATION_ERROR);
             return true;
         }
 
@@ -210,7 +215,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         try {
             result = promptAssetFavoriteMapper.insert(favorite) > 0;
         } catch (DuplicateKeyException e) {
-            result = restoreFavorite(loginUser.getId(), promptAssetId, new Date()) > 0;
+            result = promptAssetFavoriteMapper.restoreByUserAndAsset(loginUser.getId(), promptAssetId) > 0;
         }
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return true;
@@ -1151,18 +1156,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     }
 
     private PromptAssetFavorite getFavoriteRecord(Long userId, Long promptAssetId) {
-        return promptAssetFavoriteMapper.selectOne(new QueryWrapper<PromptAssetFavorite>()
-                .eq("userId", userId)
-                .eq("promptAssetId", promptAssetId)
-                .last("limit 1"));
-    }
-
-    private int restoreFavorite(Long userId, Long promptAssetId, Date now) {
-        return promptAssetFavoriteMapper.update(null, new UpdateWrapper<PromptAssetFavorite>()
-                .eq("userId", userId)
-                .eq("promptAssetId", promptAssetId)
-                .set("isDelete", 0)
-                .set("updateTime", now));
+        return promptAssetFavoriteMapper.selectByUserAndAssetIncludingDeleted(userId, promptAssetId);
     }
 
     private boolean isFavoritedByUser(Long promptAssetId, Long userId) {
