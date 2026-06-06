@@ -219,8 +219,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean cancelFavorite(PromptAssetFavoriteRequest request, User loginUser) {
-        Long promptAssetId = normalizeFavoritePromptAssetId(request);
-        PromptAssetFavorite existing = getFavoriteRecord(loginUser.getId(), promptAssetId);
+        PromptAssetFavorite existing = resolveFavoriteRecordForCancel(request, loginUser.getId());
         if (existing == null || (existing.getIsDelete() != null && existing.getIsDelete() == 1)) {
             return true;
         }
@@ -1141,6 +1140,28 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         return request.getPromptAssetId();
+    }
+
+    private PromptAssetFavorite resolveFavoriteRecordForCancel(PromptAssetFavoriteRequest request, Long userId) {
+        if (request == null || userId == null || userId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long promptAssetId = request.getPromptAssetId();
+        if (promptAssetId != null && promptAssetId > 0) {
+            return getFavoriteRecord(userId, promptAssetId);
+        }
+        Long id = request.getId();
+        if (id == null || id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        PromptAssetFavorite favoriteById = promptAssetFavoriteMapper.selectOne(new QueryWrapper<PromptAssetFavorite>()
+                .eq("id", id)
+                .eq("userId", userId)
+                .last("limit 1"));
+        if (favoriteById != null) {
+            return favoriteById;
+        }
+        return getFavoriteRecord(userId, id);
     }
 
     private PromptAssetFavorite getFavoriteRecord(Long userId, Long promptAssetId) {
