@@ -7,7 +7,7 @@ import lombok.Data;
 public class PromptAssetFavoriteRequest implements Serializable {
 
     /**
-     * Compatible id field. For cancel, this may be either favorite record id or prompt asset id.
+     * Compatible id field. Frontend favorite list returns prompt asset id as id.
      */
     private Long id;
 

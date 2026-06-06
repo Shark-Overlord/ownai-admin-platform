@@ -1146,22 +1146,11 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         if (request == null || userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Long promptAssetId = request.getPromptAssetId();
-        if (promptAssetId != null && promptAssetId > 0) {
-            return getFavoriteRecord(userId, promptAssetId);
-        }
-        Long id = request.getId();
-        if (id == null || id <= 0) {
+        Long promptAssetId = request.getPromptAssetId() != null ? request.getPromptAssetId() : request.getId();
+        if (promptAssetId == null || promptAssetId <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        PromptAssetFavorite favoriteById = promptAssetFavoriteMapper.selectOne(new QueryWrapper<PromptAssetFavorite>()
-                .eq("id", id)
-                .eq("userId", userId)
-                .last("limit 1"));
-        if (favoriteById != null) {
-            return favoriteById;
-        }
-        return getFavoriteRecord(userId, id);
+        return getFavoriteRecord(userId, promptAssetId);
     }
 
     private PromptAssetFavorite getFavoriteRecord(Long userId, Long promptAssetId) {
