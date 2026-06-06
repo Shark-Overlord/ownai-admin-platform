@@ -75,6 +75,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -192,27 +193,25 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     public Boolean addFavorite(PromptAssetFavoriteRequest request, User loginUser) {
         Long promptAssetId = normalizeFavoritePromptAssetId(request);
         getPublishedPromptAsset(promptAssetId);
-        PromptAssetFavorite existing = getFavoriteRecord(loginUser.getId(), promptAssetId);
         Date now = new Date();
-        if (existing != null) {
-            if (existing.getIsDelete() == null || existing.getIsDelete() == 0) {
-                return true;
-            }
-            PromptAssetFavorite update = new PromptAssetFavorite();
-            update.setId(existing.getId());
-            update.setIsDelete(0);
-            update.setUpdateTime(now);
-            boolean result = promptAssetFavoriteMapper.updateById(update) > 0;
-            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
+        int restored = restoreFavorite(loginUser.getId(), promptAssetId, now);
+        if (restored > 0) {
             return true;
         }
+
         PromptAssetFavorite favorite = new PromptAssetFavorite();
         favorite.setUserId(loginUser.getId());
         favorite.setPromptAssetId(promptAssetId);
         favorite.setCreateTime(now);
         favorite.setUpdateTime(now);
         favorite.setIsDelete(0);
-        boolean result = promptAssetFavoriteMapper.insert(favorite) > 0;
+        boolean result;
+        try {
+            result = promptAssetFavoriteMapper.insert(favorite) > 0;
+        } catch (DuplicateKeyException e) {
+            result = restoreFavorite(loginUser.getId(), promptAssetId, new Date()) > 0;
+        }
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return true;
     }
@@ -1156,6 +1155,14 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                 .eq("userId", userId)
                 .eq("promptAssetId", promptAssetId)
                 .last("limit 1"));
+    }
+
+    private int restoreFavorite(Long userId, Long promptAssetId, Date now) {
+        return promptAssetFavoriteMapper.update(null, new UpdateWrapper<PromptAssetFavorite>()
+                .eq("userId", userId)
+                .eq("promptAssetId", promptAssetId)
+                .set("isDelete", 0)
+                .set("updateTime", now));
     }
 
     private boolean isFavoritedByUser(Long promptAssetId, Long userId) {
