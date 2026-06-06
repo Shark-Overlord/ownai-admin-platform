@@ -92,6 +92,12 @@ public class PromptAsset implements Serializable {
 
     private Integer sort;
 
+    private Integer isFeatured;
+
+    private Integer featuredSort;
+
+    private Date featuredTime;
+
     private String syncKey;
 
     private String sourceCreatedAt;

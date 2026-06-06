@@ -76,6 +76,12 @@ public class PromptAssetVO implements Serializable {
 
     private Integer sort;
 
+    private Integer isFeatured;
+
+    private Integer featuredSort;
+
+    private Date featuredTime;
+
     private List<PromptAssetMediaVO> mediaList;
 
     private List<TagVO> tagList;

@@ -254,6 +254,8 @@ export default function PromptAssetManage() {
       status: 0,
       memberOnly: 0,
       sort: 0,
+      isFeatured: 0,
+      featuredSort: 0,
     });
     setEditActiveTab('base');
     form.resetFields();
@@ -262,6 +264,8 @@ export default function PromptAssetManage() {
       status: 0,
       memberOnly: false,
       sort: 0,
+      isFeatured: false,
+      featuredSort: 0,
       sceneTagIdList: [],
       assetTagIdList: [],
     });
@@ -289,6 +293,8 @@ export default function PromptAssetManage() {
       sceneTagIdList,
       assetTagIdList,
       memberOnly: res.data.memberOnly === 1,
+      isFeatured: res.data.isFeatured === 1,
+      featuredSort: res.data.featuredSort || 0,
     });
     setCoverFileList(
       res.data.coverUrl
@@ -380,6 +386,8 @@ export default function PromptAssetManage() {
       sceneTagIdList: values.sceneTagIdList || [],
       assetTagIdList: values.assetTagIdList || [],
       memberOnly: values.memberOnly ? 1 : 0,
+      isFeatured: values.isFeatured ? 1 : 0,
+      featuredSort: values.featuredSort || 0,
     };
     if (editMode === 'create') {
       await addPromptAsset(payload);
@@ -483,6 +491,18 @@ export default function PromptAssetManage() {
       valueEnum: statusValueEnum,
       width: 120,
       render: (_: unknown, record: PromptAssetVO) => renderStatus(record.status),
+    },
+    {
+      title: '精选',
+      dataIndex: 'isFeatured',
+      valueType: 'select',
+      valueEnum: {
+        0: { text: '普通', status: 'Default' },
+        1: { text: '精选', status: 'Success' },
+      },
+      width: 110,
+      render: (_: unknown, record: PromptAssetVO) =>
+        record.isFeatured === 1 ? <Tag color="gold">精选</Tag> : <Tag>普通</Tag>,
     },
     {
       title: 'AI处理',
@@ -595,7 +615,7 @@ export default function PromptAssetManage() {
         rowKey="id"
         search={{ labelWidth: 72, span: 8 }}
         cardBordered
-        scroll={{ x: 1150 }}
+        scroll={{ x: 1260 }}
         tableLayout="fixed"
         rowSelection={{
           selectedRowKeys: selectedRows.map((item) => item.id),
@@ -909,6 +929,12 @@ export default function PromptAssetManage() {
                         <Switch />
                       </Form.Item>
                       <Form.Item label="排序" name="sort" extra="数值越大越靠前">
+                        <InputNumber />
+                      </Form.Item>
+                      <Form.Item label="精选" name="isFeatured" valuePropName="checked">
+                        <Switch />
+                      </Form.Item>
+                      <Form.Item label="精选排序" name="featuredSort" extra="仅精选列表使用，数值越大越靠前">
                         <InputNumber />
                       </Form.Item>
                     </Space>

@@ -57,6 +57,9 @@ export interface PromptAssetVO {
   memberOnly?: number;
   status?: number;
   sort?: number;
+  isFeatured?: number;
+  featuredSort?: number;
+  featuredTime?: string;
   tagList?: { id: number | string; name: string }[];
   sceneTagList?: { id: number | string; name: string }[];
   assetTagList?: { id: number | string; name: string }[];

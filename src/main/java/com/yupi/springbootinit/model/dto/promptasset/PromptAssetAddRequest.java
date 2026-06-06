@@ -29,6 +29,10 @@ public class PromptAssetAddRequest implements Serializable {
 
     private Integer sort;
 
+    private Integer isFeatured;
+
+    private Integer featuredSort;
+
     private List<Long> sceneTagIdList;
 
     private List<Long> assetTagIdList;

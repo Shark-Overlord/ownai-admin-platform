@@ -43,6 +43,10 @@ public class PromptAssetUpdateRequest implements Serializable {
 
     private Integer sort;
 
+    private Integer isFeatured;
+
+    private Integer featuredSort;
+
     private List<Long> tagIdList;
 
     private List<Long> sceneTagIdList;

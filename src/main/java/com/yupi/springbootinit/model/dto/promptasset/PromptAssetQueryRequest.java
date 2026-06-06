@@ -12,6 +12,8 @@ public class PromptAssetQueryRequest extends PageRequest implements Serializable
 
     private String searchText;
 
+    private String listType;
+
     private String assetType;
 
     private Long categoryId;
@@ -35,6 +37,8 @@ public class PromptAssetQueryRequest extends PageRequest implements Serializable
     private Integer memberOnly;
 
     private Integer status;
+
+    private Integer isFeatured;
 
     private Integer aiTagStatus;
 

@@ -91,6 +91,12 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
 
     private static final String DEFAULT_MANUAL_SELECTION_STATUS = "manual";
 
+    private static final String LIST_TYPE_FEATURED = "featured";
+
+    private static final String LIST_TYPE_LATEST = "latest";
+
+    private static final String LIST_TYPE_HOT = "hot";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String[] STALE_CN_MARKERS = {
@@ -281,6 +287,11 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         asset.setMemberOnly(request.getMemberOnly() == null ? 0 : request.getMemberOnly());
         asset.setStatus(request.getStatus() == null ? 0 : request.getStatus());
         asset.setSort(request.getSort() == null ? 0 : request.getSort());
+        asset.setIsFeatured(isEnabled(request.getIsFeatured()) ? 1 : 0);
+        asset.setFeaturedSort(request.getFeaturedSort() == null ? 0 : request.getFeaturedSort());
+        if (isEnabled(asset.getIsFeatured())) {
+            asset.setFeaturedTime(new Date());
+        }
         asset.setSyncKey("manual_" + IdWorker.getIdStr());
         asset.setCreateTime(new Date());
         asset.setUpdateTime(new Date());
@@ -306,7 +317,17 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         }
         PromptAsset asset = new PromptAsset();
         BeanUtils.copyProperties(request, asset);
-        boolean result = this.updateById(asset);
+        Date now = new Date();
+        asset.setUpdateTime(now);
+        if (request.getIsFeatured() != null && isEnabled(request.getIsFeatured())
+                && !isEnabled(oldAsset.getIsFeatured())) {
+            asset.setFeaturedTime(now);
+        }
+        UpdateWrapper<PromptAsset> updateWrapper = new UpdateWrapper<PromptAsset>().eq("id", request.getId());
+        if (request.getIsFeatured() != null && !isEnabled(request.getIsFeatured())) {
+            updateWrapper.set("featuredTime", null);
+        }
+        boolean result = this.update(asset, updateWrapper);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         syncPrimaryMediaAfterManualUpdate(request, oldAsset);
         if (request.getSceneTagIdList() != null || request.getAssetTagIdList() != null) {
@@ -484,6 +505,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         queryWrapper.eq(StringUtils.isNotBlank(request.getCommercialRisk()), "commercialRisk", request.getCommercialRisk());
         queryWrapper.eq(request.getMemberOnly() != null, "memberOnly", request.getMemberOnly());
         queryWrapper.eq(request.getStatus() != null, "status", request.getStatus());
+        queryWrapper.eq(request.getIsFeatured() != null, "isFeatured", request.getIsFeatured());
         queryWrapper.eq(request.getAiTagStatus() != null, "aiTagStatus", request.getAiTagStatus());
         queryWrapper.like(StringUtils.isNotBlank(request.getSourceRepoName()), "sourceRepoName", request.getSourceRepoName());
         applyTagFilter(queryWrapper, request.getTagIdList());
@@ -506,12 +528,35 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                 });
             }
         }
-        String sortField = request.getSortField();
-        String sortOrder = request.getSortOrder();
-        queryWrapper.orderBy(SqlUtils.validSortField(sortField),
-                CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
-        queryWrapper.orderByDesc("sort", "id");
+        applyPromptAssetListTypeSort(queryWrapper, request);
         return queryWrapper;
+    }
+
+    private void applyPromptAssetListTypeSort(QueryWrapper<PromptAsset> queryWrapper, PromptAssetQueryRequest request) {
+        String listType = StringUtils.lowerCase(StringUtils.trimToEmpty(request.getListType()));
+        if (StringUtils.isBlank(listType)) {
+            String sortField = request.getSortField();
+            String sortOrder = request.getSortOrder();
+            queryWrapper.orderBy(SqlUtils.validSortField(sortField),
+                    CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
+            queryWrapper.orderByDesc("sort", "id");
+            return;
+        }
+        switch (listType) {
+            case LIST_TYPE_FEATURED:
+                queryWrapper.eq("isFeatured", 1);
+                queryWrapper.orderByDesc("featuredSort", "featuredTime", "id");
+                break;
+            case LIST_TYPE_LATEST:
+                queryWrapper.orderByDesc("createTime", "id");
+                break;
+            case LIST_TYPE_HOT:
+                queryWrapper.orderByDesc("(SELECT COUNT(1) FROM prompt_asset_favorite f "
+                        + "WHERE f.promptAssetId = prompt_asset.id AND f.isDelete = 0)", "id");
+                break;
+            default:
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported listType");
+        }
     }
 
     private List<String> splitSearchKeywords(String searchText) {
@@ -527,6 +572,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             }
         }
         return result;
+    }
+
+    private boolean isEnabled(Integer value) {
+        return value != null && value == 1;
     }
 
     private void applyTagFilter(QueryWrapper<PromptAsset> queryWrapper, List<Long> rawTagIds) {
