@@ -7,23 +7,29 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Switch,
   Tabs,
   Tag,
+  Typography,
   message,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import {
   addImageGenerationModel,
   addImageGenerationProvider,
+  batchUpdateImageGenerationModelSize,
+  deleteImageGenerationProvider,
   listImageGenerationModels,
   listImageGenerationProviders,
   setDefaultImageGenerationProvider,
+  testImageGenerationProvider,
   updateImageGenerationModel,
   updateImageGenerationProvider,
   type ImageGenerationModelConfig,
+  type ImageGenerationModelConfigBatchUpdateRequest,
   type ImageGenerationModelConfigRequest,
   type ImageGenerationProviderConfig,
   type ImageGenerationProviderConfigRequest,
@@ -81,10 +87,13 @@ export default function ImageGenerationConfigManage() {
   const modelActionRef = useRef<any>(null);
   const [providerForm] = Form.useForm();
   const [modelForm] = Form.useForm();
+  const [batchForm] = Form.useForm();
   const [providers, setProviders] = useState<ImageGenerationProviderConfig[]>([]);
+  const [modelConfigs, setModelConfigs] = useState<ImageGenerationModelConfig[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>();
   const [providerDrawerOpen, setProviderDrawerOpen] = useState(false);
   const [modelModalOpen, setModelModalOpen] = useState(false);
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<ImageGenerationProviderConfig | null>(null);
   const [editingModel, setEditingModel] = useState<ImageGenerationModelConfig | null>(null);
 
@@ -107,6 +116,16 @@ export default function ImageGenerationConfigManage() {
     value: item.providerCode,
   }));
 
+  const modelCodeOptions = Array.from(new Set(modelConfigs.map((item) => item.modelCode)))
+    .filter(Boolean)
+    .map((modelCode) => ({ label: modelCode, value: modelCode }));
+
+  const renderCopyText = (value?: string) => (
+    <Typography.Text style={{ maxWidth: '100%' }} ellipsis={{ tooltip: value || '-' }} copyable={value ? { text: value } : false}>
+      {value || '-'}
+    </Typography.Text>
+  );
+
   const openProviderDrawer = (record?: ImageGenerationProviderConfig) => {
     setEditingProvider(record || null);
     providerForm.setFieldsValue(
@@ -116,6 +135,7 @@ export default function ImageGenerationConfigManage() {
             authType: 'bearer',
             baseUrl: 'https://api.lumio.games',
             generationPath: '/v1/images/generations',
+            editPath: '/v1/images/edits',
             status: 1,
             isDefault: 0,
             timeoutSeconds: 120,
@@ -164,6 +184,23 @@ export default function ImageGenerationConfigManage() {
     setModelModalOpen(true);
   };
 
+  const openBatchModal = () => {
+    const firstConfig = modelConfigs.find((item) => item.providerCode === selectedProvider) || modelConfigs[0];
+    batchForm.setFieldsValue({
+      providerCode: selectedProvider || firstConfig?.providerCode,
+      modelCode: firstConfig?.modelCode || 'gpt-image-2',
+      sizeCode: firstConfig?.sizeCode || '1k',
+      pointCost: firstConfig?.pointCost ?? 30,
+      manualPointCost: firstConfig?.manualPointCost ?? 30,
+      apiInputCostCny: firstConfig?.apiInputCostCny ?? 0.05,
+      apiOutputCostCny: firstConfig?.apiOutputCostCny ?? 0.05,
+      manualCostCny: firstConfig?.manualCostCny ?? 0.1,
+      supportsReferenceImage: firstConfig?.supportsReferenceImage ?? 1,
+      status: firstConfig?.status ?? 1,
+    });
+    setBatchModalOpen(true);
+  };
+
   const saveProvider = async (values: ImageGenerationProviderConfigRequest) => {
     const params = { ...values };
     if (!params.apiKey) {
@@ -207,10 +244,51 @@ export default function ImageGenerationConfigManage() {
     }
   };
 
+  const saveBatch = async (values: ImageGenerationModelConfigBatchUpdateRequest) => {
+    try {
+      const res = await batchUpdateImageGenerationModelSize(values);
+      message.success(`批量更新成功，已更新 ${res.data || 0} 条规格`);
+      setBatchModalOpen(false);
+      batchForm.resetFields();
+      modelActionRef.current?.reload();
+    } catch (error: any) {
+      message.error(error?.message || '批量更新失败');
+    }
+  };
+
+  const handleProviderTest = async (record: ImageGenerationProviderConfig) => {
+    try {
+      const res = await testImageGenerationProvider(record.id);
+      const result = res.data;
+      const statusText = result.httpStatus ? `HTTP ${result.httpStatus}` : '无 HTTP 状态';
+      const durationText = result.durationMs != null ? `，${result.durationMs}ms` : '';
+      if (result.passed) {
+        message.success(`厂商连接测试通过：${statusText}${durationText}`);
+      } else {
+        message.error(result.message || `厂商连接测试失败：${statusText}${durationText}`);
+      }
+    } catch (error: any) {
+      message.error(error?.message || '厂商连接测试失败');
+    }
+  };
+
+  const handleProviderDelete = async (record: ImageGenerationProviderConfig) => {
+    try {
+      await deleteImageGenerationProvider(record.id);
+      message.success('厂商配置删除成功');
+      await loadProviders();
+      providerActionRef.current?.reload();
+      modelActionRef.current?.reload();
+    } catch (error: any) {
+      message.error(error?.message || '厂商配置删除失败');
+    }
+  };
+
   const providerColumns: any[] = [
     {
       title: '厂商',
       dataIndex: 'providerName',
+      width: 230,
       render: (_: unknown, record: ImageGenerationProviderConfig) => (
         <Space>
           <span>{record.providerName}</span>
@@ -219,8 +297,9 @@ export default function ImageGenerationConfigManage() {
         </Space>
       ),
     },
-    { title: 'Base URL', dataIndex: 'baseUrl', ellipsis: true },
-    { title: '生成路径', dataIndex: 'generationPath', width: 180 },
+    { title: 'Base URL', dataIndex: 'baseUrl', width: 260, render: (value: string) => renderCopyText(value) },
+    { title: '文本生图路径', dataIndex: 'generationPath', width: 220, render: (value: string) => renderCopyText(value) },
+    { title: '参考图编辑路径', dataIndex: 'editPath', width: 220, render: (value: string) => renderCopyText(value) },
     { title: '认证', dataIndex: 'authType', width: 100 },
     {
       title: 'API Key',
@@ -235,10 +314,13 @@ export default function ImageGenerationConfigManage() {
     {
       title: '操作',
       valueType: 'option',
-      width: 180,
+      width: 290,
       render: (_: unknown, record: ImageGenerationProviderConfig) => [
         <Button key="edit" type="link" onClick={() => openProviderDrawer(record)}>
           编辑
+        </Button>,
+        <Button key="test" type="link" onClick={() => handleProviderTest(record)}>
+          测试
         </Button>,
         record.isDefault !== 1 ? (
           <Button
@@ -257,6 +339,18 @@ export default function ImageGenerationConfigManage() {
           >
             设为默认
           </Button>
+        ) : null,
+        record.isDefault !== 1 ? (
+          <Popconfirm
+            key="delete"
+            title="确认删除这个厂商配置？"
+            description="删除后不会影响历史任务快照，但新任务不能再使用该厂商。"
+            onConfirm={() => handleProviderDelete(record)}
+          >
+            <Button type="link" danger>
+              删除
+            </Button>
+          </Popconfirm>
         ) : null,
       ],
     },
@@ -328,6 +422,7 @@ export default function ImageGenerationConfigManage() {
                 columns={providerColumns}
                 search={false}
                 cardBordered
+                scroll={{ x: 1680 }}
                 request={async () => {
                   const data = await loadProviders();
                   return { data, total: data.length, success: true };
@@ -354,6 +449,7 @@ export default function ImageGenerationConfigManage() {
                 params={{ selectedProvider }}
                 request={async () => {
                   const res = await listImageGenerationModels(selectedProvider);
+                  setModelConfigs(res.data);
                   return { data: res.data, total: res.data.length, success: true };
                 }}
                 toolBarRender={() => [
@@ -368,6 +464,9 @@ export default function ImageGenerationConfigManage() {
                       modelActionRef.current?.reload();
                     }}
                   />,
+                  <Button key="batch" onClick={openBatchModal} disabled={!selectedProvider}>
+                    批量设置级别价格
+                  </Button>,
                   <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => openModelModal()}>
                     新增规格
                   </Button>,
@@ -403,8 +502,11 @@ export default function ImageGenerationConfigManage() {
           <Form.Item label="Base URL" name="baseUrl" rules={[{ required: true }]}>
             <Input placeholder="https://api.lumio.games" />
           </Form.Item>
-          <Form.Item label="生成路径" name="generationPath" rules={[{ required: true }]}>
+          <Form.Item label="文本生图路径" name="generationPath" rules={[{ required: true }]}>
             <Input placeholder="/v1/images/generations" />
+          </Form.Item>
+          <Form.Item label="参考图编辑路径" name="editPath">
+            <Input placeholder="/v1/images/edits" />
           </Form.Item>
           <Form.Item label="认证方式" name="authType" rules={[{ required: true }]}>
             <Select options={[{ label: 'Bearer Token', value: 'bearer' }]} />
@@ -501,6 +603,61 @@ export default function ImageGenerationConfigManage() {
           </Form.Item>
           <Form.Item label="说明" name="description">
             <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="批量设置级别价格"
+        open={batchModalOpen}
+        onCancel={() => {
+          setBatchModalOpen(false);
+          batchForm.resetFields();
+        }}
+        onOk={() => batchForm.submit()}
+        destroyOnClose
+        width={720}
+      >
+        <Form form={batchForm} layout="vertical" onFinish={saveBatch}>
+          <Form.Item label="厂商" name="providerCode" rules={[{ required: true }]}>
+            <Select options={providerOptions} disabled />
+          </Form.Item>
+          <Form.Item label="模型 Code" name="modelCode" rules={[{ required: true }]}>
+            <Select
+              showSearch
+              options={modelCodeOptions.length > 0 ? modelCodeOptions : [{ label: 'gpt-image-2', value: 'gpt-image-2' }]}
+              placeholder="gpt-image-2"
+            />
+          </Form.Item>
+          <Form.Item label="清晰度级别" name="sizeCode" rules={[{ required: true }]}>
+            <Select options={sizeOptions} />
+          </Form.Item>
+          <Form.Item label="API 消耗积分" name="pointCost" rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} min={0} precision={0} />
+          </Form.Item>
+          <Form.Item label="人工消耗积分" name="manualPointCost" rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} min={0} precision={0} />
+          </Form.Item>
+          <Form.Item label="API 输入成本（元）" name="apiInputCostCny" rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} min={0} precision={2} />
+          </Form.Item>
+          <Form.Item label="API 输出成本（元）" name="apiOutputCostCny" rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} min={0} precision={2} />
+          </Form.Item>
+          <Form.Item label="人工成本（元/张）" name="manualCostCny" rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} min={0} precision={2} />
+          </Form.Item>
+          <Form.Item
+            label="支持参考图"
+            name="supportsReferenceImage"
+            valuePropName="checked"
+            getValueProps={(value) => ({ checked: value === 1 })}
+            getValueFromEvent={(checked) => (checked ? 1 : 0)}
+          >
+            <Switch />
+          </Form.Item>
+          <Form.Item label="状态" name="status" rules={[{ required: true }]}>
+            <Select options={[{ label: '启用', value: 1 }, { label: '禁用', value: 0 }]} />
           </Form.Item>
         </Form>
       </Modal>

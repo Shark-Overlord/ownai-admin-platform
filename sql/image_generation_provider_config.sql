@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS image_generation_provider_config
     providerName    VARCHAR(128) NOT NULL,
     baseUrl         VARCHAR(512) NOT NULL,
     generationPath  VARCHAR(255) NOT NULL,
+    editPath        VARCHAR(255) NULL,
     authType        VARCHAR(32)  NOT NULL DEFAULT 'bearer',
     apiKeyEncrypted TEXT         NULL,
     apiKeyLast4     VARCHAR(16)  NULL,

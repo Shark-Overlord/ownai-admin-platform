@@ -734,7 +734,7 @@ public class ImageGenerationMessageServiceImpl
         }
         boolean editMode = !referenceImages.isEmpty();
         payload.put("requestType", editMode ? "multipart" : "json");
-        payload.put("generationPath", editMode ? "/v1/images/edits" : providerConfig.getGenerationPath());
+        payload.put("generationPath", editMode ? resolveEditPath(providerConfig) : providerConfig.getGenerationPath());
         Map<String, Object> requestBody = new LinkedHashMap<>();
         requestBody.put("model", modelConfig.getModelCode());
         requestBody.put("prompt", prompt);
@@ -744,6 +744,14 @@ public class ImageGenerationMessageServiceImpl
         }
         payload.put("requestBody", requestBody);
         return payload;
+    }
+
+    private String resolveEditPath(ImageGenerationProviderConfig providerConfig) {
+        String editPath = StringUtils.trimToNull(providerConfig.getEditPath());
+        if (editPath != null) {
+            return editPath.startsWith("/") ? editPath : "/" + editPath;
+        }
+        return providerConfig.getGenerationPath();
     }
 
     private void validateConversationOwner(String conversationId, Long userId) {

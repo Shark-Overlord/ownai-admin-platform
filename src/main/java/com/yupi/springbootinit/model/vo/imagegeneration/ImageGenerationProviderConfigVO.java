@@ -17,6 +17,8 @@ public class ImageGenerationProviderConfigVO implements Serializable {
 
     private String generationPath;
 
+    private String editPath;
+
     private String authType;
 
     private String apiKeyLast4;

@@ -16,6 +16,8 @@ public class ImageGenerationProviderConfigRequest implements Serializable {
 
     private String generationPath;
 
+    private String editPath;
+
     private String authType;
 
     private String apiKey;

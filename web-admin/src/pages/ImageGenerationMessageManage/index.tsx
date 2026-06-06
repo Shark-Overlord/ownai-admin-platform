@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import {
   Button,
@@ -60,6 +60,38 @@ const pointStatusColorMap: Record<string, string> = {
   frozen: 'gold',
   consumed: 'success',
   refunded: 'blue',
+};
+
+const roleLabelMap: Record<string, string> = {
+  user: '用户输入',
+  assistant: '系统任务 / 系统输出',
+  system: '系统消息',
+};
+
+const statusLabelMap: Record<string, string> = {
+  pending: '等待生成',
+  running: '生成中',
+  success: '已完成',
+  failed: '失败',
+};
+
+const generationModeLabelMap: Record<string, string> = {
+  api: 'API 自动生成',
+  manual: '人工生成',
+};
+
+const pointStatusLabelMap: Record<string, string> = {
+  none: '无积分处理',
+  frozen: '已冻结',
+  consumed: '已扣除',
+  refunded: '已退回',
+};
+
+const detailSectionStyle = {
+  padding: 12,
+  border: '1px solid #f0f0f0',
+  borderRadius: 8,
+  background: '#fafafa',
 };
 
 const defaultOverview: ImageGenerationMonitorOverview = {
@@ -126,21 +158,37 @@ function isEnhancedModelPrompt(value?: string) {
   return /^Use case:/i.test(text) || text.includes('\nAsset type:') || text.includes('\nPrimary request:');
 }
 
-function renderModelPromptDebug(value?: string) {
-  if (!value || !isEnhancedModelPrompt(value)) {
-    return null;
+function renderTechnicalDebug(message: ImageGenerationMessageItem) {
+  const items = [];
+  if (isEnhancedModelPrompt(message.prompt)) {
+    items.push({
+      key: 'model-prompt',
+      label: '系统增强 Prompt',
+      children: renderLongText(message.prompt),
+    });
   }
+  items.push(
+    {
+      key: 'result-image-urls',
+      label: '结果图 URL JSON',
+      children: renderLongText(formatJsonText(message.resultImageUrls)),
+    },
+    {
+      key: 'request-payload',
+      label: '请求参数 JSON',
+      children: renderLongText(formatJsonText(message.requestPayload)),
+    },
+    {
+      key: 'response-payload',
+      label: '响应参数 JSON',
+      children: renderLongText(formatJsonText(message.responsePayload)),
+    },
+  );
   return (
     <Collapse
-      ghost
       size="small"
-      items={[
-        {
-          key: 'model-prompt',
-          label: '模型 Prompt（调试）',
-          children: renderLongText(value),
-        },
-      ]}
+      defaultActiveKey={[]}
+      items={items}
     />
   );
 }
@@ -153,36 +201,6 @@ function renderLongText(value?: string) {
     <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }} copyable>
       {value}
     </Paragraph>
-  );
-}
-
-function renderConversationMessageText(message: ImageGenerationMessageItem) {
-  const originalPrompt = getOriginalPrompt(message);
-  const enhancedPrompt = isEnhancedModelPrompt(message.prompt) ? message.prompt : undefined;
-  const fallbackPrompt = enhancedPrompt ? undefined : message.prompt;
-
-  if (message.role === 'user') {
-    return renderLongText(originalPrompt || fallbackPrompt || message.errorMessage || message.requestPayload);
-  }
-
-  return (
-    <Space direction="vertical" size={6} style={{ width: '100%' }}>
-      {originalPrompt ? (
-        <div>
-          <Text type="secondary">用户原始输入</Text>
-          {renderLongText(originalPrompt)}
-        </div>
-      ) : fallbackPrompt || message.errorMessage ? (
-        renderLongText(fallbackPrompt || message.errorMessage)
-      ) : null}
-      {message.role === 'assistant' ? (
-        <Text type="secondary">
-          生成任务：{message.status || '-'}
-          {message.taskId ? ` / ${message.taskId}` : ''}
-        </Text>
-      ) : null}
-      {renderModelPromptDebug(enhancedPrompt)}
-    </Space>
   );
 }
 
@@ -204,11 +222,16 @@ function parseImageUrls(value?: string) {
   return value.includes(',') ? value.split(',').map((item) => item.trim()).filter(Boolean) : [value];
 }
 
-function getMessageImages(message: ImageGenerationMessageItem) {
-  const urls = [
-    ...(message.referenceImageUrl ? [message.referenceImageUrl] : []),
-    ...(message.resultImageUrlList || parseImageUrls(message.resultImageUrls)),
-  ];
+function getReferenceImageUrls(message?: ImageGenerationMessageItem | null) {
+  return message?.referenceImageUrl ? [message.referenceImageUrl] : [];
+}
+
+function getResultImageUrls(message?: ImageGenerationMessageItem | null) {
+  return message ? message.resultImageUrlList || parseImageUrls(message.resultImageUrls) : [];
+}
+
+function getPreviewImageUrls(message: ImageGenerationMessageItem) {
+  const urls = [...getResultImageUrls(message), ...getReferenceImageUrls(message)];
   return Array.from(new Set(urls.filter(Boolean)));
 }
 
@@ -232,6 +255,138 @@ function renderThumbnails(urls?: string[], size = 58) {
       </Space>
     </Image.PreviewGroup>
   );
+}
+
+function getRoleLabel(role?: string) {
+  return roleLabelMap[role || ''] || role || '-';
+}
+
+function getStatusLabel(status?: string) {
+  return statusLabelMap[status || ''] || status || '-';
+}
+
+function getGenerationModeLabel(generationMode?: string) {
+  return generationModeLabelMap[generationMode || ''] || generationMode || '-';
+}
+
+function getPointStatusLabel(pointStatus?: string) {
+  return pointStatusLabelMap[pointStatus || ''] || pointStatus || '-';
+}
+
+function getTaskCost(message: ImageGenerationMessageItem, isManualMode: boolean) {
+  return Number((isManualMode ? message.manualCostCny : message.apiCostCny) || 0).toFixed(2);
+}
+
+function getDisplayPrompt(message?: ImageGenerationMessageItem | null) {
+  if (!message) {
+    return undefined;
+  }
+  const originalPrompt = getOriginalPrompt(message);
+  const enhancedPrompt = isEnhancedModelPrompt(message.prompt) ? message.prompt : undefined;
+  const fallbackPrompt = enhancedPrompt ? undefined : message.prompt;
+  return originalPrompt || fallbackPrompt || message.errorMessage || message.requestPayload;
+}
+
+function renderDetailSection(title: string, children: ReactNode) {
+  return (
+    <div style={detailSectionStyle}>
+      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Text strong>{title}</Text>
+        {children}
+      </Space>
+    </div>
+  );
+}
+
+function renderReferenceImages(message: ImageGenerationMessageItem, size = 86) {
+  const urls = getReferenceImageUrls(message);
+  return (
+    <div>
+      <Text type="secondary">用户参考图</Text>
+      <div style={{ marginTop: 6 }}>{urls.length ? renderThumbnails(urls, size) : <Text type="secondary">未上传参考图</Text>}</div>
+    </div>
+  );
+}
+
+function renderResultImages(message: ImageGenerationMessageItem, size = 86) {
+  const urls = getResultImageUrls(message);
+  if (urls.length) {
+    return (
+      <div>
+        <Text type="secondary">生成结果图</Text>
+        <div style={{ marginTop: 6 }}>{renderThumbnails(urls, size)}</div>
+      </div>
+    );
+  }
+  if (message.status === 'failed') {
+    return <Text type="danger">{message.errorMessage || '生成失败，暂无结果图'}</Text>;
+  }
+  return <Text type="secondary">暂无输出，{message.status === 'running' ? '正在生成中' : '等待生成'}</Text>;
+}
+
+function renderRequestSummary(message: ImageGenerationMessageItem) {
+  return (
+    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <div>
+        <Text type="secondary">用户输入的提示词</Text>
+        {renderLongText(getDisplayPrompt(message))}
+      </div>
+      <Space wrap>
+        {message.aspectRatio ? <Tag>比例 {message.aspectRatio}</Tag> : null}
+        {message.imageSize ? <Tag>规格 {message.imageSize.toUpperCase()}</Tag> : null}
+        {message.sourcePromptAssetId ? <Tag>来源 Prompt 资产 #{message.sourcePromptAssetId}</Tag> : null}
+      </Space>
+      {renderReferenceImages(message)}
+    </Space>
+  );
+}
+
+function renderTaskSummary(message: ImageGenerationMessageItem, isManualMode: boolean, costTitle: string) {
+  return (
+    <Descriptions bordered column={2} size="small">
+      <Descriptions.Item label="任务状态">
+        <Tag color={statusColorMap[message.status || ''] || 'default'}>{getStatusLabel(message.status)}</Tag>
+        {message.timeoutPending ? <Tag color="red">超时等待 {formatDuration(message.pendingAgeSeconds)}</Tag> : null}
+      </Descriptions.Item>
+      <Descriptions.Item label="生成方式">{getGenerationModeLabel(message.generationMode)}</Descriptions.Item>
+      <Descriptions.Item label="模型">{message.modelCode || '-'}</Descriptions.Item>
+      <Descriptions.Item label="规格 / 尺寸">{message.vendorSize || message.imageSize || '-'}</Descriptions.Item>
+      <Descriptions.Item label="张数">{message.imageCount || '-'}</Descriptions.Item>
+      <Descriptions.Item label="积分">
+        {message.pointCost || '-'}
+        {message.pointStatus ? (
+          <Tag style={{ marginLeft: 8 }} color={pointStatusColorMap[message.pointStatus || ''] || 'default'}>
+            {getPointStatusLabel(message.pointStatus)}
+          </Tag>
+        ) : null}
+      </Descriptions.Item>
+      <Descriptions.Item label={costTitle}>¥{getTaskCost(message, isManualMode)}</Descriptions.Item>
+      <Descriptions.Item label="Task ID">
+        <Text copyable>{message.taskId || '-'}</Text>
+      </Descriptions.Item>
+      <Descriptions.Item label="开始时间">{message.startedTime || '-'}</Descriptions.Item>
+      <Descriptions.Item label="完成时间">{message.finishedTime || '-'}</Descriptions.Item>
+    </Descriptions>
+  );
+}
+
+function renderConversationMessageContent(
+  currentMessage: ImageGenerationMessageItem,
+  isManualMode: boolean,
+  costTitle: string,
+) {
+  if (currentMessage.role === 'user') {
+    return renderDetailSection('用户输入', renderRequestSummary(currentMessage));
+  }
+  if (currentMessage.role === 'assistant') {
+    return (
+      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        {renderDetailSection('系统任务', renderTaskSummary(currentMessage, isManualMode, costTitle))}
+        {renderDetailSection('系统输出', renderResultImages(currentMessage))}
+      </Space>
+    );
+  }
+  return renderDetailSection('系统消息', renderLongText(currentMessage.prompt || currentMessage.errorMessage));
 }
 
 function buildTimeQuery(params: any) {
@@ -353,8 +508,8 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
     return (record.generationMode || 'api') === 'api' && !!record.timeoutPending;
   };
 
-  const manualCompleteLabel = isManualMode ? '人工完成' : '人工补图';
-  const manualCompletePrimaryLabel = isManualMode ? '上传结果图并人工完成' : '上传结果图补充超时任务';
+  const manualCompleteLabel = isManualMode ? '上传人工生成结果' : '人工补充结果图';
+  const manualCompletePrimaryLabel = isManualMode ? '上传人工生成结果' : '人工补充结果图';
 
   const loadOverview = async () => {
     const res = await getImageGenerationMonitorOverview({ generationMode });
@@ -400,7 +555,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
       imageUrl: values.imageUrl,
       note: values.note,
     });
-    message.success(isManualMode ? '已人工完成任务' : '已补充超时任务结果图');
+    message.success(isManualMode ? '已上传人工生成结果' : '已人工补充系统输出结果图');
     setManualTask(null);
     setManualFileList([]);
     setManualImageUrl(undefined);
@@ -431,10 +586,10 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
       valueType: 'select',
       hideInTable: true,
       valueEnum: {
-        pending: { text: 'pending' },
-        running: { text: 'running' },
-        success: { text: 'success' },
-        failed: { text: 'failed' },
+        pending: { text: '等待生成' },
+        running: { text: '生成中' },
+        success: { text: '已完成' },
+        failed: { text: '失败' },
       },
     },
     {
@@ -555,15 +710,15 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
       dataIndex: 'status',
       valueType: 'select',
       valueEnum: {
-        pending: { text: 'pending' },
-        running: { text: 'running' },
-        success: { text: 'success' },
-        failed: { text: 'failed' },
+        pending: { text: '等待生成' },
+        running: { text: '生成中' },
+        success: { text: '已完成' },
+        failed: { text: '失败' },
       },
       width: 110,
       render: (_: unknown, record: ImageGenerationMessageItem) => (
         <Space size={4} wrap>
-          <Tag color={statusColorMap[record.status || ''] || 'default'}>{record.status || '-'}</Tag>
+          <Tag color={statusColorMap[record.status || ''] || 'default'}>{getStatusLabel(record.status)}</Tag>
           {record.timeoutPending ? <Tag color="red">超时 {formatDuration(record.pendingAgeSeconds)}</Tag> : null}
         </Space>
       ),
@@ -600,7 +755,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
       search: false,
       width: 110,
       render: (_: unknown, record: ImageGenerationMessageItem) => (
-        <Tag color={pointStatusColorMap[record.pointStatus || ''] || 'default'}>{record.pointStatus || '-'}</Tag>
+        <Tag color={pointStatusColorMap[record.pointStatus || ''] || 'default'}>{getPointStatusLabel(record.pointStatus)}</Tag>
       ),
     },
     {
@@ -614,7 +769,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
       title: '缩略图',
       search: false,
       width: 150,
-      render: (_: unknown, record: ImageGenerationMessageItem) => renderThumbnails(getMessageImages(record).slice(0, 2), 48),
+      render: (_: unknown, record: ImageGenerationMessageItem) => renderThumbnails(getPreviewImageUrls(record).slice(0, 2), 48),
     },
     {
       title: 'Task ID',
@@ -705,7 +860,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                   return (
                     <div key={status}>
                       <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                        <Tag color={statusColorMap[status]}>{status}</Tag>
+                        <Tag color={statusColorMap[status]}>{getStatusLabel(status)}</Tag>
                         <Text>{value}</Text>
                       </Space>
                       <Progress percent={percent} size="small" showInfo={false} />
@@ -793,8 +948,10 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                   children: (
                     <Space direction="vertical" size={8} style={{ width: '100%' }}>
                       <Space wrap>
-                        <Tag color={roleColorMap[message.role || ''] || 'default'}>{message.role || '-'}</Tag>
-                        <Tag color={statusColorMap[message.status || ''] || 'default'}>{message.status || '-'}</Tag>
+                        <Tag color={roleColorMap[message.role || ''] || 'default'}>{getRoleLabel(message.role)}</Tag>
+                        {message.status ? (
+                          <Tag color={statusColorMap[message.status || ''] || 'default'}>{getStatusLabel(message.status)}</Tag>
+                        ) : null}
                         {message.timeoutPending ? <Tag color="red">超时等待 {formatDuration(message.pendingAgeSeconds)}</Tag> : null}
                         {message.imageSize ? <Tag>{message.imageSize.toUpperCase()}</Tag> : null}
                         {message.pointCost ? <Tag>积分 {message.pointCost}</Tag> : null}
@@ -806,8 +963,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                         ) : null}
                         <Text type="secondary">{message.createTime ? dayjs(message.createTime).format('YYYY-MM-DD HH:mm:ss') : '-'}</Text>
                       </Space>
-                      {renderThumbnails(getMessageImages(message), 86)}
-                      {renderConversationMessageText(message)}
+                      {renderConversationMessageContent(message, isManualMode, costTitle)}
                     </Space>
                   ),
                 }))}
@@ -827,38 +983,21 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                 {manualCompletePrimaryLabel}
               </Button>
             ) : null}
-            <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="ID">{taskDetail.id}</Descriptions.Item>
-              <Descriptions.Item label="用户 ID">{taskDetail.userId || '-'}</Descriptions.Item>
-              <Descriptions.Item label="对话 ID" span={2}>
-                <Text copyable>{taskDetail.conversationId || '-'}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={statusColorMap[taskDetail.status || ''] || 'default'}>{taskDetail.status || '-'}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="积分状态">
-                <Tag color={pointStatusColorMap[taskDetail.pointStatus || ''] || 'default'}>{taskDetail.pointStatus || '-'}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="模型">{taskDetail.modelCode || '-'}</Descriptions.Item>
-              <Descriptions.Item label="规格">{taskDetail.imageSize || '-'}</Descriptions.Item>
-              <Descriptions.Item label="生成方式">{taskDetail.generationMode || '-'}</Descriptions.Item>
-              <Descriptions.Item label="张数">{taskDetail.imageCount || '-'}</Descriptions.Item>
-              <Descriptions.Item label="积分">{taskDetail.pointCost || '-'}</Descriptions.Item>
-              <Descriptions.Item label={costTitle}>
-                ¥{Number((isManualMode ? taskDetail.manualCostCny : taskDetail.apiCostCny) || 0).toFixed(2)}
-              </Descriptions.Item>
-              <Descriptions.Item label="Task ID">
-                <Text copyable>{taskDetail.taskId || '-'}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label="开始时间">{taskDetail.startedTime || '-'}</Descriptions.Item>
-              <Descriptions.Item label="完成时间">{taskDetail.finishedTime || '-'}</Descriptions.Item>
-              <Descriptions.Item label="图片" span={2}>
-                {renderThumbnails(getMessageImages(taskDetail), 96)}
-              </Descriptions.Item>
-              <Descriptions.Item label="错误信息" span={2}>
-                {taskDetail.errorMessage ? <Text type="danger">{taskDetail.errorMessage}</Text> : '-'}
-              </Descriptions.Item>
-            </Descriptions>
+            {renderDetailSection(
+              '用户请求',
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Descriptions bordered column={2} size="small">
+                  <Descriptions.Item label="用户 ID">{taskDetail.userId || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="任务记录 ID">{taskDetail.id}</Descriptions.Item>
+                  <Descriptions.Item label="对话 ID" span={2}>
+                    <Text copyable>{taskDetail.conversationId || '-'}</Text>
+                  </Descriptions.Item>
+                </Descriptions>
+                {renderRequestSummary(taskDetail)}
+              </Space>,
+            )}
+            {renderDetailSection('生成任务', renderTaskSummary(taskDetail, isManualMode, costTitle))}
+            {renderDetailSection('输出结果', renderResultImages(taskDetail, 96))}
 
             <div>
               <Text strong>同轮对话</Text>
@@ -870,13 +1009,14 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                     children: (
                       <Space direction="vertical" size={6} style={{ width: '100%' }}>
                         <Space wrap>
-                          <Tag color={roleColorMap[message.role || ''] || 'default'}>{message.role || '-'}</Tag>
-                          <Tag color={statusColorMap[message.status || ''] || 'default'}>{message.status || '-'}</Tag>
+                          <Tag color={roleColorMap[message.role || ''] || 'default'}>{getRoleLabel(message.role)}</Tag>
+                          {message.status ? (
+                            <Tag color={statusColorMap[message.status || ''] || 'default'}>{getStatusLabel(message.status)}</Tag>
+                          ) : null}
                           {message.timeoutPending ? <Tag color="red">超时等待 {formatDuration(message.pendingAgeSeconds)}</Tag> : null}
                           <Text type="secondary">{message.createTime || '-'}</Text>
                         </Space>
-                        {renderThumbnails(getMessageImages(message), 72)}
-                        {renderConversationMessageText(message)}
+                        {renderConversationMessageContent(message, isManualMode, costTitle)}
                       </Space>
                     ),
                   }))}
@@ -886,29 +1026,13 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
               )}
             </div>
 
-            <div>
-              <Text strong>用户原始输入</Text>
-              {renderLongText(getOriginalPrompt(taskDetail) || taskDetail.errorMessage)}
-              {renderModelPromptDebug(taskDetail.prompt)}
-            </div>
-            <div>
-              <Text strong>结果图 JSON</Text>
-              {renderLongText(formatJsonText(taskDetail.resultImageUrls))}
-            </div>
-            <div>
-              <Text strong>请求参数 JSON</Text>
-              {renderLongText(formatJsonText(taskDetail.requestPayload))}
-            </div>
-            <div>
-              <Text strong>响应参数 JSON</Text>
-              {renderLongText(formatJsonText(taskDetail.responsePayload))}
-            </div>
+            {renderDetailSection('技术调试信息', renderTechnicalDebug(taskDetail))}
           </Space>
         ) : null}
       </Drawer>
 
       <Drawer
-        title={isManualMode ? '人工完成图片生成任务' : '人工补充超时图片'}
+        title={isManualMode ? '上传人工生成结果' : '人工补充结果图'}
         open={!!manualTask}
         width={520}
         onClose={() => {
@@ -923,7 +1047,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
             <Form.Item label="Task ID" name="taskId" rules={[{ required: true }]}>
               <Input readOnly />
             </Form.Item>
-            <Form.Item label="上传结果图片">
+            <Form.Item label="上传系统输出结果图">
               <Upload
                 name="file"
                 action="/api/file/upload?biz=image_generation_result"
@@ -939,7 +1063,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                     if (res?.code === 0 && res?.data) {
                       manualForm.setFieldsValue({ imageUrl: res.data });
                       setManualImageUrl(res.data);
-                      message.success('结果图片上传成功');
+                      message.success('结果图上传成功，该图片将作为系统输出结果返回给用户');
                     } else {
                       manualForm.setFieldsValue({ imageUrl: undefined });
                       setManualImageUrl(undefined);
@@ -949,7 +1073,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                   if (info.file.status === 'error') {
                     manualForm.setFieldsValue({ imageUrl: undefined });
                     setManualImageUrl(undefined);
-                    message.error('结果图片上传失败');
+                    message.error('结果图上传失败');
                   }
                   if (info.file.status === 'removed') {
                     manualForm.setFieldsValue({ imageUrl: undefined });
@@ -961,17 +1085,17 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
                 {manualFileList.length >= 1 ? null : (
                   <div>
                     <UploadOutlined />
-                    <div style={{ marginTop: 8 }}>上传图片</div>
+                    <div style={{ marginTop: 8 }}>上传结果图</div>
                   </div>
                 )}
               </Upload>
               {manualImageUrl ? (
                 <div style={{ marginTop: 8 }}>
-                  <Tag color="success">已上传，确认后会作为结果图返回给用户</Tag>
+                  <Tag color="success">已上传，确认后会作为系统输出结果返回给用户</Tag>
                 </div>
               ) : null}
             </Form.Item>
-            <Form.Item name="imageUrl" hidden rules={[{ required: true, message: '请先上传结果图片' }]}>
+            <Form.Item name="imageUrl" hidden rules={[{ required: true, message: '请先上传系统输出结果图' }]}>
               <Input />
             </Form.Item>
             <Form.Item label="处理备注" name="note">
@@ -979,7 +1103,7 @@ export default function ImageGenerationMessageManage({ generationMode = 'api' }:
             </Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" disabled={!manualImageUrl}>
-                {isManualMode ? '确认人工完成' : '确认补充结果图'}
+                {isManualMode ? '确认上传人工结果' : '确认补充系统输出'}
               </Button>
               <Button
                 onClick={() => {

@@ -9,13 +9,16 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.mapper.PointRecordMapper;
 import com.yupi.springbootinit.mapper.UserMapper;
+import com.yupi.springbootinit.model.entity.PointCheckInConfig;
 import com.yupi.springbootinit.model.dto.point.PointAdjustRequest;
 import com.yupi.springbootinit.model.dto.point.PointRecordQueryRequest;
 import com.yupi.springbootinit.model.entity.PointRecord;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.PointChangeTypeEnum;
+import com.yupi.springbootinit.model.vo.point.PointCheckInStatusVO;
 import com.yupi.springbootinit.model.vo.point.PointRecordAdminVO;
 import com.yupi.springbootinit.model.vo.point.PointOverviewVO;
+import com.yupi.springbootinit.service.PointCheckInConfigService;
 import com.yupi.springbootinit.service.PointService;
 import com.yupi.springbootinit.utils.SqlUtils;
 import java.util.Collections;
@@ -36,8 +39,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord> implements PointService {
 
-    private static final int DAILY_CHECK_IN_REWARD = 5;
-
     private static final String OPERATION_GRANT = "grant";
 
     private static final String OPERATION_DEDUCT = "deduct";
@@ -47,6 +48,9 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
     @Resource
     private UserMapper userMapper;
 
+    @Resource
+    private PointCheckInConfigService pointCheckInConfigService;
+
     @Override
     public PointOverviewVO getPointOverview(User loginUser) {
         PointOverviewVO pointOverviewVO = new PointOverviewVO();
@@ -55,22 +59,34 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
     }
 
     @Override
+    public PointCheckInStatusVO getCheckInStatus(User loginUser) {
+        User latestUser = getUserById(loginUser.getId());
+        PointCheckInConfig config = pointCheckInConfigService.getAdminConfig();
+        PointCheckInStatusVO statusVO = new PointCheckInStatusVO();
+        statusVO.setCheckedInToday(hasCheckedInToday(latestUser.getLastCheckInDate()));
+        statusVO.setRewardPoints(config == null ? 0 : config.getRewardPoints());
+        statusVO.setStatus(config == null ? 0 : config.getStatus());
+        statusVO.setPointBalance(getSafeBalance(latestUser));
+        statusVO.setLastCheckInDate(latestUser.getLastCheckInDate());
+        return statusVO;
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public int dailyCheckIn(User loginUser) {
-        Date lastCheckInDate = loginUser.getLastCheckInDate();
-        LocalDate today = LocalDate.now();
-        if (lastCheckInDate != null) {
-            LocalDate lastCheckInLocalDate = lastCheckInDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-            ThrowUtils.throwIf(today.equals(lastCheckInLocalDate), ErrorCode.OPERATION_ERROR,
-                    "Already checked in today");
-        }
-        addPoints(loginUser.getId(), DAILY_CHECK_IN_REWARD, PointChangeTypeEnum.CHECK_IN_REWARD, "check_in",
+        PointCheckInConfig config = pointCheckInConfigService.getActiveConfig();
+        ThrowUtils.throwIf(config == null, ErrorCode.OPERATION_ERROR, "签到功能暂未开启");
+        User latestUser = getUserById(loginUser.getId());
+        ThrowUtils.throwIf(hasCheckedInToday(latestUser.getLastCheckInDate()), ErrorCode.OPERATION_ERROR,
+                "Already checked in today");
+        int rewardPoints = config.getRewardPoints();
+        addPoints(loginUser.getId(), rewardPoints, PointChangeTypeEnum.CHECK_IN_REWARD, "check_in",
                 loginUser.getId(), "Daily check-in reward");
         User updateUser = new User();
         updateUser.setId(loginUser.getId());
         updateUser.setLastCheckInDate(new Date());
         userMapper.updateById(updateUser);
-        return DAILY_CHECK_IN_REWARD;
+        return rewardPoints;
     }
 
     @Override
@@ -192,6 +208,15 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
 
     private int getSafeBalance(User user) {
         return user.getPointBalance() == null ? 0 : user.getPointBalance();
+    }
+
+    private boolean hasCheckedInToday(Date lastCheckInDate) {
+        if (lastCheckInDate == null) {
+            return false;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate lastCheckInLocalDate = lastCheckInDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        return today.equals(lastCheckInLocalDate);
     }
 
     private void savePointRecord(Long userId, int changeAmount, int balanceAfter, PointChangeTypeEnum pointChangeTypeEnum,

@@ -3,48 +3,38 @@ package com.yupi.springbootinit.model.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
 import java.util.Date;
 import lombok.Data;
 
-@TableName(value = "image_generation_provider_config")
+@TableName(value = "announcement")
 @Data
-public class ImageGenerationProviderConfig implements Serializable {
+public class Announcement implements Serializable {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    private String providerCode;
+    private String title;
 
-    private String providerName;
+    private String content;
 
-    private String baseUrl;
+    private String type;
 
-    private String generationPath;
+    private String status;
 
-    private String editPath;
+    private Integer priority;
 
-    private String authType;
+    private Date publishTime;
 
-    private String apiKeyEncrypted;
+    private Date expireTime;
 
-    private String apiKeyLast4;
-
-    private Integer status;
-
-    private Integer isDefault;
-
-    private Integer timeoutSeconds;
-
-    private String requestSchema;
+    private Long createUserId;
 
     private Date createTime;
 
     private Date updateTime;
 
-    @TableLogic
     private Integer isDelete;
 
     @TableField(exist = false)

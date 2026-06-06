@@ -2,15 +2,18 @@ package com.yupi.springbootinit.controller;
 
 import com.yupi.springbootinit.annotation.AuthCheck;
 import com.yupi.springbootinit.common.BaseResponse;
+import com.yupi.springbootinit.common.DeleteRequest;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
+import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationModelConfigBatchUpdateRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationModelConfigRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationProviderConfigRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationProviderDefaultRequest;
 import com.yupi.springbootinit.model.entity.ImageGenerationModelConfig;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationProviderConfigVO;
+import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationProviderTestVO;
 import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationWorkerProviderConfigVO;
 import com.yupi.springbootinit.service.ImageGenerationModelConfigService;
 import com.yupi.springbootinit.service.ImageGenerationProviderConfigService;
@@ -73,6 +76,26 @@ public class ImageGenerationConfigController {
         return ResultUtils.success(providerConfigService.setDefaultProvider(request.getId()));
     }
 
+    @PostMapping("/config/admin/provider/delete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation("Admin delete image generation provider")
+    public BaseResponse<Boolean> deleteProvider(@RequestBody DeleteRequest request) {
+        if (request == null || request.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(providerConfigService.deleteProviderConfig(request.getId()));
+    }
+
+    @PostMapping("/config/admin/provider/test")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation("Admin test image generation provider")
+    public BaseResponse<ImageGenerationProviderTestVO> testProvider(@RequestBody DeleteRequest request) {
+        if (request == null || request.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(providerConfigService.testProviderConfig(request.getId()));
+    }
+
     @GetMapping("/config/admin/model/list")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @ApiOperation("Admin list image generation model configs")
@@ -93,6 +116,13 @@ public class ImageGenerationConfigController {
     @ApiOperation("Admin update image generation model config")
     public BaseResponse<Boolean> updateModel(@RequestBody ImageGenerationModelConfigRequest request) {
         return ResultUtils.success(modelConfigService.updateModelConfig(request));
+    }
+
+    @PostMapping("/config/admin/model/batch-update-size")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation("Admin batch update image generation model configs by size")
+    public BaseResponse<Integer> batchUpdateModelSize(@RequestBody ImageGenerationModelConfigBatchUpdateRequest request) {
+        return ResultUtils.success(modelConfigService.batchUpdateSizeConfigs(request));
     }
 
     @GetMapping("/worker/provider/config")

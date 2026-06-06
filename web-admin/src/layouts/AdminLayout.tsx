@@ -12,6 +12,7 @@ import {
   DownOutlined,
   FileTextOutlined,
   LogoutOutlined,
+  NotificationOutlined,
   PictureOutlined,
   SettingOutlined,
   ShoppingCartOutlined,
@@ -34,6 +35,7 @@ const iconMap: Record<string, React.ReactNode> = {
   ClusterOutlined: <ClusterOutlined />,
   FileTextOutlined: <FileTextOutlined />,
   DatabaseOutlined: <DatabaseOutlined />,
+  NotificationOutlined: <NotificationOutlined />,
 };
 
 type MenuRoute = {
@@ -44,8 +46,9 @@ type MenuRoute = {
 };
 
 function mapMenuRoute(item: MenuRoute): any {
+  const hasChildren = Boolean(item.routes?.length);
   return {
-    key: item.path,
+    key: hasChildren ? `menu:${item.path}` : item.path,
     path: item.path,
     name: item.name,
     icon: item.icon ? iconMap[item.icon] : undefined,
@@ -53,11 +56,16 @@ function mapMenuRoute(item: MenuRoute): any {
   };
 }
 
+function getParentMenuKeys() {
+  return menuRoutes.filter((item) => item.routes?.length).map((item) => `menu:${item.path}`);
+}
+
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<LoginUserVO | null>(null);
+  const [menuOpenKeys, setMenuOpenKeys] = useState<string[]>(getParentMenuKeys);
 
   useEffect(() => {
     getLoginUser()
@@ -97,7 +105,11 @@ export default function AdminLayout() {
       layout="side"
       fixSiderbar
       fixedHeader
-      menu={{ defaultOpenAll: true }}
+      openKeys={menuOpenKeys}
+      menu={{ autoClose: false }}
+      onOpenChange={(keys) => {
+        setMenuOpenKeys(Array.isArray(keys) ? keys : []);
+      }}
       route={{ path: '/', routes: menuRoutes.map(mapMenuRoute) }}
       location={{ pathname: location.pathname }}
       menuItemRender={(item: any, dom: any) => {

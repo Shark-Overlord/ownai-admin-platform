@@ -13,6 +13,7 @@ import MemberOrderManage from '../pages/MemberOrderManage';
 import PointManage from '../pages/PointManage';
 import MemberPriceConfigManage from '../pages/MemberPriceConfigManage';
 import OperationLog from '../pages/OperationLog';
+import AnnouncementManage from '../pages/AnnouncementManage';
 import PromptAssetManage from '../pages/PromptAssetManage';
 import PromptAssetAiTaggingManage from '../pages/PromptAssetAiTaggingManage';
 import ImageGenerationMessageManage from '../pages/ImageGenerationMessageManage';
@@ -110,6 +111,11 @@ export const routes = [
       {
         path: 'operation-log',
         element: <OperationLog />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'announcement',
+        element: <AnnouncementManage />,
         meta: { requiresAdmin: true },
       },
     ],
@@ -232,6 +238,11 @@ export const menuRoutes = [
         path: '/user',
         name: '用户管理',
         icon: 'UserOutlined',
+      },
+      {
+        path: '/announcement',
+        name: '公告管理',
+        icon: 'NotificationOutlined',
       },
       {
         path: '/operation-log',

@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Statistic, Tag, message } from 'antd';
-import { DollarOutlined, MinusCircleOutlined, PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Statistic, Switch, Tag, message } from 'antd';
+import { CalendarOutlined, DollarOutlined, MinusCircleOutlined, PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listUserByPage, type UserVO } from '../../api/user';
-import { adminAdjustPoints, listAdminPointRecords, type PointRecord } from '../../api/point';
+import {
+  adminAdjustPoints,
+  getAdminCheckInConfig,
+  listAdminPointRecords,
+  updateAdminCheckInConfig,
+  type PointCheckInConfig,
+  type PointRecord,
+} from '../../api/point';
 
 const changeTypeText: Record<string, string> = {
   check_in_reward: '每日签到奖励',
@@ -18,10 +25,13 @@ const changeTypeText: Record<string, string> = {
 export default function PointManage() {
   const actionRef = useRef<any>(null);
   const [adjustForm] = Form.useForm();
+  const [checkInForm] = Form.useForm();
   const [users, setUsers] = useState<UserVO[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserVO | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
+  const [checkInConfig, setCheckInConfig] = useState<PointCheckInConfig | null>(null);
+  const [savingCheckInConfig, setSavingCheckInConfig] = useState(false);
 
   const loadUsers = async (keyword?: string) => {
     setLoadingUsers(true);
@@ -47,7 +57,18 @@ export default function PointManage() {
 
   useEffect(() => {
     loadUsers();
+    loadCheckInConfig();
   }, []);
+
+  const loadCheckInConfig = async () => {
+    const res = await getAdminCheckInConfig();
+    setCheckInConfig(res.data);
+    checkInForm.setFieldsValue({
+      rewardPoints: res.data.rewardPoints,
+      status: res.data.status === 1,
+      description: res.data.description,
+    });
+  };
 
   const selectedUserId = selectedUser?.id;
 
@@ -96,6 +117,22 @@ export default function PointManage() {
       return;
     }
     await run();
+  };
+
+  const handleSaveCheckInConfig = async (values: any) => {
+    setSavingCheckInConfig(true);
+    try {
+      const res = await updateAdminCheckInConfig({
+        id: checkInConfig?.id,
+        rewardPoints: values.rewardPoints,
+        status: values.status ? 1 : 0,
+        description: values.description,
+      });
+      setCheckInConfig(res.data);
+      message.success('签到配置已更新');
+    } finally {
+      setSavingCheckInConfig(false);
+    }
   };
 
   const columns: any[] = [
@@ -182,6 +219,51 @@ export default function PointManage() {
         showIcon
         message="日常发放或扣减积分请使用本页操作；用户管理里的积分余额是设置最终余额，适合修正历史数据。"
       />
+      <Card title="每日签到配置" style={{ marginBottom: 16 }}>
+        <Row gutter={16} align="middle">
+          <Col xs={24} lg={5}>
+            <Statistic
+              title="当前每日奖励"
+              value={checkInConfig?.rewardPoints || 0}
+              suffix="积分"
+              prefix={<CalendarOutlined />}
+            />
+          </Col>
+          <Col xs={24} lg={19}>
+            <Form
+              form={checkInForm}
+              layout="inline"
+              onFinish={handleSaveCheckInConfig}
+              style={{ rowGap: 12 }}
+            >
+              <Form.Item
+                name="rewardPoints"
+                label="奖励积分"
+                rules={[{ required: true, message: '请输入签到奖励积分' }]}
+              >
+                <InputNumber min={1} max={10000} precision={0} />
+              </Form.Item>
+              <Form.Item name="status" label="启用" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="description" label="说明">
+                <Input maxLength={512} placeholder="例如：每日签到默认奖励" style={{ width: 300 }} />
+              </Form.Item>
+              <Form.Item>
+                <Space>
+                  <Button type="primary" htmlType="submit" loading={savingCheckInConfig}>
+                    保存配置
+                  </Button>
+                  <Button onClick={loadCheckInConfig}>刷新</Button>
+                </Space>
+              </Form.Item>
+            </Form>
+            <div style={{ color: '#8c8c8c', marginTop: 8 }}>
+              用户每天只能签到一次；修改后仅影响之后的签到奖励，历史积分流水不会重算。
+            </div>
+          </Col>
+        </Row>
+      </Card>
       <Card title="用户积分调整">
         <Row gutter={16}>
           <Col xs={24} lg={8}>

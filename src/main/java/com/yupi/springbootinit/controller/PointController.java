@@ -6,12 +6,16 @@ import com.yupi.springbootinit.annotation.OperationLog;
 import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.UserConstant;
+import com.yupi.springbootinit.model.dto.point.PointCheckInConfigUpdateRequest;
 import com.yupi.springbootinit.model.dto.point.PointAdjustRequest;
 import com.yupi.springbootinit.model.dto.point.PointRecordQueryRequest;
+import com.yupi.springbootinit.model.entity.PointCheckInConfig;
 import com.yupi.springbootinit.model.entity.PointRecord;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.vo.point.PointCheckInStatusVO;
 import com.yupi.springbootinit.model.vo.point.PointOverviewVO;
 import com.yupi.springbootinit.model.vo.point.PointRecordAdminVO;
+import com.yupi.springbootinit.service.PointCheckInConfigService;
 import com.yupi.springbootinit.service.PointService;
 import com.yupi.springbootinit.service.UserService;
 import io.swagger.annotations.Api;
@@ -40,6 +44,9 @@ public class PointController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private PointCheckInConfigService pointCheckInConfigService;
+
     /**
      * 获取我的积分概览 Get my point overview
      */
@@ -48,6 +55,13 @@ public class PointController {
     public BaseResponse<PointOverviewVO> getMyPointOverview(HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         return ResultUtils.success(pointService.getPointOverview(loginUser));
+    }
+
+    @GetMapping("/check-in/status")
+    @ApiOperation("获取每日签到状态 Get daily check-in status")
+    public BaseResponse<PointCheckInStatusVO> getCheckInStatus(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(pointService.getCheckInStatus(loginUser));
     }
 
     /**
@@ -62,6 +76,22 @@ public class PointController {
         Map<String, Integer> result = new HashMap<>();
         result.put("rewardPoints", rewardPoints);
         return ResultUtils.success(result);
+    }
+
+    @GetMapping("/admin/check-in-config")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation("Admin get point check-in config")
+    public BaseResponse<PointCheckInConfig> getCheckInConfig() {
+        return ResultUtils.success(pointCheckInConfigService.getAdminConfig());
+    }
+
+    @PostMapping("/admin/check-in-config/update")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "point", action = "update_check_in_config")
+    @ApiOperation("Admin update point check-in config")
+    public BaseResponse<PointCheckInConfig> updateCheckInConfig(
+            @RequestBody PointCheckInConfigUpdateRequest updateRequest) {
+        return ResultUtils.success(pointCheckInConfigService.updateConfig(updateRequest));
     }
 
     /**

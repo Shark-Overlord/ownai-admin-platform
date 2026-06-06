@@ -5,6 +5,7 @@
     providerName    VARCHAR(128) NOT NULL,
     baseUrl         VARCHAR(512) NOT NULL,
     generationPath  VARCHAR(255) NOT NULL,
+    editPath        VARCHAR(255) NULL,
     authType        VARCHAR(32)  NOT NULL DEFAULT 'bearer',
     apiKeyEncrypted TEXT         NULL,
     apiKeyLast4     VARCHAR(16)  NULL,
@@ -45,6 +46,14 @@ CREATE TABLE IF NOT EXISTS image_generation_model_config
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT 'image generation model config';
 
 SET @schema_name = DATABASE();
+
+SET @sql = IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = @schema_name AND TABLE_NAME = 'image_generation_provider_config' AND COLUMN_NAME = 'editPath') = 0,
+    'ALTER TABLE image_generation_provider_config ADD COLUMN editPath VARCHAR(255) NULL AFTER generationPath',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
     WHERE TABLE_SCHEMA = @schema_name AND TABLE_NAME = 'image_generation_model_config' AND COLUMN_NAME = 'aspectRatio') = 0,
@@ -111,12 +120,18 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 INSERT INTO image_generation_provider_config
-    (id, providerCode, providerName, baseUrl, generationPath, authType, apiKeyEncrypted, apiKeyLast4, status, isDefault, timeoutSeconds, requestSchema)
-SELECT 100000000000000001, 'lumio', 'LumioAPI', 'https://api.lumio.games', '/v1/images/generations', 'bearer', NULL, NULL, 1, 1, 120,
+    (id, providerCode, providerName, baseUrl, generationPath, editPath, authType, apiKeyEncrypted, apiKeyLast4, status, isDefault, timeoutSeconds, requestSchema)
+SELECT 100000000000000001, 'lumio', 'LumioAPI', 'https://api.lumio.games', '/v1/images/generations', '/v1/images/edits', 'bearer', NULL, NULL, 1, 1, 120,
        '{"body":{"model":"string","prompt":"string","size":"string","reference_images":"string[] optional"}}'
 WHERE NOT EXISTS (
     SELECT 1 FROM image_generation_provider_config WHERE providerCode = 'lumio' AND isDelete = 0
 );
+
+UPDATE image_generation_provider_config
+SET editPath = '/v1/images/edits'
+WHERE providerCode = 'lumio'
+  AND isDelete = 0
+  AND (editPath IS NULL OR editPath = '');
 
 UPDATE image_generation_model_config
 SET isDelete = 1

@@ -6,6 +6,7 @@ import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.mapper.ImageGenerationModelConfigMapper;
+import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationModelConfigBatchUpdateRequest;
 import com.yupi.springbootinit.model.dto.imagegeneration.ImageGenerationModelConfigRequest;
 import com.yupi.springbootinit.model.entity.ImageGenerationModelConfig;
 import com.yupi.springbootinit.service.ImageGenerationModelConfigService;
@@ -85,6 +86,28 @@ public class ImageGenerationModelConfigServiceImpl
     }
 
     @Override
+    public int batchUpdateSizeConfigs(ImageGenerationModelConfigBatchUpdateRequest request) {
+        validateBatchUpdateRequest(request);
+        String providerCode = normalizeCode(request.getProviderCode());
+        String modelCode = StringUtils.trim(request.getModelCode());
+        String sizeCode = normalizeSizeCode(request.getSizeCode());
+        ImageGenerationModelConfig updateConfig = new ImageGenerationModelConfig();
+        updateConfig.setPointCost(request.getPointCost());
+        updateConfig.setManualPointCost(request.getManualPointCost());
+        updateConfig.setApiInputCostCny(request.getApiInputCostCny());
+        updateConfig.setApiOutputCostCny(request.getApiOutputCostCny());
+        updateConfig.setApiCostCny(request.getApiInputCostCny().add(request.getApiOutputCostCny()));
+        updateConfig.setManualCostCny(request.getManualCostCny());
+        updateConfig.setSupportsReferenceImage(request.getSupportsReferenceImage());
+        updateConfig.setStatus(request.getStatus());
+        QueryWrapper<ImageGenerationModelConfig> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("providerCode", providerCode)
+                .eq("modelCode", modelCode)
+                .eq("sizeCode", sizeCode);
+        return baseMapper.update(updateConfig, queryWrapper);
+    }
+
+    @Override
     public ImageGenerationModelConfig getEnabledModelConfig(String providerCode, String modelCode, String sizeCode,
             String aspectRatio) {
         ImageGenerationModelConfig config = this.getOne(new QueryWrapper<ImageGenerationModelConfig>()
@@ -124,6 +147,35 @@ public class ImageGenerationModelConfigServiceImpl
         validateCost(request.getApiInputCostCny(), "Input cost cannot be negative");
         validateCost(request.getApiOutputCostCny(), "Output cost cannot be negative");
         validateCost(request.getApiCostCny(), "Total cost cannot be negative");
+        validateCost(request.getManualCostCny(), "Manual cost cannot be negative");
+    }
+
+    private void validateBatchUpdateRequest(ImageGenerationModelConfigBatchUpdateRequest request) {
+        if (request == null
+                || StringUtils.isBlank(request.getProviderCode())
+                || StringUtils.isBlank(request.getModelCode())
+                || StringUtils.isBlank(request.getSizeCode())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (request.getPointCost() == null || request.getPointCost() < 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Point cost cannot be negative");
+        }
+        if (request.getManualPointCost() == null || request.getManualPointCost() < 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Manual point cost cannot be negative");
+        }
+        if (request.getSupportsReferenceImage() == null
+                || (request.getSupportsReferenceImage() != 0 && request.getSupportsReferenceImage() != 1)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Invalid reference image support value");
+        }
+        if (request.getStatus() == null || (request.getStatus() != 0 && request.getStatus() != 1)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Invalid status");
+        }
+        if (request.getApiInputCostCny() == null || request.getApiOutputCostCny() == null
+                || request.getManualCostCny() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "Cost fields are required");
+        }
+        validateCost(request.getApiInputCostCny(), "Input cost cannot be negative");
+        validateCost(request.getApiOutputCostCny(), "Output cost cannot be negative");
         validateCost(request.getManualCostCny(), "Manual cost cannot be negative");
     }
 

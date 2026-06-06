@@ -95,6 +95,7 @@ export interface ImageGenerationProviderConfig {
   providerName: string;
   baseUrl: string;
   generationPath: string;
+  editPath?: string;
   authType: string;
   apiKeyLast4?: string;
   hasApiKey?: boolean;
@@ -113,6 +114,7 @@ export interface ImageGenerationProviderConfigRequest {
   providerName?: string;
   baseUrl?: string;
   generationPath?: string;
+  editPath?: string;
   authType?: string;
   apiKey?: string;
   status?: number;
@@ -159,6 +161,27 @@ export interface ImageGenerationModelConfigRequest {
   status?: number;
   sortOrder?: number;
   description?: string;
+}
+
+export interface ImageGenerationProviderTestResult {
+  passed: boolean;
+  httpStatus?: number;
+  durationMs?: number;
+  message?: string;
+  url?: string;
+}
+
+export interface ImageGenerationModelConfigBatchUpdateRequest {
+  providerCode?: string;
+  modelCode?: string;
+  sizeCode?: string;
+  pointCost?: number;
+  manualPointCost?: number;
+  apiInputCostCny?: number;
+  apiOutputCostCny?: number;
+  manualCostCny?: number;
+  supportsReferenceImage?: number;
+  status?: number;
 }
 
 export async function getImageGenerationMonitorOverview(params: any) {
@@ -215,6 +238,16 @@ export async function setDefaultImageGenerationProvider(id: number) {
   return request.post('/image/generation/config/admin/provider/set-default', { id }) as Promise<{ data: boolean }>;
 }
 
+export async function deleteImageGenerationProvider(id: number) {
+  return request.post('/image/generation/config/admin/provider/delete', { id }) as Promise<{ data: boolean }>;
+}
+
+export async function testImageGenerationProvider(id: number) {
+  return request.post('/image/generation/config/admin/provider/test', { id }) as Promise<{
+    data: ImageGenerationProviderTestResult;
+  }>;
+}
+
 export async function listImageGenerationModels(providerCode?: string) {
   return request.get('/image/generation/config/admin/model/list', {
     params: providerCode ? { providerCode } : {},
@@ -227,4 +260,8 @@ export async function addImageGenerationModel(params: ImageGenerationModelConfig
 
 export async function updateImageGenerationModel(params: ImageGenerationModelConfigRequest) {
   return request.post('/image/generation/config/admin/model/update', params) as Promise<{ data: boolean }>;
+}
+
+export async function batchUpdateImageGenerationModelSize(params: ImageGenerationModelConfigBatchUpdateRequest) {
+  return request.post('/image/generation/config/admin/model/batch-update-size', params) as Promise<{ data: number }>;
 }
