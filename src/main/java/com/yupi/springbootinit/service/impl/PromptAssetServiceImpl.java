@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -219,16 +220,13 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean cancelFavorite(PromptAssetFavoriteRequest request, User loginUser) {
-        PromptAssetFavorite existing = resolveFavoriteRecordForCancel(request, loginUser.getId());
-        if (existing == null || (existing.getIsDelete() != null && existing.getIsDelete() == 1)) {
-            return true;
-        }
-        PromptAssetFavorite update = new PromptAssetFavorite();
-        update.setId(existing.getId());
-        update.setIsDelete(1);
-        update.setUpdateTime(new Date());
-        boolean result = promptAssetFavoriteMapper.updateById(update) > 0;
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        Long promptAssetId = normalizeFavoritePromptAssetIdForCancel(request);
+        promptAssetFavoriteMapper.update(null, new UpdateWrapper<PromptAssetFavorite>()
+                .eq("userId", loginUser.getId())
+                .eq("promptAssetId", promptAssetId)
+                .eq("isDelete", 0)
+                .set("isDelete", 1)
+                .set("updateTime", new Date()));
         return true;
     }
 
@@ -1142,15 +1140,15 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         return request.getPromptAssetId();
     }
 
-    private PromptAssetFavorite resolveFavoriteRecordForCancel(PromptAssetFavoriteRequest request, Long userId) {
-        if (request == null || userId == null || userId <= 0) {
+    private Long normalizeFavoritePromptAssetIdForCancel(PromptAssetFavoriteRequest request) {
+        if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Long promptAssetId = request.getPromptAssetId() != null ? request.getPromptAssetId() : request.getId();
         if (promptAssetId == null || promptAssetId <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return getFavoriteRecord(userId, promptAssetId);
+        return promptAssetId;
     }
 
     private PromptAssetFavorite getFavoriteRecord(Long userId, Long promptAssetId) {
