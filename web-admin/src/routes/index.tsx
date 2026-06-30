@@ -18,6 +18,7 @@ import PromptAssetManage from '../pages/PromptAssetManage';
 import PromptAssetAiTaggingManage from '../pages/PromptAssetAiTaggingManage';
 import ImageGenerationMessageManage from '../pages/ImageGenerationMessageManage';
 import ImageGenerationConfigManage from '../pages/ImageGenerationConfigManage';
+import YuqueDocsManage from '../pages/YuqueDocsManage';
 
 export const routes = [
   {
@@ -56,6 +57,11 @@ export const routes = [
       {
         path: 'prompt-asset-ai-tagging',
         element: <PromptAssetAiTaggingManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'yuque-docs',
+        element: <YuqueDocsManage />,
         meta: { requiresAdmin: true },
       },
       {
@@ -162,6 +168,11 @@ export const menuRoutes = [
         path: '/prompt-asset-ai-tagging',
         name: 'AI 标签重标注',
         icon: 'TagOutlined',
+      },
+      {
+        path: '/yuque-docs',
+        name: '语雀教程',
+        icon: 'BookOutlined',
       },
       {
         path: '/category',
