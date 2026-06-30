@@ -56,6 +56,14 @@ prompt:
       config-secret: ${PROMPT_ASSET_AI_TAGGING_CONFIG_SECRET:${IMAGE_GENERATION_CONFIG_SECRET:}}
 auth:
   login-captcha-required: ${AUTH_LOGIN_CAPTCHA_REQUIRED:true}
+yuque:
+  base-url: ${YUQUE_BASE_URL:https://www.yuque.com/api/v2}
+  token: ${YUQUE_TOKEN:}
+  sync-enabled: ${YUQUE_SYNC_ENABLED:false}
+  sync-cron: "${YUQUE_SYNC_CRON:0 */10 * * * ?}"
+  connect-timeout-ms: ${YUQUE_CONNECT_TIMEOUT_MS:5000}
+  read-timeout-ms: ${YUQUE_READ_TIMEOUT_MS:15000}
+  default-visibility: ${YUQUE_DEFAULT_VISIBILITY:public}
 # 接口文档配置
 knife4j:
   enable: true

@@ -1,0 +1,50 @@
+package com.yupi.springbootinit.model.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import java.io.Serializable;
+import java.util.Date;
+import lombok.Data;
+
+@TableName(value = "yuque_doc")
+@Data
+public class YuqueDoc implements Serializable {
+
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long id;
+
+    private Long bookId;
+
+    private String yuqueDocId;
+
+    private String slug;
+
+    private String title;
+
+    private String description;
+
+    private String bodyMarkdown;
+
+    private String bodyHtml;
+
+    private String coverUrl;
+
+    private String visibility;
+
+    private String status;
+
+    private Date sourceUpdatedAt;
+
+    private Date lastSyncAt;
+
+    private Date createTime;
+
+    private Date updateTime;
+
+    private Integer isDelete;
+
+    @TableField(exist = false)
+    private static final long serialVersionUID = 1L;
+}
