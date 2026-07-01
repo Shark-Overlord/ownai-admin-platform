@@ -64,6 +64,10 @@ yuque:
   connect-timeout-ms: ${YUQUE_CONNECT_TIMEOUT_MS:5000}
   read-timeout-ms: ${YUQUE_READ_TIMEOUT_MS:15000}
   default-visibility: ${YUQUE_DEFAULT_VISIBILITY:public}
+  min-request-interval-ms: ${YUQUE_MIN_REQUEST_INTERVAL_MS:1200}
+  max-retries: ${YUQUE_MAX_RETRIES:3}
+  retry-base-sleep-ms: ${YUQUE_RETRY_BASE_SLEEP_MS:3000}
+  retry-max-sleep-ms: ${YUQUE_RETRY_MAX_SLEEP_MS:20000}
 # 接口文档配置
 knife4j:
   enable: true

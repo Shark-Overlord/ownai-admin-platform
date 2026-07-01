@@ -22,4 +22,18 @@ public class YuqueProperties {
     private Integer readTimeoutMs = 15000;
 
     private String defaultVisibility = "public";
+
+    /**
+     * Minimum delay between two Yuque API requests. Yuque rate-limits bursty syncs.
+     */
+    private Integer minRequestIntervalMs = 1200;
+
+    /**
+     * Retry count after receiving Yuque 429 or temporary 5xx responses.
+     */
+    private Integer maxRetries = 3;
+
+    private Integer retryBaseSleepMs = 3000;
+
+    private Integer retryMaxSleepMs = 20000;
 }

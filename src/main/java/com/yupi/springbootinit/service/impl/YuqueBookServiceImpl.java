@@ -89,7 +89,7 @@ public class YuqueBookServiceImpl extends ServiceImpl<YuqueBookMapper, YuqueBook
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Boolean syncBook(Long id) {
+    public synchronized Boolean syncBook(Long id) {
         YuqueBook book = getValidBook(id);
         Date now = new Date();
         JSONArray docList = yuqueClient.listDocs(book.getNamespace());
@@ -117,7 +117,7 @@ public class YuqueBookServiceImpl extends ServiceImpl<YuqueBookMapper, YuqueBook
     }
 
     @Override
-    public Boolean syncAllEnabledBooks() {
+    public synchronized Boolean syncAllEnabledBooks() {
         List<YuqueBook> books = this.list(new QueryWrapper<YuqueBook>()
                 .eq("isDelete", 0)
                 .eq("status", YuqueDocConstant.STATUS_ONLINE));

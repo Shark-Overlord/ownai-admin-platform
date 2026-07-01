@@ -193,6 +193,7 @@ export default function YuqueDocsManage() {
             size="small"
             icon={<SyncOutlined spin={syncingId === record.id} />}
             loading={syncingId === record.id}
+            disabled={syncingAll || (syncingId !== null && syncingId !== record.id)}
             onClick={() => handleSync(record)}
           >
             同步
@@ -230,7 +231,7 @@ export default function YuqueDocsManage() {
           <Button key="reload" icon={<ReloadOutlined />} onClick={reload}>
             刷新
           </Button>,
-          <Button key="sync-all" icon={<SyncOutlined />} loading={syncingAll} onClick={handleSyncAll}>
+          <Button key="sync-all" icon={<SyncOutlined />} loading={syncingAll} disabled={syncingId !== null} onClick={handleSyncAll}>
             同步全部
           </Button>,
           <Button key="add" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
