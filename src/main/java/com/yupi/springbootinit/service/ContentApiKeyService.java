@@ -9,6 +9,7 @@ import com.yupi.springbootinit.model.entity.ContentApiKey;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.contentapikey.ContentApiKeyCreateVO;
 import com.yupi.springbootinit.model.vo.contentapikey.ContentApiKeyVO;
+import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 
 public interface ContentApiKeyService extends IService<ContentApiKey> {
@@ -36,4 +37,6 @@ public interface ContentApiKeyService extends IService<ContentApiKey> {
     Boolean deleteKey(Long id);
 
     boolean validateRequestKey(String requestKey, HttpServletRequest request, String requiredScope);
+
+    boolean validateRequestKeyAny(String requestKey, HttpServletRequest request, List<String> requiredScopes);
 }

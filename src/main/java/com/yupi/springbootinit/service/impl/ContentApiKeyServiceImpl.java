@@ -154,6 +154,11 @@ public class ContentApiKeyServiceImpl extends ServiceImpl<ContentApiKeyMapper, C
 
     @Override
     public boolean validateRequestKey(String requestKey, HttpServletRequest request, String requiredScope) {
+        return validateRequestKeyAny(requestKey, request, Collections.singletonList(requiredScope));
+    }
+
+    @Override
+    public boolean validateRequestKeyAny(String requestKey, HttpServletRequest request, List<String> requiredScopes) {
         String plainKey = StringUtils.trimToNull(requestKey);
         if (plainKey == null && request != null) {
             plainKey = StringUtils.trimToNull(request.getHeader(HEADER_CONTENT_ASSET_KEY));
@@ -164,8 +169,13 @@ public class ContentApiKeyServiceImpl extends ServiceImpl<ContentApiKeyMapper, C
         if (plainKey == null) {
             return false;
         }
-        if (StringUtils.isBlank(requiredScope) || !ALLOWED_SCOPES.contains(requiredScope)) {
+        if (requiredScopes == null || requiredScopes.isEmpty()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "invalid required scope");
+        }
+        for (String requiredScope : requiredScopes) {
+            if (StringUtils.isBlank(requiredScope) || !ALLOWED_SCOPES.contains(requiredScope)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "invalid required scope");
+            }
         }
         ContentApiKey key = this.getOne(new QueryWrapper<ContentApiKey>()
                 .eq("keyHash", sha256Hex(plainKey))
@@ -181,7 +191,9 @@ public class ContentApiKeyServiceImpl extends ServiceImpl<ContentApiKeyMapper, C
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "api key expired");
         }
         Set<String> scopes = splitScopes(key.getScopes());
-        if (!scopes.contains(SCOPE_ALL) && !scopes.contains(requiredScope)) {
+        boolean scopeMatched = scopes.contains(SCOPE_ALL)
+                || requiredScopes.stream().anyMatch(scopes::contains);
+        if (!scopeMatched) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "api key scope denied");
         }
         ContentApiKey update = new ContentApiKey();
