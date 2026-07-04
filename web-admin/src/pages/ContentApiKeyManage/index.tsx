@@ -16,7 +16,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { CopyOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   addContentApiKey,
@@ -46,24 +46,42 @@ export default function ContentApiKeyManage() {
   const [current, setCurrent] = useState<ContentApiKeyVO | null>(null);
   const [saving, setSaving] = useState(false);
   const [plainKeyMap, setPlainKeyMap] = useState<Record<string, string>>({});
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reload = () => actionRef.current?.reload();
 
   const copyText = async (text: string) => {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      message.success('密钥已复制');
+      return true;
+    } catch (error) {
+      message.error('复制失败，请手动选择密钥复制');
+      return false;
     }
-    message.success('密钥已复制');
+  };
+
+  const markCopied = (id: string) => {
+    setCopiedKeyId(id);
+    if (copyResetTimerRef.current) {
+      clearTimeout(copyResetTimerRef.current);
+    }
+    copyResetTimerRef.current = setTimeout(() => {
+      setCopiedKeyId((currentId) => (currentId === id ? null : currentId));
+    }, 3000);
   };
 
   const openCreate = () => {
@@ -86,7 +104,7 @@ export default function ContentApiKeyManage() {
     setDrawerOpen(true);
   };
 
-  const showPlainKey = (plainKey: string) => {
+  const showPlainKey = (plainKey: string, keyId: string) => {
     Modal.info({
       title: '请立即保存 API 密钥',
       width: 680,
@@ -98,7 +116,15 @@ export default function ContentApiKeyManage() {
             message="密钥明文只展示这一次，关闭后后台不会再显示。"
           />
           <Input.TextArea value={plainKey} autoSize readOnly />
-          <Button type="primary" icon={<CopyOutlined />} onClick={() => copyText(plainKey)}>
+          <Button
+            type="primary"
+            icon={<CopyOutlined />}
+            onClick={async () => {
+              if (await copyText(plainKey)) {
+                markCopied(keyId);
+              }
+            }}
+          >
             复制完整密钥
           </Button>
           <Typography.Text type="secondary">
@@ -128,7 +154,7 @@ export default function ContentApiKeyManage() {
           ...prev,
           [String(res.data.id)]: res.data.plainKey,
         }));
-        showPlainKey(res.data.plainKey);
+        showPlainKey(res.data.plainKey, String(res.data.id));
       }
       setDrawerOpen(false);
       reload();
@@ -154,7 +180,11 @@ export default function ContentApiKeyManage() {
       message.warning('完整密钥只在创建成功后可复制；刷新或关闭页面后无法再次查看，请重新创建密钥。');
       return;
     }
-    copyText(plainKey);
+    copyText(plainKey).then((success) => {
+      if (success) {
+        markCopied(String(record.id));
+      }
+    });
   };
 
   const columns: any[] = [
@@ -245,28 +275,36 @@ export default function ContentApiKeyManage() {
       valueType: 'option',
       width: 230,
       fixed: 'right',
-      render: (_: any, record: ContentApiKeyVO) => (
-        <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
-            编辑
-          </Button>
-          <Popconfirm
-            title="删除密钥"
-            description={`确认删除「${record.keyName}」？删除后外部接口将无法继续使用该密钥。`}
-            okText="确认删除"
-            cancelText="取消"
-            okButtonProps={{ danger: true }}
-            onConfirm={() => handleDelete(record)}
-          >
-            <Button type="link" danger size="small">
-              删除
+      render: (_: any, record: ContentApiKeyVO) => {
+        const copied = copiedKeyId === String(record.id);
+        return (
+          <Space>
+            <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
+              编辑
             </Button>
-          </Popconfirm>
-          <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => handleCopy(record)}>
-            复制
-          </Button>
-        </Space>
-      ),
+            <Popconfirm
+              title="删除密钥"
+              description={`确认删除「${record.keyName}」？删除后外部接口将无法继续使用该密钥。`}
+              okText="确认删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => handleDelete(record)}
+            >
+              <Button type="link" danger size="small">
+                删除
+              </Button>
+            </Popconfirm>
+            <Button
+              type={copied ? 'primary' : 'link'}
+              size="small"
+              icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+              onClick={() => handleCopy(record)}
+            >
+              {copied ? '已复制' : '复制'}
+            </Button>
+          </Space>
+        );
+      },
     },
   ];
 
