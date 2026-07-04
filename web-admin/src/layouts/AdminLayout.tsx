@@ -116,6 +116,28 @@ export default function AdminLayout() {
       }}
       route={{ path: '/', routes: menuRoutes.map(mapMenuRoute) }}
       location={{ pathname: location.pathname }}
+      menuFooterRender={false}
+      avatarProps={false}
+      actionsRender={() => [
+        <Dropdown
+          key="user"
+          menu={{
+            items: [
+              {
+                key: 'logout',
+                icon: <LogoutOutlined />,
+                label: '退出登录',
+                onClick: handleLogout,
+              },
+            ],
+          }}
+        >
+          <Space style={{ paddingInline: 12, cursor: 'pointer' }}>
+            {user?.userName || user?.userAccount || 'Admin'}
+            <DownOutlined />
+          </Space>
+        </Dropdown>,
+      ]}
       menuItemRender={(item: any, dom: any) => {
         if (item.routes?.length) {
           return dom;
@@ -129,29 +151,6 @@ export default function AdminLayout() {
             {dom}
           </a>
         );
-      }}
-      avatarProps={{
-        src: user?.userAvatar,
-        size: 'small',
-        title: (
-          <Dropdown
-            menu={{
-              items: [
-                {
-                  key: 'logout',
-                  icon: <LogoutOutlined />,
-                  label: '退出登录',
-                  onClick: handleLogout,
-                },
-              ],
-            }}
-          >
-            <Space>
-              {user?.userName || user?.userAccount || 'Admin'}
-              <DownOutlined />
-            </Space>
-          </Dropdown>
-        ),
       }}
     >
       <div style={{ padding: 24, minHeight: 'calc(100vh - 112px)' }}>

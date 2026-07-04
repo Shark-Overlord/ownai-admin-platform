@@ -16,7 +16,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CopyOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   addContentApiKey,
@@ -69,6 +69,23 @@ export default function ContentApiKeyManage() {
   };
 
   const showPlainKey = (plainKey: string) => {
+    const copyPlainKey = async () => {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(plainKey);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = plainKey;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      message.success('密钥已复制');
+    };
+
     Modal.info({
       title: '请立即保存 API 密钥',
       width: 680,
@@ -80,6 +97,9 @@ export default function ContentApiKeyManage() {
             message="密钥明文只展示这一次，关闭后后台不会再显示。"
           />
           <Input.TextArea value={plainKey} autoSize readOnly />
+          <Button type="primary" icon={<CopyOutlined />} onClick={copyPlainKey}>
+            复制密钥
+          </Button>
           <Typography.Text type="secondary">
             外部调用推荐放在请求头：X-Content-Asset-Key: {plainKey}
           </Typography.Text>
