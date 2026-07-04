@@ -22,6 +22,7 @@ import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.config.CosClientConfig;
 import com.yupi.springbootinit.manager.CosManager;
 import com.yupi.springbootinit.service.ArtworkService;
+import com.yupi.springbootinit.service.ContentApiKeyService;
 import com.yupi.springbootinit.service.UserService;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.http.HttpUtil;
@@ -43,7 +44,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -74,8 +74,8 @@ public class ArtworkController {
     @Resource
     private CosClientConfig cosClientConfig;
 
-    @Value("${content.asset.api-secret:${image.generation.config-secret:}}")
-    private String contentAssetApiSecret;
+    @Resource
+    private ContentApiKeyService contentApiKeyService;
 
     /**
      * 管理员添加艺术作品 Admin add artwork
@@ -85,12 +85,14 @@ public class ArtworkController {
     @ApiOperation("管理员添加艺术作品 Admin add artwork")
     public BaseResponse<Long> addArtwork(@RequestBody ArtworkAddRequest artworkAddRequest, HttpServletRequest request) {
         User operator = resolveAdminOrSecretOperator(
-                artworkAddRequest == null ? null : artworkAddRequest.getApiSecret(), request);
+                artworkAddRequest == null ? null : artworkAddRequest.getApiSecret(),
+                request,
+                ContentApiKeyService.SCOPE_ARTWORK_ADD);
         return ResultUtils.success(artworkService.addArtwork(artworkAddRequest, operator));
     }
 
-    private User resolveAdminOrSecretOperator(String requestSecret, HttpServletRequest request) {
-        if (isValidContentAssetSecret(requestSecret, request)) {
+    private User resolveAdminOrSecretOperator(String requestSecret, HttpServletRequest request, String requiredScope) {
+        if (contentApiKeyService.validateRequestKey(requestSecret, request, requiredScope)) {
             return getDefaultAdminUser();
         }
         User loginUser = userService.getLoginUser(request);
@@ -98,14 +100,6 @@ public class ArtworkController {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         return loginUser;
-    }
-
-    private boolean isValidContentAssetSecret(String requestSecret, HttpServletRequest request) {
-        String safeSecret = StringUtils.trimToNull(requestSecret);
-        if (safeSecret == null && request != null) {
-            safeSecret = StringUtils.trimToNull(request.getHeader("X-Content-Asset-Secret"));
-        }
-        return StringUtils.isNotBlank(contentAssetApiSecret) && StringUtils.equals(safeSecret, contentAssetApiSecret);
     }
 
     private User getDefaultAdminUser() {
@@ -124,13 +118,15 @@ public class ArtworkController {
      * 管理员更新艺术作品 Admin update artwork
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "artwork", action = "update_artwork")
     @ApiOperation("管理员更新艺术作品 Admin update artwork")
     public BaseResponse<Boolean> updateArtwork(@RequestBody ArtworkUpdateRequest artworkUpdateRequest,
             HttpServletRequest request) {
-        User loginUser = userService.getLoginUser(request);
-        return ResultUtils.success(artworkService.updateArtwork(artworkUpdateRequest, loginUser));
+        User operator = resolveAdminOrSecretOperator(
+                artworkUpdateRequest == null ? null : artworkUpdateRequest.getApiSecret(),
+                request,
+                ContentApiKeyService.SCOPE_ARTWORK_UPDATE);
+        return ResultUtils.success(artworkService.updateArtwork(artworkUpdateRequest, operator));
     }
 
     /**

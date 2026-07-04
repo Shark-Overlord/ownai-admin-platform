@@ -12,6 +12,7 @@ import {
   DollarOutlined,
   DownOutlined,
   FileTextOutlined,
+  KeyOutlined,
   LogoutOutlined,
   NotificationOutlined,
   PictureOutlined,
@@ -38,6 +39,7 @@ const iconMap: Record<string, React.ReactNode> = {
   DatabaseOutlined: <DatabaseOutlined />,
   NotificationOutlined: <NotificationOutlined />,
   BookOutlined: <BookOutlined />,
+  KeyOutlined: <KeyOutlined />,
 };
 
 type MenuRoute = {

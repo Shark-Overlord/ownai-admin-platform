@@ -14,6 +14,7 @@ import PointManage from '../pages/PointManage';
 import MemberPriceConfigManage from '../pages/MemberPriceConfigManage';
 import OperationLog from '../pages/OperationLog';
 import AnnouncementManage from '../pages/AnnouncementManage';
+import ContentApiKeyManage from '../pages/ContentApiKeyManage';
 import PromptAssetManage from '../pages/PromptAssetManage';
 import PromptAssetAiTaggingManage from '../pages/PromptAssetAiTaggingManage';
 import ImageGenerationMessageManage from '../pages/ImageGenerationMessageManage';
@@ -122,6 +123,11 @@ export const routes = [
       {
         path: 'announcement',
         element: <AnnouncementManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'content-api-key',
+        element: <ContentApiKeyManage />,
         meta: { requiresAdmin: true },
       },
     ],
@@ -254,6 +260,11 @@ export const menuRoutes = [
         path: '/announcement',
         name: '公告管理',
         icon: 'NotificationOutlined',
+      },
+      {
+        path: '/content-api-key',
+        name: 'API 密钥管理',
+        icon: 'KeyOutlined',
       },
       {
         path: '/operation-log',

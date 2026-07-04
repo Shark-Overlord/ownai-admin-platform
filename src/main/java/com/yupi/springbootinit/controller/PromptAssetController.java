@@ -23,6 +23,7 @@ import com.yupi.springbootinit.model.entity.PromptAssetImportBatch;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImageSyncResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImportResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
+import com.yupi.springbootinit.service.ContentApiKeyService;
 import com.yupi.springbootinit.service.PromptAssetService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
@@ -32,7 +33,6 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import com.yupi.springbootinit.exception.BusinessException;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -56,8 +56,8 @@ public class PromptAssetController {
     @Resource
     private UserService userService;
 
-    @Value("${content.asset.api-secret:${image.generation.config-secret:}}")
-    private String contentAssetApiSecret;
+    @Resource
+    private ContentApiKeyService contentApiKeyService;
 
     @PostMapping("/list/page/vo")
     @ApiOperation("Page query published prompt assets")
@@ -135,12 +135,13 @@ public class PromptAssetController {
     @ApiOperation("Admin add prompt asset")
     public BaseResponse<Long> addPromptAsset(@RequestBody PromptAssetAddRequest request,
             HttpServletRequest httpServletRequest) {
-        checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest);
+        checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
+                ContentApiKeyService.SCOPE_PROMPT_ASSET_ADD);
         return ResultUtils.success(promptAssetService.addPromptAsset(request));
     }
 
-    private void checkAdminOrContentAssetSecret(String requestSecret, HttpServletRequest request) {
-        if (isValidContentAssetSecret(requestSecret, request)) {
+    private void checkAdminOrContentAssetSecret(String requestSecret, HttpServletRequest request, String requiredScope) {
+        if (contentApiKeyService.validateRequestKey(requestSecret, request, requiredScope)) {
             return;
         }
         User loginUser = userService.getLoginUser(request);
@@ -149,27 +150,23 @@ public class PromptAssetController {
         }
     }
 
-    private boolean isValidContentAssetSecret(String requestSecret, HttpServletRequest request) {
-        String safeSecret = StringUtils.trimToNull(requestSecret);
-        if (safeSecret == null && request != null) {
-            safeSecret = StringUtils.trimToNull(request.getHeader("X-Content-Asset-Secret"));
-        }
-        return StringUtils.isNotBlank(contentAssetApiSecret) && StringUtils.equals(safeSecret, contentAssetApiSecret);
-    }
-
     @PostMapping("/admin/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "update_prompt_asset")
     @ApiOperation("Admin update prompt asset")
-    public BaseResponse<Boolean> updatePromptAsset(@RequestBody PromptAssetUpdateRequest request) {
+    public BaseResponse<Boolean> updatePromptAsset(@RequestBody PromptAssetUpdateRequest request,
+            HttpServletRequest httpServletRequest) {
+        checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
+                ContentApiKeyService.SCOPE_PROMPT_ASSET_UPDATE);
         return ResultUtils.success(promptAssetService.updatePromptAsset(request));
     }
 
     @PostMapping("/admin/update/tags")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "update_prompt_asset_tags")
     @ApiOperation("Admin update prompt asset tags")
-    public BaseResponse<Boolean> updatePromptAssetTags(@RequestBody PromptAssetUpdateRequest request) {
+    public BaseResponse<Boolean> updatePromptAssetTags(@RequestBody PromptAssetUpdateRequest request,
+            HttpServletRequest httpServletRequest) {
+        checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
+                ContentApiKeyService.SCOPE_PROMPT_ASSET_UPDATE);
         return ResultUtils.success(promptAssetService.updatePromptAssetTags(request));
     }
 
