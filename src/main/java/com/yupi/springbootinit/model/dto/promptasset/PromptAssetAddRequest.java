@@ -37,5 +37,7 @@ public class PromptAssetAddRequest implements Serializable {
 
     private List<Long> assetTagIdList;
 
+    private String apiSecret;
+
     private static final long serialVersionUID = 1L;
 }

@@ -1,5 +1,6 @@
 package com.yupi.springbootinit.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.springbootinit.annotation.AuthCheck;
 import com.yupi.springbootinit.annotation.OperationLog;
@@ -42,6 +43,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -72,16 +74,50 @@ public class ArtworkController {
     @Resource
     private CosClientConfig cosClientConfig;
 
+    @Value("${content.asset.api-secret:${image.generation.config-secret:}}")
+    private String contentAssetApiSecret;
+
     /**
      * 管理员添加艺术作品 Admin add artwork
      */
     @PostMapping("/add")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "artwork", action = "add_artwork")
     @ApiOperation("管理员添加艺术作品 Admin add artwork")
     public BaseResponse<Long> addArtwork(@RequestBody ArtworkAddRequest artworkAddRequest, HttpServletRequest request) {
+        User operator = resolveAdminOrSecretOperator(
+                artworkAddRequest == null ? null : artworkAddRequest.getApiSecret(), request);
+        return ResultUtils.success(artworkService.addArtwork(artworkAddRequest, operator));
+    }
+
+    private User resolveAdminOrSecretOperator(String requestSecret, HttpServletRequest request) {
+        if (isValidContentAssetSecret(requestSecret, request)) {
+            return getDefaultAdminUser();
+        }
         User loginUser = userService.getLoginUser(request);
-        return ResultUtils.success(artworkService.addArtwork(artworkAddRequest, loginUser));
+        if (!userService.isAdmin(loginUser)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        return loginUser;
+    }
+
+    private boolean isValidContentAssetSecret(String requestSecret, HttpServletRequest request) {
+        String safeSecret = StringUtils.trimToNull(requestSecret);
+        if (safeSecret == null && request != null) {
+            safeSecret = StringUtils.trimToNull(request.getHeader("X-Content-Asset-Secret"));
+        }
+        return StringUtils.isNotBlank(contentAssetApiSecret) && StringUtils.equals(safeSecret, contentAssetApiSecret);
+    }
+
+    private User getDefaultAdminUser() {
+        User adminUser = userService.getOne(new QueryWrapper<User>()
+                .eq("userRole", UserConstant.ADMIN_ROLE)
+                .eq("isDelete", 0)
+                .orderByAsc("id")
+                .last("LIMIT 1"));
+        if (adminUser == null) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "Default admin user not found");
+        }
+        return adminUser;
     }
 
     /**

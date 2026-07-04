@@ -36,5 +36,7 @@ public class ArtworkAddRequest implements Serializable {
 
     private List<Long> tagIdList;
 
+    private String apiSecret;
+
     private static final long serialVersionUID = 1L;
 }

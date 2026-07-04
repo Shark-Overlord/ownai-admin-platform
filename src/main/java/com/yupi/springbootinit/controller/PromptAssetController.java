@@ -32,6 +32,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import com.yupi.springbootinit.exception.BusinessException;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -54,6 +55,9 @@ public class PromptAssetController {
 
     @Resource
     private UserService userService;
+
+    @Value("${content.asset.api-secret:${image.generation.config-secret:}}")
+    private String contentAssetApiSecret;
 
     @PostMapping("/list/page/vo")
     @ApiOperation("Page query published prompt assets")
@@ -127,11 +131,30 @@ public class PromptAssetController {
     }
 
     @PostMapping("/admin/add")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "add_prompt_asset")
     @ApiOperation("Admin add prompt asset")
-    public BaseResponse<Long> addPromptAsset(@RequestBody PromptAssetAddRequest request) {
+    public BaseResponse<Long> addPromptAsset(@RequestBody PromptAssetAddRequest request,
+            HttpServletRequest httpServletRequest) {
+        checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest);
         return ResultUtils.success(promptAssetService.addPromptAsset(request));
+    }
+
+    private void checkAdminOrContentAssetSecret(String requestSecret, HttpServletRequest request) {
+        if (isValidContentAssetSecret(requestSecret, request)) {
+            return;
+        }
+        User loginUser = userService.getLoginUser(request);
+        if (!userService.isAdmin(loginUser)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+    }
+
+    private boolean isValidContentAssetSecret(String requestSecret, HttpServletRequest request) {
+        String safeSecret = StringUtils.trimToNull(requestSecret);
+        if (safeSecret == null && request != null) {
+            safeSecret = StringUtils.trimToNull(request.getHeader("X-Content-Asset-Secret"));
+        }
+        return StringUtils.isNotBlank(contentAssetApiSecret) && StringUtils.equals(safeSecret, contentAssetApiSecret);
     }
 
     @PostMapping("/admin/update")
