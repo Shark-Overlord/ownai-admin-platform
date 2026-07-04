@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ProLayout } from '@ant-design/pro-components';
-import { Dropdown, message, Space, Spin } from 'antd';
+import { message, Spin } from 'antd';
 import {
   AppstoreOutlined,
   BookOutlined,
@@ -10,10 +10,8 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   DollarOutlined,
-  DownOutlined,
   FileTextOutlined,
   KeyOutlined,
-  LogoutOutlined,
   NotificationOutlined,
   PictureOutlined,
   SettingOutlined,
@@ -22,7 +20,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { menuRoutes } from '../routes';
-import { getLoginUser, logout, type LoginUserVO } from '../api/user';
+import { getLoginUser } from '../api/user';
 
 const iconMap: Record<string, React.ReactNode> = {
   DashboardOutlined: <DashboardOutlined />,
@@ -68,7 +66,6 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<LoginUserVO | null>(null);
   const [menuOpenKeys, setMenuOpenKeys] = useState<string[]>(getParentMenuKeys);
 
   useEffect(() => {
@@ -79,20 +76,12 @@ export default function AdminLayout() {
           navigate('/login');
           return;
         }
-        setUser(res.data);
       })
       .catch(() => {
         navigate('/login');
       })
       .finally(() => setLoading(false));
   }, [navigate]);
-
-  const handleLogout = async () => {
-    localStorage.removeItem('token');
-    await logout();
-    message.success('已退出登录');
-    navigate('/login');
-  };
 
   if (loading) {
     return (
@@ -117,27 +106,9 @@ export default function AdminLayout() {
       route={{ path: '/', routes: menuRoutes.map(mapMenuRoute) }}
       location={{ pathname: location.pathname }}
       menuFooterRender={false}
+      rightContentRender={false}
+      actionsRender={false}
       avatarProps={false}
-      actionsRender={() => [
-        <Dropdown
-          key="user"
-          menu={{
-            items: [
-              {
-                key: 'logout',
-                icon: <LogoutOutlined />,
-                label: '退出登录',
-                onClick: handleLogout,
-              },
-            ],
-          }}
-        >
-          <Space style={{ paddingInline: 12, cursor: 'pointer' }}>
-            {user?.userName || user?.userAccount || 'Admin'}
-            <DownOutlined />
-          </Space>
-        </Dropdown>,
-      ]}
       menuItemRender={(item: any, dom: any) => {
         if (item.routes?.length) {
           return dom;
