@@ -144,10 +144,10 @@ public class ContentApiKeyServiceImpl extends ServiceImpl<ContentApiKeyMapper, C
         if (id == null || id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        ContentApiKey key = new ContentApiKey();
-        key.setId(id);
-        key.setIsDelete(1);
-        boolean result = this.updateById(key);
+        boolean result = this.update(new UpdateWrapper<ContentApiKey>()
+                .eq("id", id)
+                .eq("isDelete", 0)
+                .set("isDelete", 1));
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "delete api key failed");
         return true;
     }
