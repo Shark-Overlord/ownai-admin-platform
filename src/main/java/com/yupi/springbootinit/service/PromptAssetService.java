@@ -10,6 +10,7 @@ import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
 import com.yupi.springbootinit.model.entity.PromptAsset;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImageSyncResultVO;
+import com.yupi.springbootinit.model.vo.promptasset.PromptAssetHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImportResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,6 +22,8 @@ public interface PromptAssetService extends IService<PromptAsset> {
     Page<PromptAssetVO> listPublishedPromptAssetVOByPage(PromptAssetQueryRequest request);
 
     Page<PromptAssetVO> listPublishedPromptAssetVOByPage(PromptAssetQueryRequest request, User loginUser);
+
+    PromptAssetHomeOverviewVO getHomeOverview(User loginUser);
 
     PromptAssetVO getPromptAssetVO(Long id);
 

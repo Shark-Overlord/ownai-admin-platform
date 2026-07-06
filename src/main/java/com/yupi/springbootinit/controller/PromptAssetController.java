@@ -20,6 +20,7 @@ import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.entity.PromptAssetImportBatch;
+import com.yupi.springbootinit.model.vo.promptasset.PromptAssetHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImageSyncResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImportResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
@@ -66,6 +67,14 @@ public class PromptAssetController {
             HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUserPermitNull(httpServletRequest);
         return ResultUtils.success(promptAssetService.listPublishedPromptAssetVOByPage(request, loginUser));
+    }
+
+    @GetMapping("/home/overview")
+    @ApiOperation("Get prompt asset home overview")
+    public BaseResponse<PromptAssetHomeOverviewVO> getHomeOverview(
+            HttpServletRequest httpServletRequest) {
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        return ResultUtils.success(promptAssetService.getHomeOverview(loginUser));
     }
 
     @GetMapping("/get/vo")

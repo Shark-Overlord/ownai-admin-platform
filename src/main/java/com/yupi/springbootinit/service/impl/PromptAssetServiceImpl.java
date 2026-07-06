@@ -42,6 +42,7 @@ import com.yupi.springbootinit.model.entity.Tag;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.CategoryVO;
 import com.yupi.springbootinit.model.vo.TagVO;
+import com.yupi.springbootinit.model.vo.promptasset.PromptAssetHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImageSyncResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImportResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetMediaVO;
@@ -61,6 +62,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -178,6 +180,37 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     }
 
     @Override
+    public PromptAssetHomeOverviewVO getHomeOverview(User loginUser) {
+        Date todayStart = getTodayStart();
+        Date tomorrowStart = getTomorrowStart(todayStart);
+        Date recentThreeDaysStart = getRecentThreeDaysStart(todayStart);
+
+        QueryWrapper<PromptAsset> publishedWrapper = new QueryWrapper<PromptAsset>()
+                .eq("status", 1)
+                .eq("isDelete", 0);
+        QueryWrapper<PromptAsset> todayNewWrapper = new QueryWrapper<PromptAsset>()
+                .eq("status", 1)
+                .eq("isDelete", 0)
+                .ge("createTime", todayStart)
+                .lt("createTime", tomorrowStart);
+        QueryWrapper<PromptAsset> latestWrapper = new QueryWrapper<PromptAsset>()
+                .eq("status", 1)
+                .eq("isDelete", 0)
+                .ge("createTime", recentThreeDaysStart)
+                .lt("createTime", tomorrowStart)
+                .orderByDesc("createTime", "id");
+
+        List<PromptAssetVO> latestItems = toPublicVOList(this.list(latestWrapper));
+        fillFavoriteInfo(latestItems, loginUser == null ? null : loginUser.getId());
+
+        PromptAssetHomeOverviewVO overview = new PromptAssetHomeOverviewVO();
+        overview.setTotalCount(this.count(publishedWrapper));
+        overview.setTodayNewCount(this.count(todayNewWrapper));
+        overview.setLatestItems(latestItems);
+        return overview;
+    }
+
+    @Override
     public PromptAssetVO getPromptAssetVO(Long id) {
         if (id == null || id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -187,6 +220,29 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         return toVO(asset, true);
+    }
+
+    private Date getTodayStart() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        return calendar.getTime();
+    }
+
+    private Date getTomorrowStart(Date todayStart) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(todayStart);
+        calendar.add(Calendar.DATE, 1);
+        return calendar.getTime();
+    }
+
+    private Date getRecentThreeDaysStart(Date todayStart) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(todayStart);
+        calendar.add(Calendar.DATE, -2);
+        return calendar.getTime();
     }
 
     @Override

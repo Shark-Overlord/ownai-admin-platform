@@ -79,20 +79,20 @@ http://admin.ownai.icu/api
 推荐使用请求头：
 
 ```http
-X-Content-Asset-Key: oak_xxx
+X-Content-Asset-Key: oak_7fCGrstWvL8DJdFWFgsMQakj8lNLDE4n0pFO1WvS9Rg
 ```
 
 兼容方式：
 
 ```http
-X-Content-Asset-Secret: oak_xxx
+X-Content-Asset-Secret: oak_7fCGrstWvL8DJdFWFgsMQakj8lNLDE4n0pFO1WvS9Rg
 ```
 
 请求体也可以传：
 
 ```json
 {
-  "apiSecret": "oak_xxx"
+  "apiSecret": "oak_7fCGrstWvL8DJdFWFgsMQakj8lNLDE4n0pFO1WvS9Rg"
 }
 ```
 
@@ -123,6 +123,87 @@ flowchart TD
 - Prompt 资产接口只保存标题、提示词、封面 URL、标签、分类等业务字段。
 - 作品接口只保存作品标题、封面 URL、HTML URL、视频 URL 等业务字段。
 - 不要把本地文件路径写入内容接口。
+
+### 5.1 当前分类、状态与标签 ID 速查
+
+以下 ID 来自线上系统当前 `category` / `category_tag` 数据，更新时间：`2026-07-04`。
+
+#### 5.1.1 当前分类 ID
+
+作品和 Prompt 资产都使用 `categoryId` 字段。当前可用分类如下：
+
+| categoryId | 分类名称 | sort | 适用建议 |
+| --- | --- | ---: | --- |
+| `2045427516828106754` | 布局 | 0 | 作品分类 |
+| `2045428812096290817` | 组件 | 1 | 作品分类 |
+| `2045428876558548993` | 动效 | 2 | 作品分类 |
+| `2045428928093962242` | 样式/主题 | 3 | 作品分类 |
+| `2045428993533493249` | 落地页 | 4 | 作品分类 |
+| `2071608263790104578` | 前端UI提示库 | 998 | Prompt / UI 相关资产 |
+| `2057283059198771201` | 图像提示词 | 999 | 图像 Prompt 资产默认使用 |
+
+#### 5.1.2 状态字段真实值
+
+作品 `status`：
+
+| 值 | 含义 | 前台是否展示 |
+| --- | --- | --- |
+| `0` | 下架 / 草稿 | 否 |
+| `1` | 上架 / 已发布 | 是 |
+
+作品上传默认要求：
+
+- `status` 请传 `0`，表示默认下架。
+- `memberOnly` 请传 `1`，表示会员专项。
+- 如果不传 `status`，后端新增作品也会默认成 `0`。
+- 如果不传 `memberOnly`，后端会默认成 `0`，所以会员专项必须显式传 `1`。
+
+Prompt 资产 `status`：
+
+| 值 | 含义 | 前台是否展示 |
+| --- | --- | --- |
+| `0` | 草稿 / 不发布 | 否 |
+| `1` | 已发布 | 是 |
+| `2` | 已归档 | 否 |
+
+Prompt 上传默认要求：
+
+- `status` 请传 `0`，这是系统真实代表“不发布 / 草稿”的值。
+- `categoryId` 请传 `2057283059198771201`，即 `图像提示词`。
+- `assetType` 请传 `image_prompt`。
+
+#### 5.1.3 图像提示词二级场景标签 ID
+
+`图像提示词` 分类 ID：`2057283059198771201`。
+
+上传图像 Prompt 时，`sceneTagIdList` 从下表选择。当前系统约定：每条图像 Prompt 资产只绑定 1 个二级场景标签，因此 `sceneTagIdList` 建议只传一个 ID，例如 `"sceneTagIdList": [101912720625893377]`。
+
+| sceneTagId | 二级场景标签 | sort |
+| --- | --- | ---: |
+| `101912720625893376` | 商品电商 | 10 |
+| `101912720625893377` | 人像写真 | 20 |
+| `101912720625893378` | 角色立绘 | 30 |
+| `101912720625893379` | 品牌海报 | 40 |
+| `101912720625893380` | 包装设计 | 50 |
+| `101912720625893381` | 社媒封面 | 60 |
+| `101912720625893382` | UI界面 | 70 |
+| `101912720625893383` | 图标标识 | 80 |
+| `101912720625893384` | 插画视觉 | 90 |
+| `101912720625893385` | 摄影写实 | 100 |
+| `101912720625893386` | 影视分镜 | 110 |
+| `101912720625893387` | 场景空间 | 120 |
+| `101912720625893388` | 建筑室内 | 130 |
+| `101912720625893389` | 科技数码 | 140 |
+| `101912720625893390` | 美食餐饮 | 150 |
+| `101912720625893391` | 服装时尚 | 160 |
+| `101912720625893392` | 游戏资产 | 170 |
+| `101912720625893393` | 动漫二次元 | 180 |
+| `101912720625893394` | 广告营销 | 190 |
+| `101912720625893395` | 信息图表 | 200 |
+| `101912720625893396` | 背景纹理 | 210 |
+| `101912720625893397` | 图像编辑 | 220 |
+| `101912720625893398` | 多图一致性 | 230 |
+| `101912720625893399` | 参考图重绘 | 240 |
 
 ## 6. 文件上传接口
 
@@ -199,8 +280,8 @@ prompt_asset:add
 | `summary` | 否 | 简介 |
 | `coverUrl` | 否 | 封面 URL，先通过 `/file/upload` 获取 |
 | `previewMediaUrl` | 否 | 预览媒体 URL |
-| `status` | 否 | 发布状态，按系统约定传值 |
-| `memberOnly` | 否 | 是否会员可见 |
+| `status` | 否 | 发布状态：`0` 草稿/不发布，`1` 已发布，`2` 已归档；默认 `0` |
+| `memberOnly` | 否 | 是否会员可见：`0` 否，`1` 是；默认 `0` |
 | `sort` | 否 | 排序值，越大越靠前 |
 | `sceneTagIdList` | 否 | 二级场景标签 ID 列表，当前建议每条只传 1 个 |
 | `assetTagIdList` | 否 | 已存在的资产描述标签 ID 列表 |
@@ -219,11 +300,11 @@ curl -X POST "https://admin.ownai.icu/api/promptAsset/admin/add" \
     "promptContent": "Create a premium product poster...",
     "promptCn": "生成一张高质感电商产品海报。",
     "coverUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/xxx.png",
-    "status": 1,
+    "status": 0,
     "memberOnly": 0,
     "sort": 100,
-    "sceneTagIdList": [123],
-    "assetTagIdList": [456, 789]
+    "sceneTagIdList": [101912720625893376],
+    "assetTagIdList": []
   }'
 ```
 
@@ -308,8 +389,8 @@ curl -X POST "https://admin.ownai.icu/api/promptAsset/admin/update/tags" \
   -H "X-Content-Asset-Key: oak_xxx" \
   --data-raw '{
     "id": 2070000000000000000,
-    "sceneTagIdList": [123],
-    "assetTagIdList": [456, 789]
+    "sceneTagIdList": [101912720625893377],
+    "assetTagIdList": []
   }'
 ```
 
@@ -342,13 +423,24 @@ artwork:add
 3. 如有 Prompt 文件，上传文件，`biz=artwork_prompt`，获得文件 URL。
 4. 调用 `/artwork/add` 保存作品记录。
 
+作品新增必须注意：
+
+- `categoryId` 必须填写，从 `5.1.1 当前分类 ID` 中选择。
+- 默认下架请传 `status: 0`。
+- 会员专项请传 `memberOnly: 1`。
+- `status: 1` 才会上架并在前台展示。
+
 示例结构：
 
 ```json
 {
   "title": "作品标题",
-  "description": "作品简介",
+  "summary": "作品短简介",
+  "description": "作品详情简介",
+  "categoryId": 2045428812096290817,
   "coverUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/xxx.png",
+  "status": 0,
+  "memberOnly": 1,
   "sort": 100
 }
 ```
@@ -437,7 +529,7 @@ Content-Type: application/json
   "current": 1,
   "pageSize": 20,
   "categoryId": 2057283059198771201,
-  "sceneTagIdList": [123],
+  "sceneTagIdList": [101912720625893376],
   "searchText": "电商"
 }
 ```
@@ -489,9 +581,9 @@ curl -X POST "https://admin.ownai.icu/api/promptAsset/admin/add" \
     "promptContent": "Create a clean product poster...",
     "promptCn": "生成一张干净的产品海报。",
     "coverUrl": "https://.../cover.png",
-    "status": 1,
+    "status": 0,
     "sort": 0,
-    "sceneTagIdList": [123],
+    "sceneTagIdList": [101912720625893376],
     "assetTagIdList": []
   }'
 ```
