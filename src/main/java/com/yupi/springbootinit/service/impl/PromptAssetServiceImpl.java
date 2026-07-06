@@ -191,7 +191,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         QueryWrapper<PromptAsset> todayNewWrapper = new QueryWrapper<PromptAsset>()
                 .eq("status", 1)
                 .eq("isDelete", 0)
-                .ge("createTime", todayStart)
+                .ge("createTime", recentThreeDaysStart)
                 .lt("createTime", tomorrowStart);
         QueryWrapper<PromptAsset> latestWrapper = new QueryWrapper<PromptAsset>()
                 .eq("status", 1)
