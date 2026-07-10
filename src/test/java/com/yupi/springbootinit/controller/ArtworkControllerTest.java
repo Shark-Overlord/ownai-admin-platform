@@ -10,9 +10,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.springbootinit.exception.GlobalExceptionHandler;
+import com.yupi.springbootinit.manager.PublicContentAntiCrawlerManager;
 import com.yupi.springbootinit.model.entity.User;
-import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.UserService;
 import java.util.Collections;
@@ -38,6 +39,8 @@ class ArtworkControllerTest {
         ArtworkController artworkController = new ArtworkController();
         org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "artworkService", artworkService);
         org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "userService", userService);
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "publicContentAntiCrawlerManager",
+                new PublicContentAntiCrawlerManager());
         mockMvc = MockMvcBuilders.standaloneSetup(artworkController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -45,16 +48,13 @@ class ArtworkControllerTest {
 
     @Test
     void getArtworkDetailShouldReturnSuccess() throws Exception {
-        ArtworkDetailVO artworkDetailVO = new ArtworkDetailVO();
-        artworkDetailVO.setId(1L);
-        artworkDetailVO.setTitle("Demo Artwork");
         when(userService.getLoginUserPermitNull(any())).thenReturn(null);
-        when(artworkService.getArtworkDetail(eq(1L), eq(null), eq(false))).thenReturn(artworkDetailVO);
+        when(artworkService.getArtworkPromptContent(eq(1L), eq(null))).thenReturn("Demo prompt");
 
         mockMvc.perform(get("/artwork/get/vo").param("id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.title").value("Demo Artwork"));
+                .andExpect(jsonPath("$.data").value("Demo prompt"));
     }
 
     @Test
@@ -73,5 +73,33 @@ class ArtworkControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.records[0].title").value("Demo Artwork"));
+    }
+
+    @Test
+    void listArtworkShouldRejectOversizedPage() throws Exception {
+        when(userService.getLoginUserPermitNull(any())).thenReturn(null);
+
+        mockMvc.perform(post("/artwork/list/page/vo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"current\":1,\"pageSize\":21}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(40000));
+    }
+
+    @Test
+    void getArtworkHomeOverviewShouldReturnSuccess() throws Exception {
+        User loginUser = new User();
+        loginUser.setId(1L);
+        ArtworkHomeOverviewVO overview = new ArtworkHomeOverviewVO();
+        overview.setTotalCount(100L);
+        overview.setRecentThreeDaysCount(5L);
+        when(userService.getLoginUser(any())).thenReturn(loginUser);
+        when(artworkService.getHomeOverview(loginUser)).thenReturn(overview);
+
+        mockMvc.perform(get("/artwork/home/overview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.totalCount").value(100))
+                .andExpect(jsonPath("$.data.recentThreeDaysCount").value(5));
     }
 }

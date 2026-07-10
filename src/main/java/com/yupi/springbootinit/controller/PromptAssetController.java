@@ -14,6 +14,7 @@ import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.mapper.PromptAssetImportBatchMapper;
+import com.yupi.springbootinit.manager.PublicContentAntiCrawlerManager;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetFavoriteRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
@@ -60,12 +61,16 @@ public class PromptAssetController {
     @Resource
     private ContentApiKeyService contentApiKeyService;
 
+    @Resource
+    private PublicContentAntiCrawlerManager publicContentAntiCrawlerManager;
+
     @PostMapping("/list/page/vo")
     @ApiOperation("Page query published prompt assets")
     public BaseResponse<Page<PromptAssetVO>> listPublishedPromptAssetVOByPage(
             @RequestBody(required = false) PromptAssetQueryRequest request,
             HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUserPermitNull(httpServletRequest);
+        publicContentAntiCrawlerManager.checkRequest(request, loginUser, httpServletRequest);
         return ResultUtils.success(promptAssetService.listPublishedPromptAssetVOByPage(request, loginUser));
     }
 

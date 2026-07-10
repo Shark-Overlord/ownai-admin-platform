@@ -17,10 +17,12 @@ import com.yupi.springbootinit.model.dto.artwork.ArtworkQueryRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
-import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkListVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.config.CosClientConfig;
 import com.yupi.springbootinit.manager.CosManager;
+import com.yupi.springbootinit.manager.PublicContentAntiCrawlerManager;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.ContentApiKeyService;
 import com.yupi.springbootinit.service.UserService;
@@ -35,6 +37,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -76,6 +79,9 @@ public class ArtworkController {
 
     @Resource
     private ContentApiKeyService contentApiKeyService;
+
+    @Resource
+    private PublicContentAntiCrawlerManager publicContentAntiCrawlerManager;
 
     /**
      * 管理员添加艺术作品 Admin add artwork
@@ -232,13 +238,13 @@ public class ArtworkController {
     }
 
     /**
-     * 获取艺术作品详情 Get artwork detail
+     * 获取已解锁作品的提示词 Get unlocked artwork prompt
      */
     @GetMapping("/get/vo")
-    @ApiOperation("获取艺术作品详情 Get artwork detail")
-    public BaseResponse<ArtworkDetailVO> getArtworkVOById(long id, HttpServletRequest request) {
+    @ApiOperation("获取已解锁作品的提示词 Get unlocked artwork prompt")
+    public BaseResponse<String> getArtworkVOById(long id, HttpServletRequest request) {
         User loginUser = userService.getLoginUserPermitNull(request);
-        return ResultUtils.success(artworkService.getArtworkDetail(id, loginUser, false));
+        return ResultUtils.success(artworkService.getArtworkPromptContent(id, loginUser));
     }
 
     /**
@@ -254,14 +260,37 @@ public class ArtworkController {
     }
 
     /**
+     * 获取前台作品首页概览 Get frontend artwork home overview
+     */
+    @GetMapping("/home/overview")
+    @ApiOperation("获取前台作品首页概览 Get frontend artwork home overview")
+    public BaseResponse<ArtworkHomeOverviewVO> getArtworkHomeOverview(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(artworkService.getHomeOverview(loginUser));
+    }
+
+    /**
      * 分页查询艺术作品列表（前台） Page query artwork list for frontend
      */
     @PostMapping("/list/page/vo")
     @ApiOperation("分页查询艺术作品列表（前台） Page query artwork list for frontend")
-    public BaseResponse<Page<ArtworkVO>> listArtworkVOByPage(@RequestBody ArtworkQueryRequest artworkQueryRequest,
+    public BaseResponse<Page<ArtworkListVO>> listArtworkVOByPage(@RequestBody ArtworkQueryRequest artworkQueryRequest,
             HttpServletRequest request) {
         User loginUser = userService.getLoginUserPermitNull(request);
-        return ResultUtils.success(artworkService.listArtworkVOByPage(artworkQueryRequest, loginUser, false));
+        publicContentAntiCrawlerManager.checkRequest(artworkQueryRequest, loginUser, request);
+        Page<ArtworkVO> artworkPage = artworkService.listArtworkVOByPage(artworkQueryRequest, loginUser, false);
+        Page<ArtworkListVO> listPage = new Page<>(artworkPage.getCurrent(), artworkPage.getSize(), artworkPage.getTotal());
+        listPage.setRecords(artworkPage.getRecords().stream().map(artworkVO -> {
+            ArtworkListVO artworkListVO = new ArtworkListVO();
+            artworkListVO.setId(artworkVO.getId());
+            artworkListVO.setTitle(artworkVO.getTitle());
+            artworkListVO.setCoverUrl(artworkVO.getCoverUrl());
+            artworkListVO.setVideoUrl(artworkVO.getVideoUrl());
+            artworkListVO.setMemberOnly(artworkVO.getMemberOnly());
+            artworkListVO.setCanAccess(artworkVO.getCanAccessPrompt());
+            return artworkListVO;
+        }).collect(Collectors.toList()));
+        return ResultUtils.success(listPage);
     }
 
     /**

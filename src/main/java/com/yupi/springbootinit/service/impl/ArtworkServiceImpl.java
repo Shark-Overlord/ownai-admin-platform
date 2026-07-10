@@ -27,12 +27,15 @@ import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.model.vo.CategoryVO;
 import com.yupi.springbootinit.model.vo.TagVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkListVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -166,6 +169,47 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     }
 
     @Override
+    public ArtworkHomeOverviewVO getHomeOverview(User loginUser) {
+        Date recentThreeDaysStart = getRecentThreeDaysStart();
+        QueryWrapper<Artwork> publishedWrapper = new QueryWrapper<Artwork>()
+                .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
+                .eq("isDelete", 0);
+        QueryWrapper<Artwork> recentWrapper = new QueryWrapper<Artwork>()
+                .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
+                .eq("isDelete", 0)
+                .ge("updateTime", recentThreeDaysStart)
+                .orderByDesc("updateTime", "id");
+
+        List<ArtworkVO> recentArtworkVOList = buildArtworkVOList(this.list(recentWrapper), loginUser);
+        List<ArtworkListVO> recentItems = recentArtworkVOList.stream().map(artworkVO -> {
+            ArtworkListVO item = new ArtworkListVO();
+            item.setId(artworkVO.getId());
+            item.setTitle(artworkVO.getTitle());
+            item.setCoverUrl(artworkVO.getCoverUrl());
+            item.setVideoUrl(artworkVO.getVideoUrl());
+            item.setMemberOnly(artworkVO.getMemberOnly());
+            item.setCanAccess(artworkVO.getCanAccessPrompt());
+            return item;
+        }).collect(Collectors.toList());
+
+        ArtworkHomeOverviewVO overview = new ArtworkHomeOverviewVO();
+        overview.setTotalCount(this.count(publishedWrapper));
+        overview.setRecentThreeDaysCount((long) recentItems.size());
+        overview.setRecentItems(recentItems);
+        return overview;
+    }
+
+    private Date getRecentThreeDaysStart() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        calendar.add(Calendar.DATE, -2);
+        return calendar.getTime();
+    }
+
+    @Override
     public ArtworkDetailVO getArtworkDetail(Long artworkId, User loginUser, boolean adminView) {
         ThrowUtils.throwIf(artworkId == null || artworkId <= 0, ErrorCode.PARAMS_ERROR);
         Artwork artwork = this.getById(artworkId);
@@ -186,6 +230,21 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     }
 
     @Override
+    public String getArtworkPromptContent(Long artworkId, User loginUser) {
+        ThrowUtils.throwIf(artworkId == null || artworkId <= 0, ErrorCode.PARAMS_ERROR);
+        Artwork artwork = this.getById(artworkId);
+        ThrowUtils.throwIf(artwork == null, ErrorCode.NOT_FOUND_ERROR, "作品不存在");
+        ThrowUtils.throwIf(!ArtworkStatusEnum.PUBLISHED.getValue().equals(artwork.getStatus()),
+                ErrorCode.NO_AUTH_ERROR, "作品未发布");
+        ThrowUtils.throwIf(!hasArtworkAccess(artworkId, loginUser), ErrorCode.NO_AUTH_ERROR,
+                "当前作品仅会员可查看");
+        this.lambdaUpdate().eq(Artwork::getId, artworkId)
+                .setSql("viewCount = IFNULL(viewCount, 0) + 1")
+                .update();
+        return artwork.getPromptContent();
+    }
+
+    @Override
     public boolean hasArtworkAccess(Long artworkId, User loginUser) {
         if (artworkId == null) {
             return false;
@@ -194,7 +253,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         if (artwork == null) {
             return false;
         }
-        if (isFreeArtwork(artwork)) {
+        if (artwork.getMemberOnly() == null || artwork.getMemberOnly() == 0) {
             return true;
         }
         if (loginUser == null) {
@@ -203,13 +262,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         if (userService.isAdmin(loginUser)) {
             return true;
         }
-        if (hasMemberAccess(artwork, loginUser)) {
-            return true;
-        }
-        Long count = artworkAccessMapper.selectCount(new QueryWrapper<ArtworkAccess>()
-                .eq("artworkId", artworkId)
-                .eq("userId", loginUser.getId()));
-        return count != null && count > 0;
+        return hasMemberAccess(artwork, loginUser);
     }
 
     @Override
@@ -332,27 +385,12 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             artworkList.forEach(artwork -> resultMap.put(artwork.getId(), true));
             return resultMap;
         }
-        Map<Long, Boolean> paidAccessMap = new HashMap<>();
-        if (loginUser != null) {
-            List<Long> artworkIds = artworkList.stream().map(Artwork::getId).collect(Collectors.toList());
-            List<ArtworkAccess> artworkAccessList = artworkAccessMapper.selectList(new QueryWrapper<ArtworkAccess>()
-                    .eq("userId", loginUser.getId())
-                    .in("artworkId", artworkIds));
-            artworkAccessList.forEach(item -> paidAccessMap.put(item.getArtworkId(), true));
-        }
         for (Artwork artwork : artworkList) {
-            boolean canAccess = isFreeArtwork(artwork)
-                    || (loginUser != null && (paidAccessMap.getOrDefault(artwork.getId(), false)
-                    || hasMemberAccess(artwork, loginUser)));
+            boolean canAccess = artwork.getMemberOnly() == null || artwork.getMemberOnly() == 0
+                    || (loginUser != null && hasMemberAccess(artwork, loginUser));
             resultMap.put(artwork.getId(), canAccess);
         }
         return resultMap;
-    }
-
-    private boolean isFreeArtwork(Artwork artwork) {
-        boolean noCashPrice = artwork.getCashPrice() == null || artwork.getCashPrice().compareTo(BigDecimal.ZERO) <= 0;
-        boolean noPointsPrice = artwork.getPointsPrice() == null || artwork.getPointsPrice() <= 0;
-        return artwork.getMemberOnly() != null && artwork.getMemberOnly() == 0 && noCashPrice && noPointsPrice;
     }
 
     private boolean hasMemberAccess(Artwork artwork, User loginUser) {
@@ -369,17 +407,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
 
     private String resolveAccessReason(Artwork artwork, User loginUser, boolean canAccess) {
         if (canAccess) {
-            if (isFreeArtwork(artwork)) {
-                return "free";
-            }
-            if (hasMemberAccess(artwork, loginUser)) {
-                return "member";
-            }
-            return "purchased";
+            return artwork.getMemberOnly() != null && artwork.getMemberOnly() == 1 ? "member" : "public";
         }
-        if (artwork.getMemberOnly() != null && artwork.getMemberOnly() == 1) {
-            return "member_or_purchase_required";
-        }
-        return "purchase_required";
+        return "member_required";
     }
 }

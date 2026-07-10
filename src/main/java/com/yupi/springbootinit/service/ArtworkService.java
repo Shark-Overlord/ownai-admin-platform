@@ -8,6 +8,7 @@ import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 
 public interface ArtworkService extends IService<Artwork> {
@@ -20,7 +21,11 @@ public interface ArtworkService extends IService<Artwork> {
 
     Page<ArtworkVO> listArtworkVOByPage(ArtworkQueryRequest artworkQueryRequest, User loginUser, boolean adminView);
 
+    ArtworkHomeOverviewVO getHomeOverview(User loginUser);
+
     ArtworkDetailVO getArtworkDetail(Long artworkId, User loginUser, boolean adminView);
+
+    String getArtworkPromptContent(Long artworkId, User loginUser);
 
     boolean hasArtworkAccess(Long artworkId, User loginUser);
 
