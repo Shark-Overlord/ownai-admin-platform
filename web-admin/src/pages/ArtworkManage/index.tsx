@@ -16,6 +16,7 @@ import { listTag, type TagVO } from '../../api/tag';
 export default function ArtworkManage() {
   const actionRef = useRef<any>(null);
   const [form] = Form.useForm();
+  const currentVideoUrl = Form.useWatch('videoUrl', form);
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<ArtworkVO | null>(null);
   const [categories, setCategories] = useState<CategoryVO[]>([]);
@@ -44,6 +45,25 @@ export default function ArtworkManage() {
       search: false,
       render: (_: any, record: ArtworkVO) =>
         record.coverUrl ? <Image src={record.coverUrl} width={60} preview /> : '-',
+    },
+    {
+      title: '视频',
+      dataIndex: 'videoUrl',
+      search: false,
+      width: 180,
+      render: (_: any, record: ArtworkVO) =>
+        record.videoUrl ? (
+          <video
+            src={record.videoUrl}
+            controls
+            preload="none"
+            style={{ width: 160, height: 90, display: 'block', background: '#000', objectFit: 'contain' }}
+          >
+            当前浏览器不支持视频播放
+          </video>
+        ) : (
+          '-'
+        ),
     },
     {
       title: '标题',
@@ -542,6 +562,24 @@ export default function ArtworkManage() {
                       >
                         <Button icon={<UploadOutlined />}>上传视频</Button>
                       </Upload>
+                      {currentVideoUrl ? (
+                        <video
+                          key={currentVideoUrl}
+                          src={currentVideoUrl}
+                          controls
+                          preload="metadata"
+                          style={{
+                            width: '100%',
+                            maxHeight: 360,
+                            marginTop: 12,
+                            display: 'block',
+                            background: '#000',
+                            objectFit: 'contain',
+                          }}
+                        >
+                          当前浏览器不支持视频播放
+                        </video>
+                      ) : null}
                     </Form.Item>
                     <Form.Item name="videoUrl" hidden />
                     <Form.Item label="HTML原型地址" name="htmlUrl">
