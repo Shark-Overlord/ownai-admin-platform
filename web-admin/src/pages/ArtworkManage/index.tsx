@@ -22,6 +22,7 @@ export default function ArtworkManage() {
   const [tags, setTags] = useState<TagVO[]>([]);
   const [selectedRows, setSelectedRows] = useState<ArtworkVO[]>([]);
   const [coverFileList, setCoverFileList] = useState<any[]>([]);
+  const [videoFileList, setVideoFileList] = useState<any[]>([]);
   const [previewImage, setPreviewImage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -203,8 +204,21 @@ export default function ArtworkManage() {
             ]
           : []
       );
+      setVideoFileList(
+        editing.videoUrl
+          ? [
+              {
+                uid: '-2',
+                name: 'video',
+                status: 'done',
+                url: editing.videoUrl,
+              },
+            ]
+          : []
+      );
     } else if (!modalVisible) {
       setCoverFileList([]);
+      setVideoFileList([]);
     }
   }, [modalVisible, editing, form]);
 
@@ -433,9 +447,21 @@ export default function ArtworkManage() {
                         action="/api/file/upload?biz=artwork_cover"
                         listType="picture-card"
                         maxCount={1}
-                        accept="image/*"
+                        accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
                         headers={{ Authorization: `Bearer ${localStorage.getItem('token') || ''}` }}
                         fileList={coverFileList}
+                        beforeUpload={(file) => {
+                          const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                          if (!allowedTypes.includes(file.type)) {
+                            message.error('封面仅支持 JPG、PNG、GIF、WebP');
+                            return Upload.LIST_IGNORE;
+                          }
+                          if (file.size > 10 * 1024 * 1024) {
+                            message.error('封面文件不能超过 10MB');
+                            return Upload.LIST_IGNORE;
+                          }
+                          return true;
+                        }}
                         onChange={(info) => {
                           setCoverFileList(info.fileList);
                           if (info.file.status === 'done') {
@@ -476,9 +502,48 @@ export default function ArtworkManage() {
                       />
                     </Form.Item>
                     <Form.Item name="coverUrl" hidden />
-                    <Form.Item label="视频URL" name="videoUrl">
-                      <Input />
+                    <Form.Item label="作品视频" extra="支持 MP4、MOV、WebM、M4V，文件最大 50MB">
+                      <Upload
+                        name="file"
+                        action="/api/file/upload?biz=artwork_video"
+                        maxCount={1}
+                        accept=".mp4,.mov,.webm,.m4v,video/mp4,video/quicktime,video/webm,video/x-m4v"
+                        headers={{ Authorization: `Bearer ${localStorage.getItem('token') || ''}` }}
+                        fileList={videoFileList}
+                        beforeUpload={(file) => {
+                          const suffix = file.name.split('.').pop()?.toLowerCase();
+                          if (!suffix || !['mp4', 'mov', 'webm', 'm4v'].includes(suffix)) {
+                            message.error('视频仅支持 MP4、MOV、WebM、M4V');
+                            return Upload.LIST_IGNORE;
+                          }
+                          if (file.size > 50 * 1024 * 1024) {
+                            message.error('视频文件不能超过 50MB');
+                            return Upload.LIST_IGNORE;
+                          }
+                          return true;
+                        }}
+                        onChange={(info) => {
+                          setVideoFileList(info.fileList);
+                          if (info.file.status === 'done') {
+                            const res = info.file.response;
+                            if (res?.code === 0) {
+                              form.setFieldsValue({ videoUrl: res.data });
+                              message.success('视频上传成功');
+                            } else {
+                              message.error(res?.message || '视频上传失败');
+                            }
+                          } else if (info.file.status === 'error') {
+                            message.error('视频上传失败');
+                          }
+                          if (info.file.status === 'removed') {
+                            form.setFieldsValue({ videoUrl: undefined });
+                          }
+                        }}
+                      >
+                        <Button icon={<UploadOutlined />}>上传视频</Button>
+                      </Upload>
                     </Form.Item>
+                    <Form.Item name="videoUrl" hidden />
                     <Form.Item label="HTML原型地址" name="htmlUrl">
                       <Input placeholder="上传 ZIP 后会自动回填，也可手动填写" />
                     </Form.Item>

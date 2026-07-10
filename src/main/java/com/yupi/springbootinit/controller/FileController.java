@@ -189,7 +189,10 @@ public class FileController {
         if (FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
                 || FileUploadBizEnum.PROMPT_ASSET_COVER.equals(fileUploadBizEnum)
                 || FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum)) {
-            validSuffix(fileSuffix, Arrays.asList("jpeg", "jpg", "png", "webp"));
+            List<String> allowedImageSuffixes = FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
+                    ? Arrays.asList("jpeg", "jpg", "png", "gif", "webp")
+                    : Arrays.asList("jpeg", "jpg", "png", "webp");
+            validSuffix(fileSuffix, allowedImageSuffixes);
             long maxSize = FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum) ? FIFTY_M : TEN_M;
             if (fileSize > maxSize) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR,
