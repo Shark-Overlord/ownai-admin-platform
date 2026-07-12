@@ -1,12 +1,13 @@
 import { useRef, useState, useEffect } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Button, Drawer, Form, Input, InputNumber, Select, Switch, Tabs, Upload, Row, Col, message, Popconfirm, Image, Tag } from 'antd';
-import { PlusOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, UploadOutlined, CheckOutlined } from '@ant-design/icons';
 import {
   listArtworkByPageForAdmin,
   updateArtwork,
   deleteArtwork,
   deleteArtworkBatch,
+  publishArtworkBatch,
   addArtwork,
   type ArtworkVO,
 } from '../../api/artwork';
@@ -299,6 +300,21 @@ export default function ArtworkManage() {
           >
             新建作品
           </Button>,
+          <Popconfirm
+            key="batch-publish"
+            title="确认批量发布选中的作品？"
+            disabled={selectedRows.length === 0}
+            onConfirm={async () => {
+              await publishArtworkBatch({ ids: selectedRows.map((r) => r.id) });
+              message.success('批量发布成功');
+              setSelectedRows([]);
+              actionRef.current?.reload();
+            }}
+          >
+            <Button icon={<CheckOutlined />} disabled={selectedRows.length === 0}>
+              批量发布
+            </Button>
+          </Popconfirm>,
           <Popconfirm
             key="batch-delete"
             title="确认批量删除？"

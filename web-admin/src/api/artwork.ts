@@ -58,6 +58,10 @@ export async function deleteArtworkBatch(params: { ids: number[] }) {
   return request.post('/artwork/delete/batch', params) as Promise<{ data: boolean }>;
 }
 
+export async function publishArtworkBatch(params: { ids: number[] }) {
+  return request.post('/artwork/publish/batch', params) as Promise<{ data: boolean }>;
+}
+
 export async function getArtworkVOById(id: number) {
   return request.get('/artwork/get/vo', { params: { id } }) as Promise<{ data: ArtworkVO }>;
 }

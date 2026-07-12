@@ -156,6 +156,17 @@ public class ArtworkController {
     /**
      * 管理员删除艺术作品 Admin delete artwork
      */
+    @PostMapping("/publish/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "artwork", action = "batch_publish_artwork")
+    @ApiOperation("Admin batch publish artworks")
+    public BaseResponse<Boolean> publishArtworkBatch(@RequestBody BatchDeleteRequest batchDeleteRequest) {
+        if (batchDeleteRequest == null || CollUtil.isEmpty(batchDeleteRequest.getIds())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(artworkService.publishArtworkBatch(batchDeleteRequest.getIds()));
+    }
+
     @PostMapping("/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "artwork", action = "delete_artwork")

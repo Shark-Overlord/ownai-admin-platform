@@ -20,6 +20,8 @@ public interface ArtworkService extends IService<Artwork> {
 
     boolean deleteArtwork(long id);
 
+    Boolean publishArtworkBatch(java.util.List<Long> ids);
+
     Page<ArtworkVO> listArtworkVOByPage(ArtworkQueryRequest artworkQueryRequest, User loginUser, boolean adminView);
 
     Boolean addFavorite(ArtworkFavoriteRequest request, User loginUser);

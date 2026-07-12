@@ -137,6 +137,28 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     }
 
     @Override
+    public Boolean publishArtworkBatch(List<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        List<Long> distinctIds = ids.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+        if (CollUtil.isEmpty(distinctIds)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        for (Long id : distinctIds) {
+            Artwork updateArtwork = new Artwork();
+            updateArtwork.setId(id);
+            updateArtwork.setStatus(ArtworkStatusEnum.PUBLISHED.getValue());
+            updateArtwork.setUpdateTime(new Date());
+            this.updateById(updateArtwork);
+        }
+        return true;
+    }
+
+    @Override
     public Page<ArtworkVO> listArtworkVOByPage(ArtworkQueryRequest artworkQueryRequest, User loginUser, boolean adminView) {
         ArtworkQueryRequest safeRequest = artworkQueryRequest == null ? new ArtworkQueryRequest() : artworkQueryRequest;
         QueryWrapper<Artwork> queryWrapper = buildArtworkQueryWrapper(safeRequest, adminView);

@@ -152,4 +152,16 @@ class ArtworkControllerTest {
                 .andExpect(jsonPath("$.data.records[0].favorited").value(true))
                 .andExpect(jsonPath("$.data.records[0].favoriteCount").value(1));
     }
+
+    @Test
+    void publishArtworkBatchShouldReturnSuccess() throws Exception {
+        when(artworkService.publishArtworkBatch(any())).thenReturn(true);
+
+        mockMvc.perform(post("/artwork/publish/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ids\":[1,2]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").value(true));
+    }
 }
