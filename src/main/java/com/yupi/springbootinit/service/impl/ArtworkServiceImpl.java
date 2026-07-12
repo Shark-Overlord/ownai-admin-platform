@@ -2,6 +2,7 @@ package com.yupi.springbootinit.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.common.ErrorCode;
@@ -9,15 +10,18 @@ import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.mapper.ArtworkAccessMapper;
+import com.yupi.springbootinit.mapper.ArtworkFavoriteMapper;
 import com.yupi.springbootinit.mapper.ArtworkMapper;
 import com.yupi.springbootinit.mapper.ArtworkTagMapper;
 import com.yupi.springbootinit.mapper.CategoryMapper;
 import com.yupi.springbootinit.mapper.TagMapper;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkAddRequest;
+import com.yupi.springbootinit.model.dto.artwork.ArtworkFavoriteRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkQueryRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.ArtworkAccess;
+import com.yupi.springbootinit.model.entity.ArtworkFavorite;
 import com.yupi.springbootinit.model.entity.ArtworkTag;
 import com.yupi.springbootinit.model.entity.Category;
 import com.yupi.springbootinit.model.entity.Tag;
@@ -48,6 +52,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -67,6 +72,9 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
 
     @Resource
     private ArtworkAccessMapper artworkAccessMapper;
+
+    @Resource
+    private ArtworkFavoriteMapper artworkFavoriteMapper;
 
     @Resource
     private UserService userService;
@@ -131,6 +139,120 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     @Override
     public Page<ArtworkVO> listArtworkVOByPage(ArtworkQueryRequest artworkQueryRequest, User loginUser, boolean adminView) {
         ArtworkQueryRequest safeRequest = artworkQueryRequest == null ? new ArtworkQueryRequest() : artworkQueryRequest;
+        QueryWrapper<Artwork> queryWrapper = buildArtworkQueryWrapper(safeRequest, adminView);
+        if (queryWrapper == null) {
+            return new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(), 0);
+        }
+        Page<Artwork> artworkPage = this.page(new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize()), queryWrapper);
+        Page<ArtworkVO> artworkVOPage = new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(),
+                artworkPage.getTotal());
+        artworkVOPage.setRecords(buildArtworkVOList(artworkPage.getRecords(), loginUser));
+        return artworkVOPage;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean addFavorite(ArtworkFavoriteRequest request, User loginUser) {
+        Long artworkId = normalizeFavoriteArtworkId(request);
+        getPublishedArtwork(artworkId);
+        Date now = new Date();
+
+        ArtworkFavorite existing = getFavoriteRecord(loginUser.getId(), artworkId);
+        if (existing != null) {
+            if (existing.getIsDelete() == null || existing.getIsDelete() == 0) {
+                return true;
+            }
+            boolean restored = artworkFavoriteMapper.restoreByUserAndArtwork(loginUser.getId(), artworkId) > 0;
+            ThrowUtils.throwIf(!restored, ErrorCode.OPERATION_ERROR);
+            return true;
+        }
+
+        ArtworkFavorite favorite = new ArtworkFavorite();
+        favorite.setUserId(loginUser.getId());
+        favorite.setArtworkId(artworkId);
+        favorite.setCreateTime(now);
+        favorite.setUpdateTime(now);
+        favorite.setIsDelete(0);
+        boolean result;
+        try {
+            result = artworkFavoriteMapper.insert(favorite) > 0;
+        } catch (DuplicateKeyException e) {
+            result = artworkFavoriteMapper.restoreByUserAndArtwork(loginUser.getId(), artworkId) > 0;
+        }
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean cancelFavorite(ArtworkFavoriteRequest request, User loginUser) {
+        Long artworkId = normalizeFavoriteArtworkIdForCancel(request);
+        artworkFavoriteMapper.update(null, new UpdateWrapper<ArtworkFavorite>()
+                .eq("userId", loginUser.getId())
+                .eq("artworkId", artworkId)
+                .eq("isDelete", 0)
+                .set("isDelete", 1)
+                .set("updateTime", new Date()));
+        return true;
+    }
+
+    @Override
+    public Boolean isFavorited(Long artworkId, User loginUser) {
+        if (artworkId == null || artworkId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return isFavoritedByUser(artworkId, loginUser.getId());
+    }
+
+    @Override
+    public Page<ArtworkListVO> listMyFavoriteArtworkVOByPage(ArtworkQueryRequest request, User loginUser) {
+        ArtworkQueryRequest safeRequest = request == null ? new ArtworkQueryRequest() : request;
+        long current = Math.max(safeRequest.getCurrent(), 1);
+        long pageSize = Math.min(Math.max(safeRequest.getPageSize(), 1), 50);
+        QueryWrapper<Artwork> queryWrapper = buildArtworkQueryWrapper(safeRequest, false);
+        if (queryWrapper == null) {
+            return new Page<>(current, pageSize, 0);
+        }
+        queryWrapper.inSql("id", "SELECT artworkId FROM artwork_favorite WHERE userId = "
+                + loginUser.getId() + " AND isDelete = 0");
+        Page<Artwork> page = this.page(new Page<>(current, pageSize), queryWrapper);
+        Page<ArtworkListVO> voPage = new Page<>(current, pageSize, page.getTotal());
+        voPage.setRecords(toArtworkListVOList(buildArtworkVOList(page.getRecords(), loginUser)));
+        return voPage;
+    }
+
+    @Override
+    public ArtworkHomeOverviewVO getHomeOverview(User loginUser) {
+        Date recentThreeDaysStart = getRecentThreeDaysStart();
+        QueryWrapper<Artwork> publishedWrapper = new QueryWrapper<Artwork>()
+                .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
+                .eq("isDelete", 0);
+        QueryWrapper<Artwork> recentWrapper = new QueryWrapper<Artwork>()
+                .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
+                .eq("isDelete", 0)
+                .ge("updateTime", recentThreeDaysStart)
+                .orderByDesc("updateTime", "id");
+
+        List<ArtworkListVO> recentItems = toArtworkListVOList(buildArtworkVOList(this.list(recentWrapper), loginUser));
+
+        ArtworkHomeOverviewVO overview = new ArtworkHomeOverviewVO();
+        overview.setTotalCount(this.count(publishedWrapper));
+        overview.setRecentThreeDaysCount((long) recentItems.size());
+        overview.setRecentItems(recentItems);
+        return overview;
+    }
+
+    private Date getRecentThreeDaysStart() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        calendar.add(Calendar.DATE, -2);
+        return calendar.getTime();
+    }
+
+    private QueryWrapper<Artwork> buildArtworkQueryWrapper(ArtworkQueryRequest safeRequest, boolean adminView) {
         QueryWrapper<Artwork> queryWrapper = new QueryWrapper<>();
         if (!adminView) {
             queryWrapper.eq("status", ArtworkStatusEnum.PUBLISHED.getValue());
@@ -150,7 +272,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             List<ArtworkTag> artworkTagList = artworkTagMapper.selectList(
                     new QueryWrapper<ArtworkTag>().in("tagId", safeRequest.getTagIdList()));
             if (CollUtil.isEmpty(artworkTagList)) {
-                return new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(), 0);
+                return null;
             }
             List<Long> artworkIdList = artworkTagList.stream().map(ArtworkTag::getArtworkId).distinct()
                     .collect(Collectors.toList());
@@ -160,13 +282,13 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             List<Tag> tagList = tagMapper.selectList(
                     new QueryWrapper<Tag>().like("name", safeRequest.getTagName()));
             if (CollUtil.isEmpty(tagList)) {
-                return new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(), 0);
+                return null;
             }
             List<Long> tagIdList = tagList.stream().map(Tag::getId).collect(Collectors.toList());
             List<ArtworkTag> artworkTagList = artworkTagMapper.selectList(
                     new QueryWrapper<ArtworkTag>().in("tagId", tagIdList));
             if (CollUtil.isEmpty(artworkTagList)) {
-                return new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(), 0);
+                return null;
             }
             List<Long> artworkIdList = artworkTagList.stream().map(ArtworkTag::getArtworkId).distinct()
                     .collect(Collectors.toList());
@@ -177,55 +299,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         queryWrapper.orderBy(SqlUtils.validSortField(sortField),
                 CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
         queryWrapper.orderByDesc("sort", "id");
-        Page<Artwork> artworkPage = this.page(new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize()), queryWrapper);
-        Page<ArtworkVO> artworkVOPage = new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(),
-                artworkPage.getTotal());
-        artworkVOPage.setRecords(buildArtworkVOList(artworkPage.getRecords(), loginUser));
-        return artworkVOPage;
-    }
-
-    @Override
-    public ArtworkHomeOverviewVO getHomeOverview(User loginUser) {
-        Date recentThreeDaysStart = getRecentThreeDaysStart();
-        QueryWrapper<Artwork> publishedWrapper = new QueryWrapper<Artwork>()
-                .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
-                .eq("isDelete", 0);
-        QueryWrapper<Artwork> recentWrapper = new QueryWrapper<Artwork>()
-                .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
-                .eq("isDelete", 0)
-                .ge("updateTime", recentThreeDaysStart)
-                .orderByDesc("updateTime", "id");
-
-        List<ArtworkVO> recentArtworkVOList = buildArtworkVOList(this.list(recentWrapper), loginUser);
-        List<ArtworkListVO> recentItems = recentArtworkVOList.stream().map(artworkVO -> {
-            ArtworkListVO item = new ArtworkListVO();
-            item.setId(artworkVO.getId());
-            item.setTitle(artworkVO.getTitle());
-            item.setCoverUrl(artworkVO.getCoverUrl());
-            item.setVideoUrl(artworkVO.getVideoUrl());
-            item.setImageWidth(artworkVO.getImageWidth());
-            item.setImageHeight(artworkVO.getImageHeight());
-            item.setImageAspectRatio(artworkVO.getImageAspectRatio());
-            item.setMemberOnly(artworkVO.getMemberOnly());
-            item.setCanAccess(artworkVO.getCanAccessPrompt());
-            return item;
-        }).collect(Collectors.toList());
-
-        ArtworkHomeOverviewVO overview = new ArtworkHomeOverviewVO();
-        overview.setTotalCount(this.count(publishedWrapper));
-        overview.setRecentThreeDaysCount((long) recentItems.size());
-        overview.setRecentItems(recentItems);
-        return overview;
-    }
-
-    private Date getRecentThreeDaysStart() {
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        calendar.add(Calendar.DATE, -2);
-        return calendar.getTime();
+        return queryWrapper;
     }
 
     @Override
@@ -344,7 +418,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         Map<Long, CategoryVO> categoryMap = buildCategoryMap(categoryIds);
         Map<Long, List<TagVO>> artworkTagMap = buildArtworkTagMap(artworkIds);
         Map<Long, Boolean> accessMap = buildAccessMap(artworkList, loginUser);
-        return artworkList.stream().map(artwork -> {
+        List<ArtworkVO> artworkVOList = artworkList.stream().map(artwork -> {
             ArtworkVO artworkVO = new ArtworkVO();
             BeanUtils.copyProperties(artwork, artworkVO);
             fillArtworkAspectRatio(artworkVO);
@@ -352,6 +426,29 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             artworkVO.setTagList(artworkTagMap.getOrDefault(artwork.getId(), Collections.emptyList()));
             artworkVO.setCanAccessPrompt(accessMap.getOrDefault(artwork.getId(), false));
             return artworkVO;
+        }).collect(Collectors.toList());
+        fillFavoriteInfo(artworkVOList, loginUser == null ? null : loginUser.getId());
+        return artworkVOList;
+    }
+
+    private List<ArtworkListVO> toArtworkListVOList(List<ArtworkVO> artworkVOList) {
+        if (CollUtil.isEmpty(artworkVOList)) {
+            return new ArrayList<>();
+        }
+        return artworkVOList.stream().map(artworkVO -> {
+            ArtworkListVO item = new ArtworkListVO();
+            item.setId(artworkVO.getId());
+            item.setTitle(artworkVO.getTitle());
+            item.setCoverUrl(artworkVO.getCoverUrl());
+            item.setVideoUrl(artworkVO.getVideoUrl());
+            item.setImageWidth(artworkVO.getImageWidth());
+            item.setImageHeight(artworkVO.getImageHeight());
+            item.setImageAspectRatio(artworkVO.getImageAspectRatio());
+            item.setMemberOnly(artworkVO.getMemberOnly());
+            item.setCanAccess(artworkVO.getCanAccessPrompt());
+            item.setFavorited(artworkVO.getFavorited());
+            item.setFavoriteCount(artworkVO.getFavoriteCount());
+            return item;
         }).collect(Collectors.toList());
     }
 
@@ -421,6 +518,84 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         }
         artworkVO.setImageAspectRatio(
                 artworkVO.getImageWidth().doubleValue() / artworkVO.getImageHeight().doubleValue());
+    }
+
+    private Long normalizeFavoriteArtworkId(ArtworkFavoriteRequest request) {
+        if (request == null || request.getArtworkId() == null || request.getArtworkId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return request.getArtworkId();
+    }
+
+    private Long normalizeFavoriteArtworkIdForCancel(ArtworkFavoriteRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long artworkId = request.getArtworkId() != null ? request.getArtworkId() : request.getId();
+        if (artworkId == null || artworkId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return artworkId;
+    }
+
+    private ArtworkFavorite getFavoriteRecord(Long userId, Long artworkId) {
+        return artworkFavoriteMapper.selectByUserAndArtworkIncludingDeleted(userId, artworkId);
+    }
+
+    private boolean isFavoritedByUser(Long artworkId, Long userId) {
+        if (userId == null || artworkId == null) {
+            return false;
+        }
+        Long count = artworkFavoriteMapper.selectCount(new QueryWrapper<ArtworkFavorite>()
+                .eq("userId", userId)
+                .eq("artworkId", artworkId)
+                .eq("isDelete", 0));
+        return count != null && count > 0;
+    }
+
+    private void fillFavoriteInfo(List<ArtworkVO> records, Long userId) {
+        if (CollUtil.isEmpty(records)) {
+            return;
+        }
+        List<Long> artworkIds = records.stream()
+                .map(ArtworkVO::getId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+        if (CollUtil.isEmpty(artworkIds)) {
+            return;
+        }
+        List<ArtworkFavorite> favoriteList = artworkFavoriteMapper.selectList(
+                new QueryWrapper<ArtworkFavorite>()
+                        .in("artworkId", artworkIds)
+                        .eq("isDelete", 0));
+        Map<Long, Long> countMap = favoriteList.stream().collect(Collectors.groupingBy(
+                ArtworkFavorite::getArtworkId,
+                Collectors.counting()));
+        Set<Long> myFavoriteIds = userId == null ? Collections.emptySet() : favoriteList.stream()
+                .filter(item -> userId.equals(item.getUserId()))
+                .map(ArtworkFavorite::getArtworkId)
+                .collect(Collectors.toSet());
+        for (ArtworkVO record : records) {
+            Long artworkId = record.getId();
+            record.setFavoriteCount(countMap.getOrDefault(artworkId, 0L).intValue());
+            record.setFavorited(myFavoriteIds.contains(artworkId));
+        }
+    }
+
+    private Artwork getPublishedArtwork(Long id) {
+        if (id == null || id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Artwork artwork = this.getOne(new QueryWrapper<Artwork>()
+                .eq("id", id)
+                .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
+                .eq("isDelete", 0)
+                .last("LIMIT 1"));
+        if (artwork == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "Artwork not found");
+        }
+        return artwork;
     }
 
     private Map<Long, Boolean> buildAccessMap(List<Artwork> artworkList, User loginUser) {

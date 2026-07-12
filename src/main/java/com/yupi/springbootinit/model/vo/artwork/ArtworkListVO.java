@@ -33,5 +33,9 @@ public class ArtworkListVO implements Serializable {
      */
     private Boolean canAccess;
 
+    private Boolean favorited;
+
+    private Integer favoriteCount;
+
     private static final long serialVersionUID = 1L;
 }

@@ -51,6 +51,10 @@ public class ArtworkVO implements Serializable {
 
     private Boolean canAccessPrompt;
 
+    private Boolean favorited;
+
+    private Integer favoriteCount;
+
     private String htmlUrl;
 
     private Date createTime;

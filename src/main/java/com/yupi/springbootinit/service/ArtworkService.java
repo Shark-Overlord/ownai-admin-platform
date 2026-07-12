@@ -3,6 +3,7 @@ package com.yupi.springbootinit.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkAddRequest;
+import com.yupi.springbootinit.model.dto.artwork.ArtworkFavoriteRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkQueryRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.entity.Artwork;
@@ -20,6 +21,15 @@ public interface ArtworkService extends IService<Artwork> {
     boolean deleteArtwork(long id);
 
     Page<ArtworkVO> listArtworkVOByPage(ArtworkQueryRequest artworkQueryRequest, User loginUser, boolean adminView);
+
+    Boolean addFavorite(ArtworkFavoriteRequest request, User loginUser);
+
+    Boolean cancelFavorite(ArtworkFavoriteRequest request, User loginUser);
+
+    Boolean isFavorited(Long artworkId, User loginUser);
+
+    Page<com.yupi.springbootinit.model.vo.artwork.ArtworkListVO> listMyFavoriteArtworkVOByPage(
+            ArtworkQueryRequest request, User loginUser);
 
     ArtworkHomeOverviewVO getHomeOverview(User loginUser);
 

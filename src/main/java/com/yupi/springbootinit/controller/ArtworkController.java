@@ -13,6 +13,7 @@ import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkAddRequest;
+import com.yupi.springbootinit.model.dto.artwork.ArtworkFavoriteRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkQueryRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.entity.Artwork;
@@ -291,9 +292,44 @@ public class ArtworkController {
             artworkListVO.setImageAspectRatio(artworkVO.getImageAspectRatio());
             artworkListVO.setMemberOnly(artworkVO.getMemberOnly());
             artworkListVO.setCanAccess(artworkVO.getCanAccessPrompt());
+            artworkListVO.setFavorited(artworkVO.getFavorited());
+            artworkListVO.setFavoriteCount(artworkVO.getFavoriteCount());
             return artworkListVO;
         }).collect(Collectors.toList()));
         return ResultUtils.success(listPage);
+    }
+
+    @PostMapping("/favorite/add")
+    @OperationLog(module = "artwork", action = "favorite_artwork")
+    @ApiOperation("Favorite artwork")
+    public BaseResponse<Boolean> addFavorite(@RequestBody ArtworkFavoriteRequest favoriteRequest,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(artworkService.addFavorite(favoriteRequest, loginUser));
+    }
+
+    @PostMapping("/favorite/cancel")
+    @OperationLog(module = "artwork", action = "cancel_favorite_artwork")
+    @ApiOperation("Cancel artwork favorite")
+    public BaseResponse<Boolean> cancelFavorite(@RequestBody ArtworkFavoriteRequest favoriteRequest,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(artworkService.cancelFavorite(favoriteRequest, loginUser));
+    }
+
+    @GetMapping("/favorite/check")
+    @ApiOperation("Check artwork favorite status")
+    public BaseResponse<Boolean> checkFavorite(Long artworkId, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(artworkService.isFavorited(artworkId, loginUser));
+    }
+
+    @PostMapping("/favorite/my/list/page")
+    @ApiOperation("Page query my favorite artworks")
+    public BaseResponse<Page<ArtworkListVO>> listMyFavoriteArtworks(@RequestBody ArtworkQueryRequest queryRequest,
+            HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(artworkService.listMyFavoriteArtworkVOByPage(queryRequest, loginUser));
     }
 
     /**
