@@ -33,6 +33,7 @@ import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
+import com.yupi.springbootinit.utils.ImageDimensionUtils;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -49,8 +50,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> implements ArtworkService {
 
     @Resource
@@ -74,6 +77,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         ThrowUtils.throwIf(artworkAddRequest == null, ErrorCode.PARAMS_ERROR);
         Artwork artwork = new Artwork();
         BeanUtils.copyProperties(artworkAddRequest, artwork);
+        fillArtworkImageDimensions(artwork);
         validateArtwork(artwork, artworkAddRequest.getTagIdList());
         artwork.setUserId(loginUser.getId());
         artwork.setViewCount(0);
@@ -94,9 +98,21 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         ThrowUtils.throwIf(oldArtwork == null, ErrorCode.NOT_FOUND_ERROR, "作品不存在");
         Artwork artwork = new Artwork();
         BeanUtils.copyProperties(artworkUpdateRequest, artwork);
+        boolean coverChanged = StringUtils.isNotBlank(artwork.getCoverUrl())
+                && !StringUtils.equals(artwork.getCoverUrl(), oldArtwork.getCoverUrl());
+        boolean needsDimensions = coverChanged
+                || oldArtwork.getImageWidth() == null || oldArtwork.getImageHeight() == null
+                || oldArtwork.getImageWidth() <= 0 || oldArtwork.getImageHeight() <= 0;
+        boolean dimensionsResolved = !needsDimensions || fillArtworkImageDimensions(artwork);
         validateArtwork(artwork, artworkUpdateRequest.getTagIdList());
         boolean result = this.updateById(artwork);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "作品更新失败");
+        if (coverChanged && !dimensionsResolved) {
+            this.lambdaUpdate().eq(Artwork::getId, artwork.getId())
+                    .set(Artwork::getImageWidth, null)
+                    .set(Artwork::getImageHeight, null)
+                    .update();
+        }
         artworkTagMapper.delete(new QueryWrapper<ArtworkTag>().eq("artworkId", artwork.getId()));
         saveArtworkTags(artwork.getId(), artworkUpdateRequest.getTagIdList());
         return true;
@@ -187,6 +203,9 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             item.setTitle(artworkVO.getTitle());
             item.setCoverUrl(artworkVO.getCoverUrl());
             item.setVideoUrl(artworkVO.getVideoUrl());
+            item.setImageWidth(artworkVO.getImageWidth());
+            item.setImageHeight(artworkVO.getImageHeight());
+            item.setImageAspectRatio(artworkVO.getImageAspectRatio());
             item.setMemberOnly(artworkVO.getMemberOnly());
             item.setCanAccess(artworkVO.getCanAccessPrompt());
             return item;
@@ -328,6 +347,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         return artworkList.stream().map(artwork -> {
             ArtworkVO artworkVO = new ArtworkVO();
             BeanUtils.copyProperties(artwork, artworkVO);
+            fillArtworkAspectRatio(artworkVO);
             artworkVO.setCategory(categoryMap.get(artwork.getCategoryId()));
             artworkVO.setTagList(artworkTagMap.getOrDefault(artwork.getId(), Collections.emptyList()));
             artworkVO.setCanAccessPrompt(accessMap.getOrDefault(artwork.getId(), false));
@@ -374,6 +394,33 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             }
         }
         return resultMap;
+    }
+
+    private boolean fillArtworkImageDimensions(Artwork artwork) {
+        if (artwork == null || StringUtils.isBlank(artwork.getCoverUrl())) {
+            return false;
+        }
+        try {
+            int[] dimensions = ImageDimensionUtils.readFromUrl(artwork.getCoverUrl());
+            if (dimensions == null) {
+                return false;
+            }
+            artwork.setImageWidth(dimensions[0]);
+            artwork.setImageHeight(dimensions[1]);
+            return true;
+        } catch (Exception e) {
+            log.warn("Unable to read artwork cover dimensions, url={}", artwork.getCoverUrl(), e);
+            return false;
+        }
+    }
+
+    private void fillArtworkAspectRatio(ArtworkVO artworkVO) {
+        if (artworkVO == null || artworkVO.getImageWidth() == null || artworkVO.getImageHeight() == null
+                || artworkVO.getImageWidth() <= 0 || artworkVO.getImageHeight() <= 0) {
+            return;
+        }
+        artworkVO.setImageAspectRatio(
+                artworkVO.getImageWidth().doubleValue() / artworkVO.getImageHeight().doubleValue());
     }
 
     private Map<Long, Boolean> buildAccessMap(List<Artwork> artworkList, User loginUser) {

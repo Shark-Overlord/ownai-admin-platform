@@ -27,6 +27,10 @@ public class Artwork implements Serializable {
 
     private String videoUrl;
 
+    private Integer imageWidth;
+
+    private Integer imageHeight;
+
     private String promptContent;
 
     private Long categoryId;

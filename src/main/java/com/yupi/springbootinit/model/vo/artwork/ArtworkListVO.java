@@ -17,6 +17,12 @@ public class ArtworkListVO implements Serializable {
 
     private String videoUrl;
 
+    private Integer imageWidth;
+
+    private Integer imageHeight;
+
+    private Double imageAspectRatio;
+
     /**
      * Whether the artwork is exclusive to members: 0 = no, 1 = yes.
      */

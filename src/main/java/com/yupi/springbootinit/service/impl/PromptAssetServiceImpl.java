@@ -51,6 +51,7 @@ import com.yupi.springbootinit.service.CategoryService;
 import com.yupi.springbootinit.service.PromptAssetService;
 import com.yupi.springbootinit.service.TagService;
 import com.yupi.springbootinit.utils.SqlUtils;
+import com.yupi.springbootinit.utils.ImageDimensionUtils;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -890,6 +891,8 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             media.setWidth(row.getWidth());
             media.setHeight(row.getHeight());
             media.setFileSize(row.getFileSize());
+        } else {
+            fillMediaDimensionsFromOriginal(media, asset.getPreviewMediaUrl());
         }
         media.setSort(0);
         media.setCreateTime(new Date());
@@ -916,18 +919,24 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             media.setMediaType("image");
             media.setOriginalUrl(request.getCoverUrl());
             media.setLocalUrl(request.getCoverUrl());
-            media.setCloudUrl(request.getCoverUrl());
+            media.setCloudUrl(StringUtils.defaultIfBlank(request.getPreviewMediaUrl(), request.getCoverUrl()));
             media.setSort(0);
             media.setCreateTime(new Date());
             media.setIsDelete(0);
+            fillMediaDimensionsFromOriginal(media, StringUtils.defaultIfBlank(
+                    request.getPreviewMediaUrl(), request.getCoverUrl()));
             promptAssetMediaMapper.insert(media);
             return;
         }
         media.setOriginalUrl(request.getCoverUrl());
         media.setLocalUrl(request.getCoverUrl());
-        media.setCloudUrl(request.getCoverUrl());
+        media.setCloudUrl(StringUtils.defaultIfBlank(request.getPreviewMediaUrl(), request.getCoverUrl()));
         media.setThumbnailCloudUrl(null);
         media.setThumbnailLocalUrl(null);
+        media.setWidth(null);
+        media.setHeight(null);
+        fillMediaDimensionsFromOriginal(media, StringUtils.defaultIfBlank(
+                request.getPreviewMediaUrl(), request.getCoverUrl()));
         promptAssetMediaMapper.updateById(media);
     }
 
@@ -944,7 +953,24 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         media.setSort(0);
         media.setCreateTime(new Date());
         media.setIsDelete(0);
+        fillMediaDimensionsFromOriginal(media, StringUtils.defaultIfBlank(
+                asset.getPreviewMediaUrl(), asset.getCoverUrl()));
         promptAssetMediaMapper.insert(media);
+    }
+
+    private void fillMediaDimensionsFromOriginal(PromptAssetMedia media, String imageUrl) {
+        if (media == null || !isHttpUrl(imageUrl)) {
+            return;
+        }
+        try {
+            int[] dimensions = ImageDimensionUtils.readFromUrl(imageUrl);
+            if (dimensions != null) {
+                media.setWidth(dimensions[0]);
+                media.setHeight(dimensions[1]);
+            }
+        } catch (Exception e) {
+            log.warn("Unable to read prompt asset image dimensions, url={}", imageUrl, e);
+        }
     }
 
     private void validateAddRequest(PromptAssetAddRequest request) {
@@ -1419,6 +1445,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
                 return mediaVO;
             }).collect(Collectors.toList());
             vo.setMediaList(mediaVOList);
+            fillDisplayedImageMetadata(vo, mediaList);
 
             List<PromptAssetTag> assetTags = promptAssetTagMapper.selectList(
                     new QueryWrapper<PromptAssetTag>().eq("promptAssetId", asset.getId()).orderByAsc("createTime", "id"));
@@ -1460,6 +1487,38 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             }
         }
         return vo;
+    }
+
+    private void fillDisplayedImageMetadata(PromptAssetVO vo, List<PromptAssetMedia> mediaList) {
+        if (vo == null || CollUtil.isEmpty(mediaList)) {
+            return;
+        }
+        String displayedUrl = StringUtils.defaultIfBlank(
+                StringUtils.trimToNull(vo.getPreviewMediaUrl()),
+                StringUtils.trimToNull(vo.getCoverUrl()));
+        if (StringUtils.isBlank(displayedUrl)) {
+            return;
+        }
+        PromptAssetMedia matchedMedia = mediaList.stream()
+                .filter(media -> matchesOriginalImageUrl(media, displayedUrl))
+                .findFirst()
+                .orElse(null);
+        if (matchedMedia == null || matchedMedia.getWidth() == null || matchedMedia.getHeight() == null
+                || matchedMedia.getWidth() <= 0 || matchedMedia.getHeight() <= 0) {
+            return;
+        }
+        vo.setImageWidth(matchedMedia.getWidth());
+        vo.setImageHeight(matchedMedia.getHeight());
+        vo.setImageAspectRatio(matchedMedia.getWidth().doubleValue() / matchedMedia.getHeight().doubleValue());
+    }
+
+    private boolean matchesOriginalImageUrl(PromptAssetMedia media, String displayedUrl) {
+        if (media == null || StringUtils.isBlank(displayedUrl)) {
+            return false;
+        }
+        return StringUtils.equals(StringUtils.trimToNull(media.getCloudUrl()), displayedUrl)
+                || StringUtils.equals(StringUtils.trimToNull(media.getLocalUrl()), displayedUrl)
+                || StringUtils.equals(StringUtils.trimToNull(media.getOriginalUrl()), displayedUrl);
     }
 
     private List<TagVO> toAssetTagVOList(String assetTagText) {

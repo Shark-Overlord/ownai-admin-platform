@@ -23,6 +23,12 @@ public class ArtworkVO implements Serializable {
 
     private String videoUrl;
 
+    private Integer imageWidth;
+
+    private Integer imageHeight;
+
+    private Double imageAspectRatio;
+
     private String promptContent;
 
     private Long categoryId;

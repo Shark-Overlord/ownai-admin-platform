@@ -63,6 +63,9 @@ class ArtworkControllerTest {
         ArtworkVO artworkVO = new ArtworkVO();
         artworkVO.setId(1L);
         artworkVO.setTitle("Demo Artwork");
+        artworkVO.setImageWidth(1200);
+        artworkVO.setImageHeight(800);
+        artworkVO.setImageAspectRatio(1.5D);
         artworkVOPage.setRecords(Collections.singletonList(artworkVO));
         when(userService.getLoginUserPermitNull(any())).thenReturn(null);
         when(artworkService.listArtworkVOByPage(any(), eq(null), eq(false))).thenReturn(artworkVOPage);
@@ -72,7 +75,10 @@ class ArtworkControllerTest {
                         .content("{\"current\":1,\"pageSize\":10}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.records[0].title").value("Demo Artwork"));
+                .andExpect(jsonPath("$.data.records[0].title").value("Demo Artwork"))
+                .andExpect(jsonPath("$.data.records[0].imageWidth").value(1200))
+                .andExpect(jsonPath("$.data.records[0].imageHeight").value(800))
+                .andExpect(jsonPath("$.data.records[0].imageAspectRatio").value(1.5));
     }
 
     @Test

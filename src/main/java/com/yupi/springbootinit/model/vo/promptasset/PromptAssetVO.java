@@ -30,6 +30,15 @@ public class PromptAssetVO implements Serializable {
 
     private String previewMediaUrl;
 
+    /** Original pixel width of the image rendered by previewMediaUrl (or coverUrl fallback). */
+    private Integer imageWidth;
+
+    /** Original pixel height of the image rendered by previewMediaUrl (or coverUrl fallback). */
+    private Integer imageHeight;
+
+    /** imageWidth / imageHeight; null when either dimension is unavailable. */
+    private Double imageAspectRatio;
+
     private String mediaType;
 
     private String sourceName;
