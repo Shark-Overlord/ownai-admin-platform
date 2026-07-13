@@ -31,10 +31,17 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.http.HttpUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -54,6 +61,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -260,6 +268,63 @@ public class ArtworkController {
     }
 
     /**
+     * Download an artwork source package after checking login and membership access.
+     */
+    @GetMapping("/source/download")
+    @ApiOperation("下载作品源码 ZIP Download artwork source ZIP")
+    public void downloadArtworkSource(@RequestParam("id") long id, HttpServletRequest request,
+            HttpServletResponse response) throws IOException {
+        User loginUser = userService.getLoginUser(request);
+        String sourceZipUrl = artworkService.getArtworkSourceZipUrl(id, loginUser);
+        validateSourceZipUrl(sourceZipUrl);
+
+        Artwork artwork = artworkService.getById(id);
+        String downloadName = StringUtils.defaultIfBlank(artwork == null ? null : artwork.getTitle(),
+                "artwork-" + id) + "-source.zip";
+        String encodedName = URLEncoder.encode(downloadName, StandardCharsets.UTF_8.name())
+                .replace("+", "%20");
+
+        HttpURLConnection connection = (HttpURLConnection) new URL(sourceZipUrl).openConnection();
+        connection.setConnectTimeout(15_000);
+        connection.setReadTimeout(120_000);
+        connection.setInstanceFollowRedirects(true);
+        connection.setRequestMethod("GET");
+        int statusCode = connection.getResponseCode();
+        if (statusCode < 200 || statusCode >= 300) {
+            connection.disconnect();
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "源码文件读取失败");
+        }
+
+        response.setContentType("application/zip");
+        response.setHeader("Content-Disposition",
+                "attachment; filename=\"artwork-source.zip\"; filename*=UTF-8''" + encodedName);
+        response.setHeader("Cache-Control", "private, no-store");
+        long contentLength = connection.getContentLengthLong();
+        if (contentLength >= 0) {
+            response.setContentLengthLong(contentLength);
+        }
+
+        try (InputStream inputStream = new BufferedInputStream(connection.getInputStream());
+                OutputStream outputStream = new BufferedOutputStream(response.getOutputStream())) {
+            byte[] buffer = new byte[16 * 1024];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, length);
+            }
+            outputStream.flush();
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private void validateSourceZipUrl(String sourceZipUrl) {
+        String cosHost = StringUtils.removeEnd(StringUtils.trimToEmpty(cosClientConfig.getHost()), "/");
+        if (StringUtils.isBlank(cosHost) || !StringUtils.startsWith(sourceZipUrl, cosHost + "/")) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "源码文件地址无效");
+        }
+    }
+
+    /**
      * 获取作品统计 Get artwork statistics
      */
     @GetMapping("/stats")
@@ -305,6 +370,7 @@ public class ArtworkController {
             artworkListVO.setCanAccess(artworkVO.getCanAccessPrompt());
             artworkListVO.setFavorited(artworkVO.getFavorited());
             artworkListVO.setFavoriteCount(artworkVO.getFavoriteCount());
+            artworkListVO.setHasSourceCode(artworkVO.getHasSourceCode());
             return artworkListVO;
         }).collect(Collectors.toList()));
         return ResultUtils.success(listPage);
@@ -373,10 +439,16 @@ public class ArtworkController {
         String tmpDir = System.getProperty("java.io.tmpdir");
         String uuid = UUID.randomUUID().toString().replace("-", "");
         File extractDir = new File(tmpDir, "artwork-html-" + uuid);
+        File sourceZipFile = null;
 
         try {
+            sourceZipFile = File.createTempFile("artwork-source-", ".zip");
+            multipartFile.transferTo(sourceZipFile);
+
             // 1. 解压
-            extractZip(multipartFile.getInputStream(), extractDir);
+            try (InputStream inputStream = new java.io.FileInputStream(sourceZipFile)) {
+                extractZip(inputStream, extractDir);
+            }
 
             // 2. 查找 index.html
             File indexHtml = findIndexHtml(extractDir);
@@ -386,12 +458,14 @@ public class ArtworkController {
 
             // 3. 上传所有资源到 COS
             String cosPrefix = "artwork/html/" + uuid + "/";
+            String sourceKey = "artwork/source/" + uuid + ".zip";
+            cosManager.putObject(sourceKey, sourceZipFile, "application/zip");
             String htmlKey = null;
             for (File file : FileUtil.loopFiles(extractDir)) {
                 String relativePath = extractDir.toURI().relativize(file.toURI()).getPath().replace("\\", "/");
                 String key = cosPrefix + relativePath;
                 cosManager.putObject(key, file);
-                if ("index.html".equals(relativePath)) {
+                if (file.getCanonicalFile().equals(indexHtml.getCanonicalFile())) {
                     htmlKey = key;
                 }
             }
@@ -402,6 +476,7 @@ public class ArtworkController {
 
             Map<String, String> result = new HashMap<>();
             result.put("htmlUrl", cosClientConfig.getHost() + "/" + htmlKey);
+            result.put("sourceZipUrl", cosClientConfig.getHost() + "/" + sourceKey);
             return ResultUtils.success(result);
         } catch (BusinessException e) {
             throw e;
@@ -410,6 +485,9 @@ public class ArtworkController {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败: " + e.getMessage());
         } finally {
             FileUtil.del(extractDir);
+            if (sourceZipFile != null) {
+                FileUtil.del(sourceZipFile);
+            }
         }
     }
 
@@ -417,10 +495,16 @@ public class ArtworkController {
         if (!destDir.exists()) {
             destDir.mkdirs();
         }
+        String destinationPath = destDir.getCanonicalPath() + File.separator;
+        long extractedSize = 0L;
+        final long maxExtractedSize = 200L * 1024 * 1024;
         try (ZipInputStream zis = new ZipInputStream(inputStream)) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 File entryFile = new File(destDir, entry.getName());
+                if (!entryFile.getCanonicalPath().startsWith(destinationPath)) {
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "ZIP 压缩包包含非法路径");
+                }
                 if (entry.isDirectory()) {
                     entryFile.mkdirs();
                     continue;
@@ -430,9 +514,13 @@ public class ArtworkController {
                     parent.mkdirs();
                 }
                 try (FileOutputStream fos = new FileOutputStream(entryFile)) {
-                    byte[] buffer = new byte[1024];
+                    byte[] buffer = new byte[8192];
                     int len;
                     while ((len = zis.read(buffer)) > 0) {
+                        extractedSize += len;
+                        if (extractedSize > maxExtractedSize) {
+                            throw new BusinessException(ErrorCode.PARAMS_ERROR, "ZIP 解压后文件不能超过 200MB");
+                        }
                         fos.write(buffer, 0, len);
                     }
                 }

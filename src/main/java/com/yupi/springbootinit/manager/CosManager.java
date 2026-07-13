@@ -93,6 +93,7 @@ public class CosManager {
         if (lower.endsWith(".mov")) return "video/quicktime";
         if (lower.endsWith(".webm")) return "video/webm";
         if (lower.endsWith(".m4v")) return "video/x-m4v";
+        if (lower.endsWith(".zip")) return "application/zip";
         if (lower.endsWith(".woff")) return "font/woff";
         if (lower.endsWith(".woff2")) return "font/woff2";
         if (lower.endsWith(".ttf")) return "font/ttf";

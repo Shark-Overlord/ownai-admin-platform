@@ -73,7 +73,9 @@ public class FileController {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         String uuid = RandomStringUtils.randomAlphanumeric(8);
-        String filename = uuid + "-" + FileUtil.getName(multipartFile.getOriginalFilename());
+        String filename = FileUploadBizEnum.ARTWORK_SOURCE.equals(fileUploadBizEnum)
+                ? uuid + ".zip"
+                : uuid + "-" + FileUtil.getName(multipartFile.getOriginalFilename());
         String objectPath = String.format("%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
         String filepath = "/" + objectPath;
         if (FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum) && !isCosConfigured()) {
@@ -108,7 +110,8 @@ public class FileController {
     private List<String> getUploadAllowedScopes(FileUploadBizEnum fileUploadBizEnum) {
         if (FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
                 || FileUploadBizEnum.ARTWORK_VIDEO.equals(fileUploadBizEnum)
-                || FileUploadBizEnum.ARTWORK_PROMPT.equals(fileUploadBizEnum)) {
+                || FileUploadBizEnum.ARTWORK_PROMPT.equals(fileUploadBizEnum)
+                || FileUploadBizEnum.ARTWORK_SOURCE.equals(fileUploadBizEnum)) {
             return Arrays.asList(ContentApiKeyService.SCOPE_ARTWORK_ADD, ContentApiKeyService.SCOPE_ARTWORK_UPDATE);
         }
         if (FileUploadBizEnum.PROMPT_ASSET_COVER.equals(fileUploadBizEnum)) {
@@ -213,6 +216,13 @@ public class FileController {
             validSuffix(fileSuffix, Arrays.asList("json", "txt"));
             if (fileSize > TEN_M) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "Prompt file cannot exceed 10MB");
+            }
+            return;
+        }
+        if (FileUploadBizEnum.ARTWORK_SOURCE.equals(fileUploadBizEnum)) {
+            validSuffix(fileSuffix, Arrays.asList("zip"));
+            if (fileSize > FIFTY_M) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "Source ZIP cannot exceed 50MB");
             }
         }
     }

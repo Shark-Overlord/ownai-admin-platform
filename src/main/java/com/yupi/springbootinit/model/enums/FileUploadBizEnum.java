@@ -12,7 +12,8 @@ public enum FileUploadBizEnum {
     PROMPT_ASSET_COVER("Prompt 资产封面", "prompt_asset_cover"),
     IMAGE_GENERATION_RESULT("图片生成结果", "image_generation_result"),
     ARTWORK_VIDEO("作品视频", "artwork_video"),
-    ARTWORK_PROMPT("作品 Prompt", "artwork_prompt");
+    ARTWORK_PROMPT("作品 Prompt", "artwork_prompt"),
+    ARTWORK_SOURCE("作品源码", "artwork_source");
 
     private final String text;
 

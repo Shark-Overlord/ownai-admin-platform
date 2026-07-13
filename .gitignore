@@ -18,6 +18,7 @@ sql/*.sql
 !sql/image_generation_canvas.sql
 !sql/prompt_asset_favorite.sql
 !sql/point_check_in_and_announcement.sql
+!sql/artwork_source_zip_migration.sql
 web-admin/node_modules/
 web-admin/dist/
 !.mvn/wrapper/maven-wrapper.jar

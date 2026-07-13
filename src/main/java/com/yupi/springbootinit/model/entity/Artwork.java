@@ -45,6 +45,8 @@ public class Artwork implements Serializable {
 
     private String htmlUrl;
 
+    private String sourceZipUrl;
+
     private Long userId;
 
     private Integer viewCount;

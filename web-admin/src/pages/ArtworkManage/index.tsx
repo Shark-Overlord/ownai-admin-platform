@@ -25,6 +25,7 @@ export default function ArtworkManage() {
   const [selectedRows, setSelectedRows] = useState<ArtworkVO[]>([]);
   const [coverFileList, setCoverFileList] = useState<any[]>([]);
   const [videoFileList, setVideoFileList] = useState<any[]>([]);
+  const [sourceFileList, setSourceFileList] = useState<any[]>([]);
   const [previewImage, setPreviewImage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -72,6 +73,14 @@ export default function ArtworkManage() {
       search: {
         transform: (value: string) => ({ searchText: value }),
       },
+    },
+    {
+      title: '源码',
+      dataIndex: 'hasSourceCode',
+      search: false,
+      width: 80,
+      render: (_: any, record: ArtworkVO) =>
+        record.hasSourceCode || record.sourceZipUrl ? <Tag color="green">有源码</Tag> : <Tag>无源码</Tag>,
     },
     {
       title: '分类',
@@ -212,6 +221,7 @@ export default function ArtworkManage() {
         memberOnly: editing.memberOnly === 1,
         status: editing.status,
         htmlUrl: editing.htmlUrl,
+        sourceZipUrl: editing.sourceZipUrl,
       });
       setCoverFileList(
         editing.coverUrl
@@ -237,9 +247,22 @@ export default function ArtworkManage() {
             ]
           : []
       );
+      setSourceFileList(
+        editing.sourceZipUrl
+          ? [
+              {
+                uid: '-3',
+                name: 'source.zip',
+                status: 'done',
+                url: editing.sourceZipUrl,
+              },
+            ]
+          : []
+      );
     } else if (!modalVisible) {
       setCoverFileList([]);
       setVideoFileList([]);
+      setSourceFileList([]);
     }
   }, [modalVisible, editing, form]);
 
@@ -439,9 +462,14 @@ export default function ArtworkManage() {
                           if (info.file.status === 'done') {
                             const res = info.file.response;
                             if (res?.code === 0) {
-                              const { htmlUrl } = res.data;
-                              form.setFieldsValue({ htmlUrl });
-                              message.success('上传成功，已自动回填HTML地址');
+                              const { htmlUrl, sourceZipUrl } = res.data;
+                              form.setFieldsValue({ htmlUrl, sourceZipUrl });
+                              if (sourceZipUrl) {
+                                setSourceFileList([
+                                  { uid: '-3', name: 'source.zip', status: 'done', url: sourceZipUrl },
+                                ]);
+                              }
+                              message.success('上传成功，已保存预览文件和源码压缩包');
                             } else {
                               message.error(res?.message || '上传失败');
                             }
@@ -453,6 +481,47 @@ export default function ArtworkManage() {
                         <Button icon={<UploadOutlined />}>上传 ZIP 压缩包</Button>
                       </Upload>
                     </Form.Item>
+                    <Form.Item label="源码压缩包" extra="仅支持 ZIP，最大 50MB；用户下载前会校验登录和会员权限">
+                      <Upload
+                        name="file"
+                        action="/api/file/upload?biz=artwork_source"
+                        maxCount={1}
+                        accept=".zip,application/zip"
+                        headers={{ Authorization: `Bearer ${localStorage.getItem('token') || ''}` }}
+                        fileList={sourceFileList}
+                        beforeUpload={(file) => {
+                          if (!file.name.toLowerCase().endsWith('.zip')) {
+                            message.error('源码文件仅支持 ZIP');
+                            return Upload.LIST_IGNORE;
+                          }
+                          if (file.size > 50 * 1024 * 1024) {
+                            message.error('源码压缩包不能超过 50MB');
+                            return Upload.LIST_IGNORE;
+                          }
+                          return true;
+                        }}
+                        onChange={(info) => {
+                          setSourceFileList(info.fileList);
+                          if (info.file.status === 'done') {
+                            const res = info.file.response;
+                            if (res?.code === 0) {
+                              form.setFieldsValue({ sourceZipUrl: res.data });
+                              message.success('源码压缩包上传成功');
+                            } else {
+                              message.error(res?.message || '源码压缩包上传失败');
+                            }
+                          } else if (info.file.status === 'error') {
+                            message.error('源码压缩包上传失败');
+                          }
+                          if (info.file.status === 'removed') {
+                            form.setFieldsValue({ sourceZipUrl: undefined });
+                          }
+                        }}
+                      >
+                        <Button icon={<UploadOutlined />}>上传源码 ZIP</Button>
+                      </Upload>
+                    </Form.Item>
+                    <Form.Item name="sourceZipUrl" hidden />
                     {editing ? (
                       <Form.Item label="前端访问地址">
                         <Input
