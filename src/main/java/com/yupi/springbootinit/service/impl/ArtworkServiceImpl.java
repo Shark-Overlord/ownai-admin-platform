@@ -360,6 +360,20 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     }
 
     @Override
+    public String getArtworkSourceZipUrl(Long artworkId, User loginUser) {
+        ThrowUtils.throwIf(artworkId == null || artworkId <= 0, ErrorCode.PARAMS_ERROR);
+        Artwork artwork = this.getById(artworkId);
+        ThrowUtils.throwIf(artwork == null, ErrorCode.NOT_FOUND_ERROR, "作品不存在");
+        ThrowUtils.throwIf(!ArtworkStatusEnum.PUBLISHED.getValue().equals(artwork.getStatus()),
+                ErrorCode.NO_AUTH_ERROR, "作品未发布");
+        ThrowUtils.throwIf(StringUtils.isBlank(artwork.getSourceZipUrl()), ErrorCode.NOT_FOUND_ERROR,
+                "该作品暂未提供源码");
+        ThrowUtils.throwIf(!hasArtworkAccess(artworkId, loginUser), ErrorCode.NO_AUTH_ERROR,
+                "当前作品仅会员可下载源码");
+        return artwork.getSourceZipUrl();
+    }
+
+    @Override
     public boolean hasArtworkAccess(Long artworkId, User loginUser) {
         if (artworkId == null) {
             return false;
@@ -447,6 +461,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             artworkVO.setCategory(categoryMap.get(artwork.getCategoryId()));
             artworkVO.setTagList(artworkTagMap.getOrDefault(artwork.getId(), Collections.emptyList()));
             artworkVO.setCanAccessPrompt(accessMap.getOrDefault(artwork.getId(), false));
+            artworkVO.setHasSourceCode(StringUtils.isNotBlank(artwork.getSourceZipUrl()));
             return artworkVO;
         }).collect(Collectors.toList());
         fillFavoriteInfo(artworkVOList, loginUser == null ? null : loginUser.getId());
@@ -470,6 +485,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             item.setCanAccess(artworkVO.getCanAccessPrompt());
             item.setFavorited(artworkVO.getFavorited());
             item.setFavoriteCount(artworkVO.getFavoriteCount());
+            item.setHasSourceCode(artworkVO.getHasSourceCode());
             return item;
         }).collect(Collectors.toList());
     }

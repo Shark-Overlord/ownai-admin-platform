@@ -36,6 +36,8 @@ public class ArtworkUpdateRequest implements Serializable {
 
     private String htmlUrl;
 
+    private String sourceZipUrl;
+
     private List<Long> tagIdList;
 
     private String apiSecret;

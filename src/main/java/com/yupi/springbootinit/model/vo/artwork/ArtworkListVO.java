@@ -37,5 +37,10 @@ public class ArtworkListVO implements Serializable {
 
     private Integer favoriteCount;
 
+    /**
+     * Whether a downloadable source package exists. The real COS URL is never exposed here.
+     */
+    private Boolean hasSourceCode;
+
     private static final long serialVersionUID = 1L;
 }

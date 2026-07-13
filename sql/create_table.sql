@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS artwork
     memberOnly    TINYINT       DEFAULT 0              NOT NULL,
     status        TINYINT       DEFAULT 0              NOT NULL,
     htmlUrl       VARCHAR(1024)                         NULL,
+    sourceZipUrl  VARCHAR(1024)                         NULL,
     userId        BIGINT                                 NOT NULL,
     viewCount     INT           DEFAULT 0              NOT NULL,
     sort          INT           DEFAULT 0              NOT NULL,

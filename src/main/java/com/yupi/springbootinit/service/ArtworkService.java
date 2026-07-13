@@ -39,6 +39,8 @@ public interface ArtworkService extends IService<Artwork> {
 
     String getArtworkPromptContent(Long artworkId, User loginUser);
 
+    String getArtworkSourceZipUrl(Long artworkId, User loginUser);
+
     boolean hasArtworkAccess(Long artworkId, User loginUser);
 
     void grantArtworkAccess(Long artworkId, Long userId, Long orderId, String accessType);

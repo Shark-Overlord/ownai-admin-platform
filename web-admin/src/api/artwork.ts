@@ -16,6 +16,8 @@ export interface ArtworkVO {
   status?: number;
   tagList?: { id: number; name: string }[];
   htmlUrl?: string;
+  sourceZipUrl?: string;
+  hasSourceCode?: boolean;
   createTime?: string;
 }
 
@@ -31,6 +33,7 @@ export interface ArtworkAddRequest {
   pointsPrice?: number;
   memberOnly?: number;
   status?: number;
+  sourceZipUrl?: string;
   tagIdList?: number[];
 }
 

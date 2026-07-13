@@ -57,6 +57,13 @@ public class ArtworkVO implements Serializable {
 
     private String htmlUrl;
 
+    /**
+     * Source ZIP URL is only exposed by administrator-facing artwork APIs.
+     */
+    private String sourceZipUrl;
+
+    private Boolean hasSourceCode;
+
     private Date createTime;
 
     private static final long serialVersionUID = 1L;

@@ -69,6 +69,7 @@ class ArtworkControllerTest {
         artworkVO.setImageAspectRatio(1.5D);
         artworkVO.setFavorited(true);
         artworkVO.setFavoriteCount(3);
+        artworkVO.setHasSourceCode(true);
         artworkVOPage.setRecords(Collections.singletonList(artworkVO));
         when(userService.getLoginUserPermitNull(any())).thenReturn(null);
         when(artworkService.listArtworkVOByPage(any(), eq(null), eq(false))).thenReturn(artworkVOPage);
@@ -83,7 +84,8 @@ class ArtworkControllerTest {
                 .andExpect(jsonPath("$.data.records[0].imageHeight").value(800))
                 .andExpect(jsonPath("$.data.records[0].imageAspectRatio").value(1.5))
                 .andExpect(jsonPath("$.data.records[0].favorited").value(true))
-                .andExpect(jsonPath("$.data.records[0].favoriteCount").value(3));
+                .andExpect(jsonPath("$.data.records[0].favoriteCount").value(3))
+                .andExpect(jsonPath("$.data.records[0].hasSourceCode").value(true));
     }
 
     @Test
