@@ -19,6 +19,8 @@ sql/*.sql
 !sql/prompt_asset_favorite.sql
 !sql/point_check_in_and_announcement.sql
 !sql/artwork_source_zip_migration.sql
+!sql/artwork_external_key_migration.sql
+!sql/artwork_app_category_seed.sql
 web-admin/node_modules/
 web-admin/dist/
 !.mvn/wrapper/maven-wrapper.jar

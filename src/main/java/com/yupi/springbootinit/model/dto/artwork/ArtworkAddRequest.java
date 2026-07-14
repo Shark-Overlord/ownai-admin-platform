@@ -8,6 +8,8 @@ import lombok.Data;
 @Data
 public class ArtworkAddRequest implements Serializable {
 
+    private String externalKey;
+
     private String title;
 
     private String summary;

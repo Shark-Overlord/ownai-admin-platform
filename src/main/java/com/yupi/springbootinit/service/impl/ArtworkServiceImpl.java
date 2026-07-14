@@ -14,6 +14,7 @@ import com.yupi.springbootinit.mapper.ArtworkFavoriteMapper;
 import com.yupi.springbootinit.mapper.ArtworkMapper;
 import com.yupi.springbootinit.mapper.ArtworkTagMapper;
 import com.yupi.springbootinit.mapper.CategoryMapper;
+import com.yupi.springbootinit.mapper.CategoryTagMapper;
 import com.yupi.springbootinit.mapper.TagMapper;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkAddRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkFavoriteRequest;
@@ -24,6 +25,7 @@ import com.yupi.springbootinit.model.entity.ArtworkAccess;
 import com.yupi.springbootinit.model.entity.ArtworkFavorite;
 import com.yupi.springbootinit.model.entity.ArtworkTag;
 import com.yupi.springbootinit.model.entity.Category;
+import com.yupi.springbootinit.model.entity.CategoryTag;
 import com.yupi.springbootinit.model.entity.Tag;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ArtworkStatusEnum;
@@ -65,6 +67,9 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     private CategoryMapper categoryMapper;
 
     @Resource
+    private CategoryTagMapper categoryTagMapper;
+
+    @Resource
     private TagMapper tagMapper;
 
     @Resource
@@ -83,6 +88,16 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     @Transactional(rollbackFor = Exception.class)
     public long addArtwork(ArtworkAddRequest artworkAddRequest, User loginUser) {
         ThrowUtils.throwIf(artworkAddRequest == null, ErrorCode.PARAMS_ERROR);
+        String externalKey = StringUtils.trimToNull(artworkAddRequest.getExternalKey());
+        artworkAddRequest.setExternalKey(externalKey);
+        if (externalKey != null) {
+            Artwork existingArtwork = this.lambdaQuery()
+                    .eq(Artwork::getExternalKey, externalKey)
+                    .one();
+            if (existingArtwork != null) {
+                return existingArtwork.getId();
+            }
+        }
         Artwork artwork = new Artwork();
         BeanUtils.copyProperties(artworkAddRequest, artwork);
         fillArtworkImageDimensions(artwork);
@@ -92,7 +107,21 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         artwork.setSort(artwork.getSort() == null ? 0 : artwork.getSort());
         artwork.setStatus(artwork.getStatus() == null ? ArtworkStatusEnum.DRAFT.getValue() : artwork.getStatus());
         artwork.setMemberOnly(artwork.getMemberOnly() == null ? 0 : artwork.getMemberOnly());
-        boolean result = this.save(artwork);
+        boolean result;
+        try {
+            result = this.save(artwork);
+        } catch (DuplicateKeyException e) {
+            if (externalKey == null) {
+                throw e;
+            }
+            Artwork existingArtwork = this.lambdaQuery()
+                    .eq(Artwork::getExternalKey, externalKey)
+                    .one();
+            if (existingArtwork == null) {
+                throw e;
+            }
+            return existingArtwork.getId();
+        }
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "作品创建失败");
         saveArtworkTags(artwork.getId(), artworkAddRequest.getTagIdList());
         return artwork.getId();
@@ -418,6 +447,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         ThrowUtils.throwIf(artwork.getCategoryId() == null, ErrorCode.PARAMS_ERROR, "分类不能为空");
         Category category = categoryMapper.selectById(artwork.getCategoryId());
         ThrowUtils.throwIf(category == null, ErrorCode.PARAMS_ERROR, "分类不存在");
+        ThrowUtils.throwIf(StringUtils.length(artwork.getExternalKey()) > 128, ErrorCode.PARAMS_ERROR,
+                "外部幂等标识不能超过 128 个字符");
         if (artwork.getCashPrice() != null) {
             ThrowUtils.throwIf(artwork.getCashPrice().compareTo(BigDecimal.ZERO) < 0, ErrorCode.PARAMS_ERROR,
                     "现金价格不能小于 0");
@@ -425,11 +456,16 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         if (artwork.getPointsPrice() != null) {
             ThrowUtils.throwIf(artwork.getPointsPrice() < 0, ErrorCode.PARAMS_ERROR, "积分价格不能小于 0");
         }
-        if (CollUtil.isNotEmpty(tagIdList)) {
-            Set<Long> distinctTagIds = new LinkedHashSet<>(tagIdList);
-            List<Tag> tagList = tagMapper.selectBatchIds(distinctTagIds);
-            ThrowUtils.throwIf(tagList.size() != distinctTagIds.size(), ErrorCode.PARAMS_ERROR, "标签不存在");
-        }
+        ThrowUtils.throwIf(CollUtil.isEmpty(tagIdList), ErrorCode.PARAMS_ERROR, "二级标签不能为空");
+        Set<Long> distinctTagIds = new LinkedHashSet<>(tagIdList);
+        ThrowUtils.throwIf(distinctTagIds.size() != 1, ErrorCode.PARAMS_ERROR, "作品只能选择一个二级标签");
+        List<Tag> tagList = tagMapper.selectBatchIds(distinctTagIds);
+        ThrowUtils.throwIf(tagList.size() != distinctTagIds.size(), ErrorCode.PARAMS_ERROR, "标签不存在");
+        Long relationCount = categoryTagMapper.selectCount(new QueryWrapper<CategoryTag>()
+                .eq("categoryId", artwork.getCategoryId())
+                .in("tagId", distinctTagIds));
+        ThrowUtils.throwIf(relationCount == null || relationCount != distinctTagIds.size(),
+                ErrorCode.PARAMS_ERROR, "二级标签不属于当前分类");
     }
 
     private void saveArtworkTags(Long artworkId, List<Long> tagIdList) {
