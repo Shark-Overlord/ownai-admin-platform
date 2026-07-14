@@ -417,9 +417,6 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         if (loginUser == null) {
             return false;
         }
-        if (userService.isAdmin(loginUser)) {
-            return true;
-        }
         return hasMemberAccess(artwork, loginUser);
     }
 
@@ -675,10 +672,6 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     private Map<Long, Boolean> buildAccessMap(List<Artwork> artworkList, User loginUser) {
         Map<Long, Boolean> resultMap = new HashMap<>();
         if (CollUtil.isEmpty(artworkList)) {
-            return resultMap;
-        }
-        if (loginUser != null && userService.isAdmin(loginUser)) {
-            artworkList.forEach(artwork -> resultMap.put(artwork.getId(), true));
             return resultMap;
         }
         for (Artwork artwork : artworkList) {
