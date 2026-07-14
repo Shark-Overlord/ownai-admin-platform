@@ -17,6 +17,8 @@ public class Artwork implements Serializable {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
+    private String externalKey;
+
     private String title;
 
     private String summary;
