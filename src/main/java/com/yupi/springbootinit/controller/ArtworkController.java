@@ -363,6 +363,8 @@ public class ArtworkController {
             artworkListVO.setTitle(artworkVO.getTitle());
             artworkListVO.setCoverUrl(artworkVO.getCoverUrl());
             artworkListVO.setVideoUrl(artworkVO.getVideoUrl());
+            artworkListVO.setCategory(artworkVO.getCategory());
+            artworkListVO.setTagList(artworkVO.getTagList());
             artworkListVO.setImageWidth(artworkVO.getImageWidth());
             artworkListVO.setImageHeight(artworkVO.getImageHeight());
             artworkListVO.setImageAspectRatio(artworkVO.getImageAspectRatio());
