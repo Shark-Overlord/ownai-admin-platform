@@ -511,6 +511,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             item.setTitle(artworkVO.getTitle());
             item.setCoverUrl(artworkVO.getCoverUrl());
             item.setVideoUrl(artworkVO.getVideoUrl());
+            item.setCategory(artworkVO.getCategory());
+            item.setTagList(artworkVO.getTagList());
             item.setImageWidth(artworkVO.getImageWidth());
             item.setImageHeight(artworkVO.getImageHeight());
             item.setImageAspectRatio(artworkVO.getImageAspectRatio());

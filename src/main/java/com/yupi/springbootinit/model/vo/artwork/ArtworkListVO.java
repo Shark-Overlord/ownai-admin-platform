@@ -1,6 +1,9 @@
 package com.yupi.springbootinit.model.vo.artwork;
 
+import com.yupi.springbootinit.model.vo.CategoryVO;
+import com.yupi.springbootinit.model.vo.TagVO;
 import java.io.Serializable;
+import java.util.List;
 import lombok.Data;
 
 /**
@@ -16,6 +19,10 @@ public class ArtworkListVO implements Serializable {
     private String coverUrl;
 
     private String videoUrl;
+
+    private CategoryVO category;
+
+    private List<TagVO> tagList;
 
     private Integer imageWidth;
 
