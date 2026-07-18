@@ -1,13 +1,23 @@
 import { useRef, useState, useEffect } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Button, Drawer, Form, Input, InputNumber, Select, Switch, Tabs, Upload, Row, Col, message, Popconfirm, Image, Tag } from 'antd';
-import { PlusOutlined, DeleteOutlined, UploadOutlined, CheckOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  UploadOutlined,
+  CheckOutlined,
+  StopOutlined,
+  LockOutlined,
+  UnlockOutlined,
+} from '@ant-design/icons';
 import {
   listArtworkByPageForAdmin,
   updateArtwork,
   deleteArtwork,
   deleteArtworkBatch,
   publishArtworkBatch,
+  offlineArtworkBatch,
+  updateArtworkMemberOnlyBatch,
   addArtwork,
   type ArtworkVO,
 } from '../../api/artwork';
@@ -336,6 +346,57 @@ export default function ArtworkManage() {
           >
             <Button icon={<CheckOutlined />} disabled={selectedRows.length === 0}>
               批量发布
+            </Button>
+          </Popconfirm>,
+          <Popconfirm
+            key="batch-offline"
+            title="确认批量下架选中的作品？下架不会删除作品数据。"
+            disabled={selectedRows.length === 0}
+            onConfirm={async () => {
+              await offlineArtworkBatch({ ids: selectedRows.map((r) => r.id) });
+              message.success('批量下架成功');
+              setSelectedRows([]);
+              actionRef.current?.reload();
+            }}
+          >
+            <Button icon={<StopOutlined />} disabled={selectedRows.length === 0}>
+              批量下架
+            </Button>
+          </Popconfirm>,
+          <Popconfirm
+            key="batch-member-only"
+            title="确认将选中的作品设为会员专享？"
+            disabled={selectedRows.length === 0}
+            onConfirm={async () => {
+              await updateArtworkMemberOnlyBatch({
+                ids: selectedRows.map((r) => r.id),
+                memberOnly: 1,
+              });
+              message.success('已批量设为会员专享');
+              setSelectedRows([]);
+              actionRef.current?.reload();
+            }}
+          >
+            <Button icon={<LockOutlined />} disabled={selectedRows.length === 0}>
+              设为会员专享
+            </Button>
+          </Popconfirm>,
+          <Popconfirm
+            key="batch-public"
+            title="确认取消选中作品的会员专享限制？"
+            disabled={selectedRows.length === 0}
+            onConfirm={async () => {
+              await updateArtworkMemberOnlyBatch({
+                ids: selectedRows.map((r) => r.id),
+                memberOnly: 0,
+              });
+              message.success('已批量取消会员专享');
+              setSelectedRows([]);
+              actionRef.current?.reload();
+            }}
+          >
+            <Button icon={<UnlockOutlined />} disabled={selectedRows.length === 0}>
+              取消会员专享
             </Button>
           </Popconfirm>,
           <Popconfirm

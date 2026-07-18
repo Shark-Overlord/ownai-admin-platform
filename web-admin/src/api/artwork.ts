@@ -65,6 +65,14 @@ export async function publishArtworkBatch(params: { ids: number[] }) {
   return request.post('/artwork/publish/batch', params) as Promise<{ data: boolean }>;
 }
 
+export async function offlineArtworkBatch(params: { ids: number[] }) {
+  return request.post('/artwork/offline/batch', params) as Promise<{ data: boolean }>;
+}
+
+export async function updateArtworkMemberOnlyBatch(params: { ids: number[]; memberOnly: 0 | 1 }) {
+  return request.post('/artwork/member-only/batch', params) as Promise<{ data: boolean }>;
+}
+
 export async function getArtworkVOById(id: number) {
   return request.get('/artwork/get/vo', { params: { id } }) as Promise<{ data: ArtworkVO }>;
 }

@@ -166,4 +166,28 @@ class ArtworkControllerTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data").value(true));
     }
+
+    @Test
+    void offlineArtworkBatchShouldReturnSuccess() throws Exception {
+        when(artworkService.offlineArtworkBatch(any())).thenReturn(true);
+
+        mockMvc.perform(post("/artwork/offline/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ids\":[1,2]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").value(true));
+    }
+
+    @Test
+    void updateArtworkMemberOnlyBatchShouldReturnSuccess() throws Exception {
+        when(artworkService.updateArtworkMemberOnlyBatch(any(), eq(1))).thenReturn(true);
+
+        mockMvc.perform(post("/artwork/member-only/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ids\":[1,2],\"memberOnly\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").value(true));
+    }
 }

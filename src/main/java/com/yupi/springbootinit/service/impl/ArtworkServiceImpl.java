@@ -188,6 +188,48 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean offlineArtworkBatch(List<Long> ids) {
+        List<Long> distinctIds = normalizeBatchArtworkIds(ids);
+        boolean result = this.lambdaUpdate()
+                .in(Artwork::getId, distinctIds)
+                .set(Artwork::getStatus, ArtworkStatusEnum.DRAFT.getValue())
+                .set(Artwork::getUpdateTime, new Date())
+                .update();
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "作品批量下架失败");
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean updateArtworkMemberOnlyBatch(List<Long> ids, Integer memberOnly) {
+        ThrowUtils.throwIf(memberOnly == null || (memberOnly != 0 && memberOnly != 1),
+                ErrorCode.PARAMS_ERROR, "memberOnly 只能为 0 或 1");
+        List<Long> distinctIds = normalizeBatchArtworkIds(ids);
+        boolean result = this.lambdaUpdate()
+                .in(Artwork::getId, distinctIds)
+                .set(Artwork::getMemberOnly, memberOnly)
+                .set(Artwork::getUpdateTime, new Date())
+                .update();
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "作品会员权限批量更新失败");
+        return true;
+    }
+
+    private List<Long> normalizeBatchArtworkIds(List<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        List<Long> distinctIds = ids.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+        if (CollUtil.isEmpty(distinctIds)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return distinctIds;
+    }
+
+    @Override
     public Page<ArtworkVO> listArtworkVOByPage(ArtworkQueryRequest artworkQueryRequest, User loginUser, boolean adminView) {
         ArtworkQueryRequest safeRequest = artworkQueryRequest == null ? new ArtworkQueryRequest() : artworkQueryRequest;
         QueryWrapper<Artwork> queryWrapper = buildArtworkQueryWrapper(safeRequest, adminView);

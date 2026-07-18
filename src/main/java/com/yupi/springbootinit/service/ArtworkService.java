@@ -22,6 +22,10 @@ public interface ArtworkService extends IService<Artwork> {
 
     Boolean publishArtworkBatch(java.util.List<Long> ids);
 
+    Boolean offlineArtworkBatch(java.util.List<Long> ids);
+
+    Boolean updateArtworkMemberOnlyBatch(java.util.List<Long> ids, Integer memberOnly);
+
     Page<ArtworkVO> listArtworkVOByPage(ArtworkQueryRequest artworkQueryRequest, User loginUser, boolean adminView);
 
     Boolean addFavorite(ArtworkFavoriteRequest request, User loginUser);

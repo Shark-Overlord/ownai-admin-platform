@@ -13,6 +13,7 @@ import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkAddRequest;
+import com.yupi.springbootinit.model.dto.artwork.ArtworkBatchMemberOnlyRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkFavoriteRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkQueryRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
@@ -173,6 +174,36 @@ public class ArtworkController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         return ResultUtils.success(artworkService.publishArtworkBatch(batchDeleteRequest.getIds()));
+    }
+
+    /**
+     * 管理员批量下架艺术作品 Admin batch offline artworks
+     */
+    @PostMapping("/offline/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "artwork", action = "batch_offline_artwork")
+    @ApiOperation("管理员批量下架艺术作品 Admin batch offline artworks")
+    public BaseResponse<Boolean> offlineArtworkBatch(@RequestBody BatchDeleteRequest batchDeleteRequest) {
+        if (batchDeleteRequest == null || CollUtil.isEmpty(batchDeleteRequest.getIds())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(artworkService.offlineArtworkBatch(batchDeleteRequest.getIds()));
+    }
+
+    /**
+     * 管理员批量设置作品会员专享状态 Admin batch update artwork membership access
+     */
+    @PostMapping("/member-only/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "artwork", action = "batch_update_artwork_member_only")
+    @ApiOperation("管理员批量设置作品会员专享状态 Admin batch update artwork membership access")
+    public BaseResponse<Boolean> updateArtworkMemberOnlyBatch(
+            @RequestBody ArtworkBatchMemberOnlyRequest batchRequest) {
+        if (batchRequest == null || CollUtil.isEmpty(batchRequest.getIds())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(artworkService.updateArtworkMemberOnlyBatch(
+                batchRequest.getIds(), batchRequest.getMemberOnly()));
     }
 
     @PostMapping("/delete")
