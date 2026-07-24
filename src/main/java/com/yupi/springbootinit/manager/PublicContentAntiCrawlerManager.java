@@ -20,19 +20,17 @@ public class PublicContentAntiCrawlerManager {
 
     private static final int MAX_PAGE_NUMBER = 50;
 
-    private static final int MAX_IP_REQUESTS_PER_MINUTE = 30;
+    private static final int MAX_ANONYMOUS_REQUESTS_PER_MINUTE = 120;
 
-    private static final int MAX_IP_REQUESTS_PER_DAY = 120;
-
-    private static final int MAX_USER_REQUESTS_PER_MINUTE = 60;
-
-    private static final int MAX_USER_REQUESTS_PER_DAY = 240;
+    private static final int MAX_AUTHENTICATED_REQUESTS_PER_MINUTE = 300;
 
     private static final long MINUTE_MILLIS = 60_000L;
 
-    private static final long DAY_MILLIS = 24 * 60 * MINUTE_MILLIS;
+    private static final long DUPLICATE_REQUEST_MILLIS = 2_000L;
 
     private final ConcurrentHashMap<String, FixedWindowCounter> counterMap = new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<String, Long> recentRequestMap = new ConcurrentHashMap<>();
 
     public void checkRequest(PageRequest request, User loginUser, HttpServletRequest httpServletRequest) {
         PageRequest safeRequest = request == null ? new PageRequest() : request;
@@ -43,15 +41,23 @@ public class PublicContentAntiCrawlerManager {
             throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "公开内容列表分页深度超出访问范围");
         }
 
-        String clientIp = getClientIp(httpServletRequest);
-        checkLimit("ip:minute:" + clientIp, MINUTE_MILLIS, MAX_IP_REQUESTS_PER_MINUTE);
-        checkLimit("ip:day:" + clientIp, DAY_MILLIS, MAX_IP_REQUESTS_PER_DAY);
+        String principalKey;
         if (loginUser != null && loginUser.getId() != null) {
-            String userKey = String.valueOf(loginUser.getId());
-            checkLimit("user:minute:" + userKey, MINUTE_MILLIS, MAX_USER_REQUESTS_PER_MINUTE);
-            checkLimit("user:day:" + userKey, DAY_MILLIS, MAX_USER_REQUESTS_PER_DAY);
+            principalKey = "user:" + loginUser.getId();
+        } else {
+            principalKey = "anonymous:" + getClientIp(httpServletRequest);
         }
-        cleanupExpiredCounters();
+        String requestSignature = buildRequestSignature(principalKey, safeRequest, httpServletRequest);
+        if (isDuplicateRequest(requestSignature)) {
+            return;
+        }
+        if (loginUser != null && loginUser.getId() != null) {
+            checkLimit("minute:" + principalKey, MINUTE_MILLIS, MAX_AUTHENTICATED_REQUESTS_PER_MINUTE);
+        } else {
+            checkLimit("minute:" + principalKey, MINUTE_MILLIS, MAX_ANONYMOUS_REQUESTS_PER_MINUTE);
+        }
+        recentRequestMap.put(requestSignature, System.currentTimeMillis());
+        cleanupExpiredState();
     }
 
     private String getClientIp(HttpServletRequest request) {
@@ -77,16 +83,34 @@ public class PublicContentAntiCrawlerManager {
         }
     }
 
-    private void cleanupExpiredCounters() {
-        if (counterMap.size() < 10_000) {
+    private String buildRequestSignature(String principalKey, PageRequest request,
+            HttpServletRequest httpServletRequest) {
+        String requestUri = httpServletRequest == null ? "" : httpServletRequest.getRequestURI();
+        return principalKey + ':' + requestUri + ':' + request.getCurrent() + ':'
+                + request.getPageSize() + ':' + request.getSortField() + ':' + request.getSortOrder()
+                + ':' + request;
+    }
+
+    private boolean isDuplicateRequest(String signature) {
+        long now = System.currentTimeMillis();
+        Long previousRequestTime = recentRequestMap.get(signature);
+        return previousRequestTime != null && now - previousRequestTime < DUPLICATE_REQUEST_MILLIS;
+    }
+
+    private void cleanupExpiredState() {
+        if (counterMap.size() < 10_000 && recentRequestMap.size() < 10_000) {
             return;
         }
+        long now = System.currentTimeMillis();
         long currentMinute = System.currentTimeMillis() / MINUTE_MILLIS;
-        long currentDay = System.currentTimeMillis() / DAY_MILLIS;
         for (Map.Entry<String, FixedWindowCounter> entry : counterMap.entrySet()) {
-            long currentWindow = entry.getKey().contains(":minute:") ? currentMinute : currentDay;
-            if (entry.getValue().window != currentWindow) {
+            if (entry.getValue().window != currentMinute) {
                 counterMap.remove(entry.getKey(), entry.getValue());
+            }
+        }
+        for (Map.Entry<String, Long> entry : recentRequestMap.entrySet()) {
+            if (now - entry.getValue() >= DUPLICATE_REQUEST_MILLIS) {
+                recentRequestMap.remove(entry.getKey(), entry.getValue());
             }
         }
     }
