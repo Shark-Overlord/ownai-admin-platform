@@ -323,8 +323,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         QueryWrapper<Artwork> recentWrapper = new QueryWrapper<Artwork>()
                 .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
                 .eq("isDelete", 0)
-                .ge("updateTime", recentThreeDaysStart)
-                .orderByDesc("updateTime", "id");
+                .ge("createTime", recentThreeDaysStart)
+                .orderByDesc("createTime", "id");
 
         List<ArtworkListVO> recentItems = toArtworkListVOList(buildArtworkVOList(this.list(recentWrapper), loginUser));
 

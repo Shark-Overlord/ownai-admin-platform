@@ -64,7 +64,7 @@
 | 接口 | 登录 | 功能描述 | 入参 | 出参 |
 |---|---|---|---|---|
 | `POST /artwork/list/page/vo` | 否 | 前台作品分页列表，支持一级分类、二级标签、会员专享筛选；非登录可看列表但无法解锁会员内容 | `ArtworkQueryRequest`：`{ current, pageSize, searchText, categoryId, tagIdList, tagName, memberOnly, sortField, sortOrder }` | `Page<ArtworkListVO>`：`{ id, title, coverUrl, videoUrl, category, tagList, imageWidth, imageHeight, memberOnly, canAccess, favorited, favoriteCount, hasSourceCode }` |
-| `GET /artwork/home/overview` | 是 | 前台作品首页概览，返回总作品数、近 3 天更新数和近 3 天作品 | 无 | `{ totalCount, recentThreeDaysCount, recentItems: ArtworkListVO[] }` |
+| `GET /artwork/home/overview` | 是 | 前台作品首页概览，返回已发布作品总数、近 3 天新增数及近 3 天新增作品；按 `createTime DESC, id DESC` 排序 | 无 | `{ totalCount, recentThreeDaysCount, recentItems: ArtworkListVO[] }` |
 | `GET /artwork/get/vo` | 否 | 获取作品提示词内容；会员专享作品要求登录且 `memberLevel=plus/pro` | `id` query | `String`：作品提示词 |
 | `GET /artwork/source/download` | 是 | 下载作品源码 ZIP；会员专享作品要求会员 | `id` query | 文件流 `application/zip` |
 | `GET /artwork/preview/{id}` | 否 | 预览 HTML 原型作品 | path：`id` | HTML 文本 |
