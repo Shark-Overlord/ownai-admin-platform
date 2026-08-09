@@ -1,5 +1,6 @@
 package com.yupi.springbootinit.aop;
 
+import com.yupi.springbootinit.utils.NetUtils;
 import java.util.UUID;
 import javax.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ public class LogInterceptor {
         String url = httpServletRequest.getRequestURI();
         String method = httpServletRequest.getMethod();
         log.info("request start, id: {}, method: {}, path: {}, ip: {}", requestId, method, url,
-                httpServletRequest.getRemoteHost());
+                NetUtils.getIpAddress(httpServletRequest));
         Object result = point.proceed();
         stopWatch.stop();
         log.info("request end, id: {}, cost: {}ms", requestId, stopWatch.getTotalTimeMillis());

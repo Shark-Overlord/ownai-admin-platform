@@ -18,6 +18,7 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.contentapikey.ContentApiKeyCreateVO;
 import com.yupi.springbootinit.model.vo.contentapikey.ContentApiKeyVO;
 import com.yupi.springbootinit.service.ContentApiKeyService;
+import com.yupi.springbootinit.utils.NetUtils;
 import com.yupi.springbootinit.utils.SqlUtils;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -276,15 +277,6 @@ public class ContentApiKeyServiceImpl extends ServiceImpl<ContentApiKeyMapper, C
     }
 
     private String getClientIp(HttpServletRequest request) {
-        if (request == null) {
-            return null;
-        }
-        String ip = StringUtils.trimToNull(request.getHeader("X-Forwarded-For"));
-        if (ip != null) {
-            int commaIndex = ip.indexOf(',');
-            return commaIndex >= 0 ? ip.substring(0, commaIndex).trim() : ip;
-        }
-        ip = StringUtils.trimToNull(request.getHeader("X-Real-IP"));
-        return ip == null ? request.getRemoteAddr() : ip;
+        return NetUtils.getIpAddress(request);
     }
 }

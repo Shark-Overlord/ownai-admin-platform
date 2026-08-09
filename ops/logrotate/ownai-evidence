@@ -1,0 +1,15 @@
+/www/wwwlogs/de-ownai-migration.evidence.log /www/wwwlogs/springboot-init-admin.evidence.log {
+    daily
+    rotate 180
+    missingok
+    notifempty
+    compress
+    delaycompress
+    dateext
+    dateformat -%Y%m%d
+    create 0640 root root
+    sharedscripts
+    postrotate
+        /www/server/nginx/sbin/nginx -s reopen >/dev/null 2>&1 || true
+    endscript
+}

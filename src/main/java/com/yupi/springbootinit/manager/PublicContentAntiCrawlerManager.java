@@ -61,10 +61,6 @@ public class PublicContentAntiCrawlerManager {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.trim().isEmpty() && !"unknown".equalsIgnoreCase(realIp.trim())) {
-            return realIp.trim();
-        }
         return NetUtils.getIpAddress(request);
     }
 
