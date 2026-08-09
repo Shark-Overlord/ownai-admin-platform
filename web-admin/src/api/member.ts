@@ -1,16 +1,21 @@
 import request from './request';
+import type { MemberPlanType } from './memberPriceConfig';
 
 export interface MemberOrderVO {
   id: number;
   orderNo: string;
-  memberLevel: 'plus' | 'pro';
-  planType?: string;
+  userId: number;
+  userName?: string;
+  memberLevel: 'member';
+  planType: MemberPlanType;
   durationDays?: number;
-  orderType: 'cash' | 'points' | 'admin_grant';
-  orderStatus: 'pending' | 'completed' | 'cancelled';
+  orderType: 'cash' | 'admin_grant';
+  orderStatus: 'pending' | 'completed' | 'cancelled' | 'expired' | 'failed';
   orderAmount?: number;
-  pointsAmount?: number;
+  amountMinor?: number;
+  currency?: string;
   paymentChannel?: string;
+  failureReason?: string;
   payTime?: string;
   finishTime?: string;
   createTime?: string;
@@ -26,9 +31,7 @@ export async function adminCancelMemberOrder(params: { orderNo: string }) {
 
 export async function adminGrantMember(params: {
   userId: number;
-  memberLevel: 'plus' | 'pro';
-  planType: 'month' | 'year';
-  durationDays: number;
+  planType: MemberPlanType;
   description?: string;
 }) {
   return request.post('/member/grant', params) as Promise<{ data: any }>;

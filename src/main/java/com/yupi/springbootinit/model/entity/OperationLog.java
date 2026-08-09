@@ -17,6 +17,8 @@ public class OperationLog implements Serializable {
 
     private Long userId;
 
+    private String sourceIp;
+
     private String module;
 
     private String action;

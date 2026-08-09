@@ -4,10 +4,13 @@ import com.yupi.springbootinit.annotation.OperationLog;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.service.OperationLogService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.NetUtils;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -21,6 +24,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class OperationLogInterceptor {
 
     private static final int MAX_PARAM_LENGTH = 500;
+
+    private static final Logger log = LoggerFactory.getLogger(OperationLogInterceptor.class);
 
     @Resource
     private OperationLogService operationLogService;
@@ -37,6 +42,7 @@ public class OperationLogInterceptor {
         String requestParams = buildRequestParams(joinPoint.getArgs());
         com.yupi.springbootinit.model.entity.OperationLog logEntity = new com.yupi.springbootinit.model.entity.OperationLog();
         logEntity.setUserId(loginUser == null ? null : loginUser.getId());
+        logEntity.setSourceIp(NetUtils.getIpAddress(request));
         logEntity.setModule(operationLog.module());
         logEntity.setAction(operationLog.action());
         logEntity.setRequestMethod(request.getMethod());
@@ -52,7 +58,13 @@ public class OperationLogInterceptor {
             throw e;
         } finally {
             logEntity.setCostTime(System.currentTimeMillis() - start);
-            operationLogService.record(logEntity);
+            try {
+                operationLogService.record(logEntity);
+            } catch (Exception logException) {
+                // Auditing must not turn a completed payment/creation request into a false 500 response.
+                log.error("Failed to persist operation log: module={}, action={}, uri={}",
+                        logEntity.getModule(), logEntity.getAction(), logEntity.getRequestUri(), logException);
+            }
         }
     }
 

@@ -11,12 +11,14 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.model.dto.member.MemberPriceConfigUpdateRequest;
 import com.yupi.springbootinit.model.entity.MemberPriceConfig;
+import com.yupi.springbootinit.model.enums.MemberLevelEnum;
+import com.yupi.springbootinit.model.enums.MemberPlanTypeEnum;
 import com.yupi.springbootinit.service.MemberPriceConfigService;
 import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Resource;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,9 +26,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 会员价格配置接口 Member Price Config Controller
- */
 @RestController
 @RequestMapping("/member-price-config")
 @Api(tags = "MemberPriceConfig")
@@ -35,85 +34,105 @@ public class MemberPriceConfigController {
     @Resource
     private MemberPriceConfigService memberPriceConfigService;
 
-    /**
-     * 获取全部会员价格配置
-     */
     @GetMapping("/plans")
-    @ApiOperation("List enabled member price plans")
     public BaseResponse<List<MemberPriceConfig>> listEnabledPlans() {
-        List<MemberPriceConfig> list = memberPriceConfigService.list(
-                new QueryWrapper<MemberPriceConfig>()
-                        .eq("isDelete", 0)
-                        .eq("status", 1)
-                        .orderByAsc("memberLevel", "planType"));
-        return ResultUtils.success(list);
+        return ResultUtils.success(loadConfigs(true));
     }
 
     @GetMapping("/list")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    @ApiOperation("获取全部会员价格配置 List all member price configs")
     public BaseResponse<List<MemberPriceConfig>> listAll() {
-        List<MemberPriceConfig> list = memberPriceConfigService.list(
-                new QueryWrapper<MemberPriceConfig>().eq("isDelete", 0).orderByAsc("memberLevel", "planType"));
-        return ResultUtils.success(list);
+        return ResultUtils.success(loadConfigs(false));
     }
 
-    /**
-     * 更新会员价格配置
-     */
     @PostMapping("/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "member_price_config", action = "update_member_price_config")
-    @ApiOperation("更新会员价格配置 Update member price config")
-    public BaseResponse<Boolean> update(@RequestBody MemberPriceConfigUpdateRequest updateRequest) {
-        if (updateRequest == null || updateRequest.getId() == null || updateRequest.getId() <= 0) {
+    public BaseResponse<Boolean> update(@RequestBody MemberPriceConfigUpdateRequest request) {
+        if (request == null || request.getId() == null || request.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        MemberPriceConfig config = new MemberPriceConfig();
-        BeanUtils.copyProperties(updateRequest, config);
-        if (StringUtils.isNotBlank(updateRequest.getMemberLevel())) {
-            config.setMemberLevel(updateRequest.getMemberLevel().trim().toLowerCase());
-        }
-        if (StringUtils.isNotBlank(updateRequest.getPlanType())) {
-            config.setPlanType(updateRequest.getPlanType().trim().toLowerCase());
-        }
-        boolean result = memberPriceConfigService.updateById(config);
+        MemberPriceConfig existing = memberPriceConfigService.getById(request.getId());
+        ThrowUtils.throwIf(existing == null, ErrorCode.NOT_FOUND_ERROR, "Membership plan not found");
+        MemberPlanTypeEnum planType = MemberPlanTypeEnum.getEnumByValue(existing.getPlanType());
+        ThrowUtils.throwIf(planType == null, ErrorCode.PARAMS_ERROR, "Invalid membership plan");
+        validatePrice(request.getCashPrice());
+
+        MemberPriceConfig update = new MemberPriceConfig();
+        update.setId(existing.getId());
+        update.setMemberLevel(MemberLevelEnum.MEMBER.getValue());
+        update.setPlanType(planType.getValue());
+        update.setCashPrice(request.getCashPrice());
+        update.setCurrency(normalizeCurrency(request.getCurrency()));
+        update.setPointsPrice(0);
+        update.setDurationDays(planType.isLifetime() ? 0 : planType.getDurationDays());
+        update.setDescription(request.getDescription());
+        update.setFeatures(request.getFeatures());
+        update.setStatus(request.getStatus());
+        boolean result = memberPriceConfigService.updateById(update);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
     }
 
-    /**
-     * 新增会员价格配置
-     */
     @PostMapping("/add")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "member_price_config", action = "add_member_price_config")
-    @ApiOperation("新增会员价格配置 Add member price config")
-    public BaseResponse<Long> add(@RequestBody MemberPriceConfigUpdateRequest addRequest) {
-        if (addRequest == null || StringUtils.isBlank(addRequest.getMemberLevel())
-                || StringUtils.isBlank(addRequest.getPlanType())) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "会员等级和套餐类型不能为空");
+    public BaseResponse<Long> add(@RequestBody MemberPriceConfigUpdateRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        String memberLevel = addRequest.getMemberLevel().trim().toLowerCase();
-        String planType = addRequest.getPlanType().trim().toLowerCase();
-        MemberPriceConfig existing = memberPriceConfigService.getOne(
-                new QueryWrapper<MemberPriceConfig>()
-                        .eq("memberLevel", memberLevel)
-                        .eq("planType", planType)
-                        .eq("isDelete", 0)
-                        .last("LIMIT 1"));
-        if (existing != null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "该会员等级和套餐类型配置已存在");
-        }
+        MemberPlanTypeEnum planType = MemberPlanTypeEnum.getEnumByValue(request.getPlanType());
+        ThrowUtils.throwIf(planType == null, ErrorCode.PARAMS_ERROR, "Invalid membership plan");
+        validatePrice(request.getCashPrice());
+        MemberPriceConfig existing = memberPriceConfigService.getOne(new QueryWrapper<MemberPriceConfig>()
+                .eq("memberLevel", MemberLevelEnum.MEMBER.getValue())
+                .eq("planType", planType.getValue())
+                .eq("isDelete", 0)
+                .last("LIMIT 1"));
+        ThrowUtils.throwIf(existing != null, ErrorCode.PARAMS_ERROR, "Membership plan already exists");
+
         MemberPriceConfig config = new MemberPriceConfig();
-        BeanUtils.copyProperties(addRequest, config);
-        config.setMemberLevel(memberLevel);
-        config.setPlanType(planType);
-        if (config.getStatus() == null) {
-            config.setStatus(1);
-        }
+        BeanUtils.copyProperties(request, config);
+        config.setMemberLevel(MemberLevelEnum.MEMBER.getValue());
+        config.setPlanType(planType.getValue());
+        config.setCurrency(normalizeCurrency(request.getCurrency()));
+        config.setPointsPrice(0);
+        config.setDurationDays(planType.isLifetime() ? 0 : planType.getDurationDays());
+        config.setStatus(config.getStatus() == null ? 1 : config.getStatus());
         boolean result = memberPriceConfigService.save(config);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(config.getId());
+    }
+
+    private List<MemberPriceConfig> loadConfigs(boolean enabledOnly) {
+        QueryWrapper<MemberPriceConfig> query = new QueryWrapper<MemberPriceConfig>()
+                .eq("memberLevel", MemberLevelEnum.MEMBER.getValue())
+                .eq("isDelete", 0);
+        query.eq(enabledOnly, "status", 1);
+        List<MemberPriceConfig> configs = memberPriceConfigService.list(query);
+        configs.sort(Comparator.comparingInt(item -> planOrder(item.getPlanType())));
+        return configs;
+    }
+
+    private int planOrder(String planType) {
+        if (MemberPlanTypeEnum.MONTH.getValue().equals(planType)) {
+            return 1;
+        }
+        if (MemberPlanTypeEnum.YEAR.getValue().equals(planType)) {
+            return 2;
+        }
+        return 3;
+    }
+
+    private void validatePrice(BigDecimal price) {
+        ThrowUtils.throwIf(price == null || price.compareTo(BigDecimal.ZERO) <= 0,
+                ErrorCode.PARAMS_ERROR, "Cash price must be positive");
+        ThrowUtils.throwIf(price.scale() > 2, ErrorCode.PARAMS_ERROR, "Cash price supports at most two decimal places");
+    }
+
+    private String normalizeCurrency(String currency) {
+        String value = currency == null ? "CNY" : currency.trim().toUpperCase();
+        ThrowUtils.throwIf(value.length() != 3, ErrorCode.PARAMS_ERROR, "Invalid currency");
+        return value;
     }
 }

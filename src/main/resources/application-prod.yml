@@ -2,6 +2,7 @@
 # @author <a href="https://github.com/liyupi">程序员鱼皮</a>
 # @from <a href="https://yupi.icu">编程导航知识星球</a>
 server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
   port: 8011
 spring:
   # 数据库配置
@@ -56,6 +57,17 @@ prompt:
       config-secret: ${PROMPT_ASSET_AI_TAGGING_CONFIG_SECRET:${IMAGE_GENERATION_CONFIG_SECRET:}}
 auth:
   login-captcha-required: ${AUTH_LOGIN_CAPTCHA_REQUIRED:true}
+alipay:
+  enabled: ${ALIPAY_ENABLED:false}
+  app-id: ${ALIPAY_APP_ID:}
+  app-private-key: ${ALIPAY_APP_PRIVATE_KEY:}
+  alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
+  gateway-url: ${ALIPAY_GATEWAY_URL:https://openapi.alipay.com/gateway.do}
+  notify-url: ${ALIPAY_NOTIFY_URL:https://admin.ownai.icu/api/payment/alipay/notify}
+  return-url: ${ALIPAY_RETURN_URL:https://admin.ownai.icu/api/payment/alipay/return}
+  frontend-return-url: ${ALIPAY_FRONTEND_RETURN_URL:https://ownai.icu/#/pricing/payment-result}
+  pending-order-timeout-minutes: ${ALIPAY_PENDING_ORDER_TIMEOUT_MINUTES:15}
+  pending-order-timeout-scan-interval-ms: ${ALIPAY_PENDING_ORDER_TIMEOUT_SCAN_INTERVAL_MS:60000}
 yuque:
   base-url: ${YUQUE_BASE_URL:https://www.yuque.com/api/v2}
   token: ${YUQUE_TOKEN:}

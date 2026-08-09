@@ -7,10 +7,12 @@ class BusinessEnumTest {
 
     @Test
     void memberLevelEnumShouldMapCorrectly() {
-        Assertions.assertEquals(MemberLevelEnum.PLUS, MemberLevelEnum.getEnumByValue("plus"));
+        Assertions.assertEquals(MemberLevelEnum.MEMBER, MemberLevelEnum.getEnumByValue("member"));
         Assertions.assertNull(MemberLevelEnum.getEnumByValue("vip"));
-        Assertions.assertTrue(MemberLevelEnum.PRO.canAccessMemberContent());
+        Assertions.assertTrue(MemberLevelEnum.MEMBER.canAccessMemberContent());
         Assertions.assertFalse(MemberLevelEnum.NORMAL.canAccessMemberContent());
+        Assertions.assertEquals(MemberPlanTypeEnum.LIFETIME,
+                MemberPlanTypeEnum.getEnumByValue("lifetime"));
     }
 
     @Test

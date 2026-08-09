@@ -5,13 +5,14 @@ import org.apache.commons.lang3.StringUtils;
 
 public enum OrderStatusEnum {
 
-    PENDING("待支付", "pending"),
-    PAID("已支付", "paid"),
-    COMPLETED("已完成", "completed"),
-    CANCELLED("已取消", "cancelled");
+    PENDING("Pending payment", "pending"),
+    PAID("Paid", "paid"),
+    COMPLETED("Completed", "completed"),
+    CANCELLED("Cancelled", "cancelled"),
+    EXPIRED("Expired", "expired"),
+    FAILED("Failed", "failed");
 
     private final String text;
-
     private final String value;
 
     OrderStatusEnum(String text, String value) {

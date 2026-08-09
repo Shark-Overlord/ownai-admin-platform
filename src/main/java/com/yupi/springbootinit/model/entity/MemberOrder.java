@@ -32,11 +32,22 @@ public class MemberOrder implements Serializable {
 
     private BigDecimal orderAmount;
 
+    private Long amountMinor;
+
+    private String currency;
+
     private Integer pointsAmount;
 
     private String paymentChannel;
 
     private String thirdPartyOrderNo;
+
+    /**
+     * Client-created idempotency key for a payment attempt.
+     */
+    private String paymentRequestId;
+
+    private String failureReason;
 
     private Date payTime;
 

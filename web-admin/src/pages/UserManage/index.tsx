@@ -42,8 +42,7 @@ export default function UserManage() {
       search: false,
       valueEnum: {
         normal: { text: '普通用户' },
-        plus: { text: 'Plus 会员' },
-        pro: { text: 'Pro 会员' },
+        member: { text: '付费会员' },
       },
     },
     {
@@ -53,6 +52,7 @@ export default function UserManage() {
       valueEnum: {
         month: { text: '月费', status: 'Processing' },
         year: { text: '年费', status: 'Success' },
+        lifetime: { text: '永久', status: 'Success' },
       },
     },
     {
@@ -207,8 +207,7 @@ export default function UserManage() {
             <Select
               options={[
                 { label: '普通用户', value: 'normal' },
-                { label: 'Plus 会员', value: 'plus' },
-                { label: 'Pro 会员', value: 'pro' },
+                { label: '付费会员', value: 'member' },
               ]}
             />
           </Form.Item>
@@ -217,6 +216,7 @@ export default function UserManage() {
               options={[
                 { label: '月费', value: 'month' },
                 { label: '年费', value: 'year' },
+                { label: '永久', value: 'lifetime' },
               ]}
               placeholder="请选择套餐类型"
               allowClear

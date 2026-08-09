@@ -6,7 +6,6 @@ import org.apache.commons.lang3.StringUtils;
 public enum MemberOrderTypeEnum {
 
     CASH("现金开通", "cash"),
-    POINTS("积分开通", "points"),
     ADMIN_GRANT("后台发放", "admin_grant");
 
     private final String text;

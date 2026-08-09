@@ -8,8 +8,6 @@ public class AdminMemberGrantRequest implements Serializable {
 
     private Long userId;
 
-    private String memberLevel;
-
     private String planType;
 
     private Integer durationDays;

@@ -22,9 +22,13 @@ public class MemberPriceConfig implements Serializable {
 
     private BigDecimal cashPrice;
 
+    private String currency;
+
     private Integer pointsPrice;
 
     private Integer durationDays;
+
+    private String features;
 
     private String description;
 

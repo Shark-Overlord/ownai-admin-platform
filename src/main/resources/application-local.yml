@@ -65,6 +65,18 @@ image:
     running-timeout-minutes: ${IMAGE_GENERATION_RUNNING_TIMEOUT_MINUTES:20}
     running-timeout-scan-interval-ms: ${IMAGE_GENERATION_RUNNING_TIMEOUT_SCAN_INTERVAL_MS:300000}
 
+alipay:
+  enabled: ${ALIPAY_ENABLED:false}
+  app-id: ${ALIPAY_APP_ID:}
+  app-private-key: ${ALIPAY_APP_PRIVATE_KEY:}
+  alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
+  gateway-url: ${ALIPAY_GATEWAY_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}
+  notify-url: ${ALIPAY_NOTIFY_URL:}
+  return-url: ${ALIPAY_RETURN_URL:http://127.0.0.1:8011/api/payment/alipay/return}
+  frontend-return-url: ${ALIPAY_FRONTEND_RETURN_URL:http://127.0.0.1:5173/#/pricing/payment-result}
+  pending-order-timeout-minutes: ${ALIPAY_PENDING_ORDER_TIMEOUT_MINUTES:15}
+  pending-order-timeout-scan-interval-ms: ${ALIPAY_PENDING_ORDER_TIMEOUT_SCAN_INTERVAL_MS:60000}
+
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

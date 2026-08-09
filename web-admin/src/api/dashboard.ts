@@ -4,8 +4,10 @@ export interface DashboardOverview {
   user: {
     total: number;
     todayNew: number;
-    plus: number;
-    pro: number;
+    member: number;
+    month: number;
+    year: number;
+    lifetime: number;
   };
   content: {
     artworkTotal: number;

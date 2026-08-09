@@ -27,9 +27,13 @@ public class DashboardOverviewVO implements Serializable {
 
         private Long todayNew = 0L;
 
-        private Long plus = 0L;
+        private Long member = 0L;
 
-        private Long pro = 0L;
+        private Long month = 0L;
+
+        private Long year = 0L;
+
+        private Long lifetime = 0L;
 
         private static final long serialVersionUID = 1L;
     }

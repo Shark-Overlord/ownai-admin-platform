@@ -31,25 +31,19 @@ class ArtworkAccessTest {
     }
 
     @Test
-    void plusAndProUsersShouldAccessMemberOnlyArtwork() {
+    void paidMemberShouldAccessMemberOnlyArtwork() {
         ArtworkServiceImpl artworkService = Mockito.spy(new ArtworkServiceImpl());
         Artwork artwork = new Artwork();
         artwork.setId(1L);
         artwork.setMemberOnly(1);
         doReturn(artwork).when(artworkService).getById(1L);
 
-        User plusUser = new User();
-        plusUser.setId(11L);
-        plusUser.setUserRole(UserConstant.DEFAULT_ROLE);
-        plusUser.setMemberLevel(MemberLevelEnum.PLUS.getValue());
+        User member = new User();
+        member.setId(11L);
+        member.setUserRole(UserConstant.DEFAULT_ROLE);
+        member.setMemberLevel(MemberLevelEnum.MEMBER.getValue());
 
-        User proUser = new User();
-        proUser.setId(12L);
-        proUser.setUserRole(UserConstant.DEFAULT_ROLE);
-        proUser.setMemberLevel(MemberLevelEnum.PRO.getValue());
-
-        assertTrue(artworkService.hasArtworkAccess(1L, plusUser));
-        assertTrue(artworkService.hasArtworkAccess(1L, proUser));
+        assertTrue(artworkService.hasArtworkAccess(1L, member));
     }
 
     @Test

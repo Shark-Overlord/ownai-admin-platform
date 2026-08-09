@@ -1,13 +1,17 @@
 import request from './request';
 
+export type MemberPlanType = 'month' | 'year' | 'lifetime';
+
 export interface MemberPriceConfig {
   id: number;
-  memberLevel: string;
-  planType: string;
+  memberLevel: 'member';
+  planType: MemberPlanType;
   cashPrice: number;
-  pointsPrice: number;
+  currency: string;
+  pointsPrice: 0;
   durationDays: number;
   description?: string;
+  features?: string;
   status: number;
   createTime?: string;
   updateTime?: string;
@@ -15,12 +19,12 @@ export interface MemberPriceConfig {
 
 export interface MemberPriceConfigUpdateRequest {
   id?: number;
-  memberLevel?: string;
-  planType?: string;
+  memberLevel?: 'member';
+  planType?: MemberPlanType;
   cashPrice?: number;
-  pointsPrice?: number;
-  durationDays?: number;
+  currency?: string;
   description?: string;
+  features?: string;
   status?: number;
 }
 

@@ -15,7 +15,7 @@ import type { DashboardOverview } from '../../api/dashboard';
 import { getDashboardOverview } from '../../api/dashboard';
 
 const zeroOverview: DashboardOverview = {
-  user: { total: 0, todayNew: 0, plus: 0, pro: 0 },
+  user: { total: 0, todayNew: 0, member: 0, month: 0, year: 0, lifetime: 0 },
   content: {
     artworkTotal: 0,
     promptAssetTotal: 0,

@@ -357,12 +357,10 @@ public class UserController {
     @ApiOperation("获取用户统计 Get user statistics")
     public BaseResponse<Map<String, Long>> getUserStats(HttpServletRequest request) {
         long total = userService.count();
-        long plusCount = userService.count(new QueryWrapper<User>().eq("memberLevel", "plus"));
-        long proCount = userService.count(new QueryWrapper<User>().eq("memberLevel", "pro"));
+        long memberCount = userService.count(new QueryWrapper<User>().eq("memberLevel", "member"));
         Map<String, Long> result = new HashMap<>();
         result.put("total", total);
-        result.put("plus", plusCount);
-        result.put("pro", proCount);
+        result.put("member", memberCount);
         return ResultUtils.success(result);
     }
 

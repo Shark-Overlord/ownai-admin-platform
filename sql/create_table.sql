@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS `user`
     userProfile      VARCHAR(512)                           NULL,
     userRole         VARCHAR(64)  DEFAULT 'user'           NOT NULL,
     memberLevel      VARCHAR(64)  DEFAULT 'normal'         NOT NULL,
+    memberPlanType   VARCHAR(32)                            NULL,
     pointBalance     INT          DEFAULT 0                NOT NULL,
     memberExpireTime DATETIME                               NULL,
     lastCheckInDate  DATETIME                               NULL,
@@ -123,23 +124,47 @@ CREATE TABLE IF NOT EXISTS artwork_order
 
 CREATE TABLE IF NOT EXISTS member_order
 (
-    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
-    orderNo           VARCHAR(64)                            NOT NULL,
-    userId            BIGINT                                 NOT NULL,
-    memberLevel       VARCHAR(64)                            NOT NULL,
-    durationDays      INT                                    NOT NULL,
-    orderType         VARCHAR(64)                            NOT NULL,
-    orderStatus       VARCHAR(64)                            NOT NULL,
-    orderAmount       DECIMAL(10, 2) DEFAULT 0.00           NOT NULL,
-    pointsAmount      INT           DEFAULT 0               NOT NULL,
-    paymentChannel    VARCHAR(64)                            NULL,
-    thirdPartyOrderNo VARCHAR(128)                           NULL,
-    payTime           DATETIME                               NULL,
-    finishTime        DATETIME                               NULL,
-    createTime        DATETIME      DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updateTime        DATETIME      DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP,
+    id                      BIGINT AUTO_INCREMENT PRIMARY KEY,
+    orderNo                 VARCHAR(64)                             NOT NULL,
+    userId                  BIGINT                                  NOT NULL,
+    memberLevel             VARCHAR(64)                             NOT NULL,
+    planType                VARCHAR(32)                             NOT NULL,
+    durationDays            INT                                    NOT NULL DEFAULT 0,
+    orderType               VARCHAR(64)                             NOT NULL,
+    orderStatus             VARCHAR(64)                             NOT NULL,
+    orderAmount             DECIMAL(10, 2) DEFAULT 0.00            NOT NULL,
+    amountMinor             BIGINT                                  NULL,
+    currency                VARCHAR(3)     DEFAULT 'CNY'            NOT NULL,
+    pointsAmount            INT            DEFAULT 0                NOT NULL,
+    paymentChannel          VARCHAR(64)                             NULL,
+    thirdPartyOrderNo       VARCHAR(128)                            NULL,
+    paymentRequestId        VARCHAR(64)                             NULL,
+    failureReason           VARCHAR(500)                            NULL,
+    payTime                 DATETIME                                NULL,
+    finishTime              DATETIME                                NULL,
+    createTime              DATETIME       DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updateTime              DATETIME       DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_member_order_no (orderNo),
+    UNIQUE KEY uk_member_payment_request (userId, paymentRequestId),
     INDEX idx_userId_status (userId, orderStatus)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS member_price_config
+(
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY,
+    memberLevel  VARCHAR(64)                             NOT NULL DEFAULT 'member',
+    planType     VARCHAR(32)                             NOT NULL,
+    cashPrice    DECIMAL(10, 2)                         NOT NULL,
+    currency     VARCHAR(3)                              NOT NULL DEFAULT 'CNY',
+    pointsPrice  INT                                     NOT NULL DEFAULT 0,
+    durationDays INT                                     NOT NULL DEFAULT 0,
+    description  VARCHAR(500)                            NULL,
+    features     JSON                                    NULL,
+    status       TINYINT                                 NOT NULL DEFAULT 1,
+    createTime   DATETIME DEFAULT CURRENT_TIMESTAMP      NOT NULL,
+    updateTime   DATETIME DEFAULT CURRENT_TIMESTAMP      NOT NULL ON UPDATE CURRENT_TIMESTAMP,
+    isDelete     TINYINT  DEFAULT 0                      NOT NULL,
+    UNIQUE KEY uk_member_price_plan (memberLevel, planType)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS point_record
@@ -161,6 +186,7 @@ CREATE TABLE IF NOT EXISTS operation_log
 (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
     userId        BIGINT                                 NULL,
+    sourceIp      VARCHAR(45)                            NULL,
     module        VARCHAR(64)                            NOT NULL,
     action        VARCHAR(128)                           NOT NULL,
     requestMethod VARCHAR(16)                            NOT NULL,
@@ -171,6 +197,7 @@ CREATE TABLE IF NOT EXISTS operation_log
     costTime      BIGINT                                 NULL,
     createTime    DATETIME DEFAULT CURRENT_TIMESTAMP     NOT NULL,
     INDEX idx_userId (userId),
+    INDEX idx_sourceIp_createTime (sourceIp, createTime),
     INDEX idx_module_action (module, action),
     INDEX idx_status (status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

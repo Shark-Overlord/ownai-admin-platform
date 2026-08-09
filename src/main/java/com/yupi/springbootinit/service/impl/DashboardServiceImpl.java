@@ -96,10 +96,17 @@ public class DashboardServiceImpl implements DashboardService {
         stats.setTodayNew(userMapper.selectCount(new QueryWrapper<User>()
                 .ge("createTime", todayStart)
                 .lt("createTime", tomorrowStart)));
-        stats.setPlus(userMapper.selectCount(new QueryWrapper<User>()
-                .eq("memberLevel", MemberLevelEnum.PLUS.getValue())));
-        stats.setPro(userMapper.selectCount(new QueryWrapper<User>()
-                .eq("memberLevel", MemberLevelEnum.PRO.getValue())));
+        stats.setMember(userMapper.selectCount(new QueryWrapper<User>()
+                .eq("memberLevel", MemberLevelEnum.MEMBER.getValue())));
+        stats.setMonth(userMapper.selectCount(new QueryWrapper<User>()
+                .eq("memberLevel", MemberLevelEnum.MEMBER.getValue())
+                .eq("memberPlanType", "month")));
+        stats.setYear(userMapper.selectCount(new QueryWrapper<User>()
+                .eq("memberLevel", MemberLevelEnum.MEMBER.getValue())
+                .eq("memberPlanType", "year")));
+        stats.setLifetime(userMapper.selectCount(new QueryWrapper<User>()
+                .eq("memberLevel", MemberLevelEnum.MEMBER.getValue())
+                .eq("memberPlanType", "lifetime")));
         return stats;
     }
 

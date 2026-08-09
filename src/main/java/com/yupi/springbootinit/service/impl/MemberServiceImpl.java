@@ -5,25 +5,22 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.common.ErrorCode;
-import com.yupi.springbootinit.exception.BusinessException;
+import com.yupi.springbootinit.config.AlipayProperties;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.mapper.MemberOrderMapper;
 import com.yupi.springbootinit.mapper.UserMapper;
 import com.yupi.springbootinit.model.dto.member.AdminMemberGrantRequest;
-import com.yupi.springbootinit.model.dto.member.MemberOrderCallbackRequest;
-import com.yupi.springbootinit.model.dto.member.MemberOrderCreateRequest;
 import com.yupi.springbootinit.model.dto.member.MemberOrderQueryRequest;
 import com.yupi.springbootinit.model.entity.MemberOrder;
 import com.yupi.springbootinit.model.entity.MemberPriceConfig;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.model.enums.MemberOrderTypeEnum;
+import com.yupi.springbootinit.model.enums.MemberPlanTypeEnum;
 import com.yupi.springbootinit.model.enums.OrderStatusEnum;
-import com.yupi.springbootinit.model.enums.PointChangeTypeEnum;
 import com.yupi.springbootinit.model.vo.member.MemberOrderVO;
 import com.yupi.springbootinit.service.MemberPriceConfigService;
 import com.yupi.springbootinit.service.MemberService;
-import com.yupi.springbootinit.service.PointService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -42,244 +39,140 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberServiceImpl extends ServiceImpl<MemberOrderMapper, MemberOrder> implements MemberService {
 
     @Resource
-    private PointService pointService;
-
-    @Resource
     private UserMapper userMapper;
 
     @Resource
     private MemberPriceConfigService memberPriceConfigService;
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public MemberOrder createMemberOrder(MemberOrderCreateRequest memberOrderCreateRequest, User loginUser) {
-        ThrowUtils.throwIf(memberOrderCreateRequest == null, ErrorCode.PARAMS_ERROR);
-        MemberLevelEnum memberLevelEnum = MemberLevelEnum.getEnumByValue(memberOrderCreateRequest.getMemberLevel());
-        ThrowUtils.throwIf(memberLevelEnum == null || MemberLevelEnum.NORMAL.equals(memberLevelEnum), ErrorCode.PARAMS_ERROR,
-                "会员等级错误");
-        MemberOrderTypeEnum memberOrderTypeEnum = MemberOrderTypeEnum.getEnumByValue(memberOrderCreateRequest.getOrderType());
-        ThrowUtils.throwIf(memberOrderTypeEnum == null || MemberOrderTypeEnum.ADMIN_GRANT.equals(memberOrderTypeEnum),
-                ErrorCode.PARAMS_ERROR, "会员订单类型错误");
-
-        int durationDays;
-        BigDecimal cashAmount;
-        int pointsAmount;
-
-        // 如果传了套餐类型，直接查配置表
-        if (StringUtils.isNotBlank(memberOrderCreateRequest.getPlanType())) {
-            MemberPriceConfig config = memberPriceConfigService.getValidConfig(
-                    memberLevelEnum.getValue(), memberOrderCreateRequest.getPlanType().trim().toLowerCase());
-            ThrowUtils.throwIf(config == null, ErrorCode.PARAMS_ERROR, "会员套餐配置不存在");
-            durationDays = config.getDurationDays();
-            cashAmount = config.getCashPrice();
-            pointsAmount = config.getPointsPrice();
-        } else {
-            // 向后兼容：按天计算
-            durationDays = validateDurationDays(memberOrderCreateRequest.getDurationDays());
-            cashAmount = calculateCashAmount(memberLevelEnum, durationDays);
-            pointsAmount = calculatePointsAmount(memberLevelEnum, durationDays);
-        }
-
-        MemberOrder memberOrder = new MemberOrder();
-        memberOrder.setOrderNo(generateOrderNo());
-        memberOrder.setUserId(loginUser.getId());
-        memberOrder.setMemberLevel(memberLevelEnum.getValue());
-        memberOrder.setPlanType(memberOrderCreateRequest.getPlanType());
-        memberOrder.setDurationDays(durationDays);
-        memberOrder.setOrderType(memberOrderTypeEnum.getValue());
-        memberOrder.setPaymentChannel(memberOrderCreateRequest.getPaymentChannel());
-        memberOrder.setOrderStatus(OrderStatusEnum.PENDING.getValue());
-        if (MemberOrderTypeEnum.CASH.equals(memberOrderTypeEnum)) {
-            memberOrder.setOrderAmount(cashAmount);
-            memberOrder.setPointsAmount(0);
-            boolean result = this.save(memberOrder);
-            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "会员订单创建失败");
-            return memberOrder;
-        }
-        memberOrder.setOrderAmount(BigDecimal.ZERO);
-        memberOrder.setPointsAmount(pointsAmount);
-        memberOrder.setOrderStatus(OrderStatusEnum.COMPLETED.getValue());
-        memberOrder.setPayTime(new Date());
-        memberOrder.setFinishTime(new Date());
-        boolean result = this.save(memberOrder);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "会员订单创建失败");
-        pointService.deductPoints(loginUser.getId(), pointsAmount, PointChangeTypeEnum.REDEEM_CONSUME, "member_order",
-                memberOrder.getId(), "积分开通会员");
-        activateMember(loginUser.getId(), memberLevelEnum.getValue(), memberOrderCreateRequest.getPlanType(), durationDays);
-        return memberOrder;
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public boolean handleMemberPaymentCallback(MemberOrderCallbackRequest memberOrderCallbackRequest) {
-        ThrowUtils.throwIf(memberOrderCallbackRequest == null || StringUtils.isBlank(memberOrderCallbackRequest.getOrderNo()),
-                ErrorCode.PARAMS_ERROR);
-        MemberOrder memberOrder = this.getOne(new QueryWrapper<MemberOrder>().eq("orderNo", memberOrderCallbackRequest.getOrderNo()));
-        ThrowUtils.throwIf(memberOrder == null, ErrorCode.NOT_FOUND_ERROR, "会员订单不存在");
-        if (OrderStatusEnum.COMPLETED.getValue().equals(memberOrder.getOrderStatus())) {
-            return true;
-        }
-        ThrowUtils.throwIf(!OrderStatusEnum.PENDING.getValue().equals(memberOrder.getOrderStatus()), ErrorCode.OPERATION_ERROR,
-                "会员订单状态不可回调");
-        if (memberOrderCallbackRequest.getPaidAmount() != null && memberOrder.getOrderAmount() != null) {
-            ThrowUtils.throwIf(memberOrderCallbackRequest.getPaidAmount().compareTo(memberOrder.getOrderAmount()) != 0,
-                    ErrorCode.PARAMS_ERROR, "支付金额不匹配");
-        }
-        memberOrder.setOrderStatus(OrderStatusEnum.COMPLETED.getValue());
-        memberOrder.setPayTime(new Date());
-        memberOrder.setFinishTime(new Date());
-        memberOrder.setThirdPartyOrderNo(memberOrderCallbackRequest.getThirdPartyOrderNo());
-        if (StringUtils.isNotBlank(memberOrderCallbackRequest.getPaymentChannel())) {
-            memberOrder.setPaymentChannel(memberOrderCallbackRequest.getPaymentChannel());
-        }
-        boolean result = this.updateById(memberOrder);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "会员支付回调处理失败");
-        activateMember(memberOrder.getUserId(), memberOrder.getMemberLevel(), memberOrder.getPlanType(), memberOrder.getDurationDays());
-        return true;
-    }
+    @Resource
+    private AlipayProperties alipayProperties;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean cancelMemberOrder(String orderNo, User loginUser, boolean adminOperation) {
-        ThrowUtils.throwIf(StringUtils.isBlank(orderNo), ErrorCode.PARAMS_ERROR, "订单号不能为空");
-        MemberOrder memberOrder = this.getOne(new QueryWrapper<MemberOrder>().eq("orderNo", orderNo));
-        ThrowUtils.throwIf(memberOrder == null, ErrorCode.NOT_FOUND_ERROR, "会员订单不存在");
+        ThrowUtils.throwIf(StringUtils.isBlank(orderNo), ErrorCode.PARAMS_ERROR, "orderNo is required");
+        MemberOrder order = baseMapper.selectByOrderNoForUpdate(orderNo);
+        ThrowUtils.throwIf(order == null, ErrorCode.NOT_FOUND_ERROR, "Membership order not found");
         if (!adminOperation) {
-            ThrowUtils.throwIf(loginUser == null || !memberOrder.getUserId().equals(loginUser.getId()),
-                    ErrorCode.NO_AUTH_ERROR, "无权取消该会员订单");
+            ThrowUtils.throwIf(loginUser == null || !order.getUserId().equals(loginUser.getId()),
+                    ErrorCode.NO_AUTH_ERROR, "You cannot cancel this order");
         }
-        ThrowUtils.throwIf(!OrderStatusEnum.PENDING.getValue().equals(memberOrder.getOrderStatus()),
-                ErrorCode.OPERATION_ERROR, "仅待支付会员订单可取消");
-        memberOrder.setOrderStatus(OrderStatusEnum.CANCELLED.getValue());
-        return this.updateById(memberOrder);
+        ThrowUtils.throwIf(!OrderStatusEnum.PENDING.getValue().equals(order.getOrderStatus()),
+                ErrorCode.OPERATION_ERROR, "Only pending orders can be cancelled");
+        ThrowUtils.throwIf("alipay".equals(order.getPaymentChannel()), ErrorCode.OPERATION_ERROR,
+                "Alipay orders must be closed through the payment provider");
+        order.setOrderStatus(OrderStatusEnum.CANCELLED.getValue());
+        return this.updateById(order);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public MemberOrder adminGrantMember(AdminMemberGrantRequest adminMemberGrantRequest) {
-        ThrowUtils.throwIf(adminMemberGrantRequest == null || adminMemberGrantRequest.getUserId() == null, ErrorCode.PARAMS_ERROR);
-        MemberLevelEnum memberLevelEnum = MemberLevelEnum.getEnumByValue(adminMemberGrantRequest.getMemberLevel());
-        ThrowUtils.throwIf(memberLevelEnum == null || MemberLevelEnum.NORMAL.equals(memberLevelEnum), ErrorCode.PARAMS_ERROR,
-                "会员等级错误");
+    public MemberOrder adminGrantMember(AdminMemberGrantRequest request) {
+        ThrowUtils.throwIf(request == null || request.getUserId() == null, ErrorCode.PARAMS_ERROR);
+        MemberPlanTypeEnum planType = MemberPlanTypeEnum.getEnumByValue(request.getPlanType());
+        ThrowUtils.throwIf(planType == null, ErrorCode.PARAMS_ERROR, "Invalid membership plan");
+        MemberPriceConfig config = memberPriceConfigService.getValidConfig(
+                MemberLevelEnum.MEMBER.getValue(), planType.getValue());
+        ThrowUtils.throwIf(config == null, ErrorCode.PARAMS_ERROR, "Membership plan is unavailable");
+        User user = userMapper.selectById(request.getUserId());
+        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR, "User not found");
 
-        int durationDays;
-        if (StringUtils.isNotBlank(adminMemberGrantRequest.getPlanType())) {
-            MemberPriceConfig config = memberPriceConfigService.getValidConfig(
-                    memberLevelEnum.getValue(), adminMemberGrantRequest.getPlanType().trim().toLowerCase());
-            ThrowUtils.throwIf(config == null, ErrorCode.PARAMS_ERROR, "会员套餐配置不存在");
-            durationDays = config.getDurationDays();
+        MemberOrder order = new MemberOrder();
+        order.setOrderNo(generateOrderNo());
+        order.setUserId(user.getId());
+        order.setMemberLevel(MemberLevelEnum.MEMBER.getValue());
+        order.setPlanType(planType.getValue());
+        order.setDurationDays(planType.isLifetime() ? 0 : planType.getDurationDays());
+        order.setOrderType(MemberOrderTypeEnum.ADMIN_GRANT.getValue());
+        order.setOrderStatus(OrderStatusEnum.COMPLETED.getValue());
+        order.setOrderAmount(BigDecimal.ZERO);
+        order.setAmountMinor(0L);
+        order.setCurrency(StringUtils.defaultIfBlank(config.getCurrency(), "CNY"));
+        order.setPointsAmount(0);
+        order.setPaymentChannel("admin");
+        order.setPayTime(new Date());
+        order.setFinishTime(new Date());
+        boolean saved = this.save(order);
+        ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR, "Failed to grant membership");
+        activateMember(user.getId(), planType.getValue(), planType.isLifetime() ? 0 : planType.getDurationDays());
+        return order;
+    }
+
+    @Override
+    public Page<MemberOrderVO> listMyMemberOrders(MemberOrderQueryRequest request, User loginUser) {
+        return doListMemberOrders(request, loginUser.getId(), false);
+    }
+
+    @Override
+    public Page<MemberOrderVO> listAllMemberOrders(MemberOrderQueryRequest request) {
+        return doListMemberOrders(request, null, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void activateMember(Long userId, String planTypeValue, Integer durationDays) {
+        MemberPlanTypeEnum planType = MemberPlanTypeEnum.getEnumByValue(planTypeValue);
+        ThrowUtils.throwIf(userId == null || planType == null, ErrorCode.PARAMS_ERROR);
+        User user = userMapper.selectByIdForUpdate(userId);
+        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR, "User not found");
+
+        // A late-paid finite order must never downgrade an already active lifetime member.
+        if (!planType.isLifetime() && "lifetime".equals(user.getMemberPlanType())
+                && user.getMemberExpireTime() == null) {
+            return;
+        }
+
+        Date memberExpireTime;
+        if (planType.isLifetime()) {
+            memberExpireTime = null;
         } else {
-            durationDays = validateDurationDays(adminMemberGrantRequest.getDurationDays());
+            int days = durationDays == null ? planType.getDurationDays() : durationDays;
+            Date now = new Date();
+            Date startDate = user.getMemberExpireTime() != null && user.getMemberExpireTime().after(now)
+                    ? user.getMemberExpireTime() : now;
+            LocalDateTime expires = startDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().plusDays(days);
+            memberExpireTime = Date.from(expires.atZone(ZoneId.systemDefault()).toInstant());
         }
-
-        User user = userMapper.selectById(adminMemberGrantRequest.getUserId());
-        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR, "用户不存在");
-        MemberOrder memberOrder = new MemberOrder();
-        memberOrder.setOrderNo(generateOrderNo());
-        memberOrder.setUserId(user.getId());
-        memberOrder.setMemberLevel(memberLevelEnum.getValue());
-        memberOrder.setPlanType(adminMemberGrantRequest.getPlanType());
-        memberOrder.setDurationDays(durationDays);
-        memberOrder.setOrderType(MemberOrderTypeEnum.ADMIN_GRANT.getValue());
-        memberOrder.setOrderStatus(OrderStatusEnum.COMPLETED.getValue());
-        memberOrder.setOrderAmount(BigDecimal.ZERO);
-        memberOrder.setPointsAmount(0);
-        memberOrder.setPayTime(new Date());
-        memberOrder.setFinishTime(new Date());
-        boolean result = this.save(memberOrder);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "后台发放会员失败");
-        activateMember(user.getId(), memberLevelEnum.getValue(), adminMemberGrantRequest.getPlanType(), durationDays);
-        return memberOrder;
+        int updated = userMapper.updateMembership(userId, MemberLevelEnum.MEMBER.getValue(),
+                planType.getValue(), memberExpireTime);
+        ThrowUtils.throwIf(updated != 1, ErrorCode.OPERATION_ERROR, "Failed to activate membership");
     }
 
-    @Override
-    public Page<MemberOrderVO> listMyMemberOrders(MemberOrderQueryRequest memberOrderQueryRequest, User loginUser) {
-        return doListMemberOrders(memberOrderQueryRequest, loginUser.getId(), false);
-    }
-
-    @Override
-    public Page<MemberOrderVO> listAllMemberOrders(MemberOrderQueryRequest memberOrderQueryRequest) {
-        return doListMemberOrders(memberOrderQueryRequest, null, true);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void activateMember(Long userId, String memberLevel, String planType, Integer durationDays) {
-        ThrowUtils.throwIf(userId == null || StringUtils.isBlank(memberLevel), ErrorCode.PARAMS_ERROR);
-        User user = userMapper.selectById(userId);
-        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR, "用户不存在");
-        int safeDurationDays = validateDurationDays(durationDays);
-        Date now = new Date();
-        Date startDate = now;
-        if (user.getMemberExpireTime() != null && user.getMemberExpireTime().after(now)) {
-            startDate = user.getMemberExpireTime();
-        }
-        LocalDateTime expireLocalDateTime = startDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
-                .plusDays(safeDurationDays);
-        User updateUser = new User();
-        updateUser.setId(userId);
-        updateUser.setMemberLevel(memberLevel);
-        updateUser.setMemberPlanType(planType);
-        updateUser.setMemberExpireTime(Date.from(expireLocalDateTime.atZone(ZoneId.systemDefault()).toInstant()));
-        userMapper.updateById(updateUser);
-    }
-
-    private Page<MemberOrderVO> doListMemberOrders(MemberOrderQueryRequest memberOrderQueryRequest, Long userId,
-            boolean adminView) {
-        MemberOrderQueryRequest safeRequest = memberOrderQueryRequest == null ? new MemberOrderQueryRequest()
-                : memberOrderQueryRequest;
-        QueryWrapper<MemberOrder> queryWrapper = new QueryWrapper<>();
+    private Page<MemberOrderVO> doListMemberOrders(MemberOrderQueryRequest request, Long userId, boolean adminView) {
+        MemberOrderQueryRequest safeRequest = request == null ? new MemberOrderQueryRequest() : request;
+        QueryWrapper<MemberOrder> query = new QueryWrapper<>();
         if (!adminView || safeRequest.getUserId() != null) {
-            queryWrapper.eq("userId", adminView ? safeRequest.getUserId() : userId);
+            query.eq("userId", adminView ? safeRequest.getUserId() : userId);
         }
-        queryWrapper.eq(StringUtils.isNotBlank(safeRequest.getOrderNo()), "orderNo", safeRequest.getOrderNo());
-        queryWrapper.eq(StringUtils.isNotBlank(safeRequest.getMemberLevel()), "memberLevel", safeRequest.getMemberLevel());
-        queryWrapper.eq(StringUtils.isNotBlank(safeRequest.getOrderType()), "orderType", safeRequest.getOrderType());
-        queryWrapper.eq(StringUtils.isNotBlank(safeRequest.getOrderStatus()), "orderStatus", safeRequest.getOrderStatus());
-        queryWrapper.orderByDesc("id");
-        Page<MemberOrder> memberOrderPage = this.page(new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize()),
-                queryWrapper);
-        Page<MemberOrderVO> memberOrderVOPage = new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(),
-                memberOrderPage.getTotal());
-        memberOrderVOPage.setRecords(buildMemberOrderVO(memberOrderPage.getRecords()));
-        return memberOrderVOPage;
+        query.eq(StringUtils.isNotBlank(safeRequest.getOrderNo()), "orderNo", safeRequest.getOrderNo());
+        query.eq(StringUtils.isNotBlank(safeRequest.getMemberLevel()), "memberLevel", safeRequest.getMemberLevel());
+        query.eq(StringUtils.isNotBlank(safeRequest.getOrderType()), "orderType", safeRequest.getOrderType());
+        query.eq(StringUtils.isNotBlank(safeRequest.getOrderStatus()), "orderStatus", safeRequest.getOrderStatus());
+        query.orderByDesc("id");
+        Page<MemberOrder> page = this.page(new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize()), query);
+        Page<MemberOrderVO> voPage = new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(), page.getTotal());
+        voPage.setRecords(buildMemberOrderVO(page.getRecords()));
+        return voPage;
     }
 
-    private List<MemberOrderVO> buildMemberOrderVO(List<MemberOrder> memberOrderList) {
-        List<Long> userIds = memberOrderList.stream().map(MemberOrder::getUserId).distinct().collect(Collectors.toList());
+    private List<MemberOrderVO> buildMemberOrderVO(List<MemberOrder> orders) {
+        List<Long> userIds = orders.stream().map(MemberOrder::getUserId).distinct().collect(Collectors.toList());
         Map<Long, User> userMap = userIds.isEmpty() ? Collections.emptyMap() : userMapper.selectBatchIds(userIds).stream()
                 .collect(Collectors.toMap(User::getId, item -> item));
-        return memberOrderList.stream().map(memberOrder -> {
-            MemberOrderVO memberOrderVO = new MemberOrderVO();
-            BeanUtils.copyProperties(memberOrder, memberOrderVO);
-            User user = userMap.get(memberOrder.getUserId());
+        return orders.stream().map(order -> {
+            MemberOrderVO vo = new MemberOrderVO();
+            BeanUtils.copyProperties(order, vo);
+            User user = userMap.get(order.getUserId());
             if (user != null) {
-                memberOrderVO.setUserName(user.getUserName());
+                vo.setUserName(user.getUserName());
             }
-            return memberOrderVO;
+            if (OrderStatusEnum.PENDING.getValue().equals(order.getOrderStatus())
+                    && "alipay".equals(order.getPaymentChannel()) && order.getCreateTime() != null) {
+                vo.setExpiresAt(new Date(order.getCreateTime().getTime()
+                        + alipayProperties.getPendingOrderTimeoutMinutes() * 60_000L));
+            }
+            return vo;
         }).collect(Collectors.toList());
-    }
-
-    private int validateDurationDays(Integer durationDays) {
-        ThrowUtils.throwIf(durationDays == null || durationDays <= 0, ErrorCode.PARAMS_ERROR, "会员时长必须大于 0");
-        ThrowUtils.throwIf(durationDays > 3650, ErrorCode.PARAMS_ERROR, "会员时长过长");
-        return durationDays;
-    }
-
-    private BigDecimal calculateCashAmount(MemberLevelEnum memberLevelEnum, int durationDays) {
-        BigDecimal dailyPrice = new BigDecimal("0.50");
-        if (MemberLevelEnum.PRO.equals(memberLevelEnum)) {
-            dailyPrice = new BigDecimal("0.90");
-        }
-        return dailyPrice.multiply(BigDecimal.valueOf(durationDays)).setScale(2, BigDecimal.ROUND_HALF_UP);
-    }
-
-    private int calculatePointsAmount(MemberLevelEnum memberLevelEnum, int durationDays) {
-        int dailyPrice = 6;
-        if (MemberLevelEnum.PRO.equals(memberLevelEnum)) {
-            dailyPrice = 10;
-        }
-        return dailyPrice * durationDays;
     }
 
     private String generateOrderNo() {

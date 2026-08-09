@@ -28,15 +28,26 @@ public class MemberOrderVO implements Serializable {
 
     private BigDecimal orderAmount;
 
+    private Long amountMinor;
+
+    private String currency;
+
     private Integer pointsAmount;
 
     private String paymentChannel;
+
+    private String thirdPartyOrderNo;
+
+    private String failureReason;
 
     private Date payTime;
 
     private Date finishTime;
 
     private Date createTime;
+
+    /** Payment deadline for pending Alipay orders. */
+    private Date expiresAt;
 
     private static final long serialVersionUID = 1L;
 }

@@ -5,16 +5,12 @@ import org.apache.commons.lang3.StringUtils;
 
 public enum MemberLevelEnum {
 
-    NORMAL("普通会员", "normal", 1.0D, false),
-    PLUS("Plus 会员", "plus", 1.2D, true),
-    PRO("Pro 会员", "pro", 1.5D, true);
+    NORMAL("Normal", "normal", 1.0D, false),
+    MEMBER("Member", "member", 1.0D, true);
 
     private final String text;
-
     private final String value;
-
     private final double pointMultiplier;
-
     private final boolean canAccessMemberContent;
 
     MemberLevelEnum(String text, String value, double pointMultiplier, boolean canAccessMemberContent) {
@@ -29,7 +25,7 @@ public enum MemberLevelEnum {
             return null;
         }
         return Arrays.stream(values())
-                .filter(item -> item.value.equals(value))
+                .filter(item -> item.value.equalsIgnoreCase(value.trim()))
                 .findFirst()
                 .orElse(null);
     }
