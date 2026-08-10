@@ -16,6 +16,7 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.manager.PublicContentAntiCrawlerManager;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundAddRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundBatchMemberOnlyRequest;
+import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundFavoriteRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundQueryRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundUpdateRequest;
 import com.yupi.springbootinit.model.entity.User;
@@ -145,6 +146,39 @@ public class VideoBackgroundController {
         User loginUser = userService.getLoginUserPermitNull(servletRequest);
         publicContentAntiCrawlerManager.checkRequest(request, loginUser, servletRequest);
         return ResultUtils.success(videoBackgroundService.listVideoBackgroundVOByPage(request, loginUser, false));
+    }
+
+    @PostMapping("/favorite/add")
+    @OperationLog(module = "video_background", action = "favorite_video_background")
+    @ApiOperation("Favorite video background")
+    public BaseResponse<Boolean> addFavorite(@RequestBody VideoBackgroundFavoriteRequest request,
+            HttpServletRequest servletRequest) {
+        return ResultUtils.success(videoBackgroundService.addFavorite(request,
+                userService.getLoginUser(servletRequest)));
+    }
+
+    @PostMapping("/favorite/cancel")
+    @OperationLog(module = "video_background", action = "cancel_favorite_video_background")
+    @ApiOperation("Cancel video background favorite")
+    public BaseResponse<Boolean> cancelFavorite(@RequestBody VideoBackgroundFavoriteRequest request,
+            HttpServletRequest servletRequest) {
+        return ResultUtils.success(videoBackgroundService.cancelFavorite(request,
+                userService.getLoginUser(servletRequest)));
+    }
+
+    @GetMapping("/favorite/check")
+    @ApiOperation("Check video background favorite status")
+    public BaseResponse<Boolean> checkFavorite(@RequestParam Long videoBackgroundId, HttpServletRequest servletRequest) {
+        return ResultUtils.success(videoBackgroundService.isFavorited(videoBackgroundId,
+                userService.getLoginUser(servletRequest)));
+    }
+
+    @PostMapping("/favorite/my/list/page")
+    @ApiOperation("Page query my favorite video backgrounds")
+    public BaseResponse<Page<VideoBackgroundVO>> listMyFavorites(@RequestBody VideoBackgroundQueryRequest request,
+            HttpServletRequest servletRequest) {
+        return ResultUtils.success(videoBackgroundService.listMyFavoriteVideoBackgroundVOByPage(request,
+                userService.getLoginUser(servletRequest)));
     }
 
     @GetMapping("/resource/get")

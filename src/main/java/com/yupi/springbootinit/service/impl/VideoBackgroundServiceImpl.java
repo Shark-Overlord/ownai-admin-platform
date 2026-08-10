@@ -2,6 +2,7 @@ package com.yupi.springbootinit.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.common.ErrorCode;
@@ -13,8 +14,10 @@ import com.yupi.springbootinit.mapper.CategoryMapper;
 import com.yupi.springbootinit.mapper.CategoryTagMapper;
 import com.yupi.springbootinit.mapper.TagMapper;
 import com.yupi.springbootinit.mapper.VideoBackgroundMapper;
+import com.yupi.springbootinit.mapper.VideoBackgroundFavoriteMapper;
 import com.yupi.springbootinit.mapper.VideoBackgroundTagMapper;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundAddRequest;
+import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundFavoriteRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundQueryRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundUpdateRequest;
 import com.yupi.springbootinit.model.entity.Category;
@@ -22,6 +25,7 @@ import com.yupi.springbootinit.model.entity.CategoryTag;
 import com.yupi.springbootinit.model.entity.Tag;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.entity.VideoBackground;
+import com.yupi.springbootinit.model.entity.VideoBackgroundFavorite;
 import com.yupi.springbootinit.model.entity.VideoBackgroundTag;
 import com.yupi.springbootinit.model.enums.ArtworkStatusEnum;
 import com.yupi.springbootinit.model.enums.MemberLevelEnum;
@@ -42,6 +46,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +66,9 @@ public class VideoBackgroundServiceImpl extends ServiceImpl<VideoBackgroundMappe
 
     @Resource
     private VideoBackgroundTagMapper videoBackgroundTagMapper;
+
+    @Resource
+    private VideoBackgroundFavoriteMapper videoBackgroundFavoriteMapper;
 
     @Resource
     private CosClientConfig cosClientConfig;
@@ -200,7 +208,79 @@ public class VideoBackgroundServiceImpl extends ServiceImpl<VideoBackgroundMappe
         return item.getSourceVideoUrl();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean addFavorite(VideoBackgroundFavoriteRequest request, User loginUser) {
+        Long videoBackgroundId = normalizeFavoriteVideoBackgroundId(request);
+        getPublished(videoBackgroundId);
+        VideoBackgroundFavorite existing = getFavoriteRecord(loginUser.getId(), videoBackgroundId);
+        if (existing != null) {
+            if (existing.getIsDelete() == null || existing.getIsDelete() == 0) {
+                return true;
+            }
+            boolean restored = videoBackgroundFavoriteMapper.restoreByUserAndVideo(loginUser.getId(), videoBackgroundId) > 0;
+            ThrowUtils.throwIf(!restored, ErrorCode.OPERATION_ERROR);
+            return true;
+        }
+        VideoBackgroundFavorite favorite = new VideoBackgroundFavorite();
+        favorite.setUserId(loginUser.getId());
+        favorite.setVideoBackgroundId(videoBackgroundId);
+        favorite.setCreateTime(new Date());
+        favorite.setUpdateTime(new Date());
+        favorite.setIsDelete(0);
+        boolean result;
+        try {
+            result = videoBackgroundFavoriteMapper.insert(favorite) > 0;
+        } catch (DuplicateKeyException e) {
+            result = videoBackgroundFavoriteMapper.restoreByUserAndVideo(loginUser.getId(), videoBackgroundId) > 0;
+        }
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean cancelFavorite(VideoBackgroundFavoriteRequest request, User loginUser) {
+        Long videoBackgroundId = normalizeFavoriteVideoBackgroundId(request);
+        videoBackgroundFavoriteMapper.update(null, new UpdateWrapper<VideoBackgroundFavorite>()
+                .eq("userId", loginUser.getId())
+                .eq("videoBackgroundId", videoBackgroundId)
+                .eq("isDelete", 0)
+                .set("isDelete", 1)
+                .set("updateTime", new Date()));
+        return true;
+    }
+
+    @Override
+    public Boolean isFavorited(Long videoBackgroundId, User loginUser) {
+        ThrowUtils.throwIf(videoBackgroundId == null || videoBackgroundId <= 0, ErrorCode.PARAMS_ERROR);
+        return isFavoritedByUser(videoBackgroundId, loginUser.getId());
+    }
+
+    @Override
+    public Page<VideoBackgroundVO> listMyFavoriteVideoBackgroundVOByPage(VideoBackgroundQueryRequest request,
+            User loginUser) {
+        VideoBackgroundQueryRequest safeRequest = request == null ? new VideoBackgroundQueryRequest() : request;
+        long current = Math.max(safeRequest.getCurrent(), 1);
+        long pageSize = Math.min(Math.max(safeRequest.getPageSize(), 1), 50);
+        QueryWrapper<VideoBackground> wrapper = buildQueryWrapper(safeRequest, false, loginUser.getId());
+        if (wrapper == null) {
+            return new Page<>(current, pageSize, 0);
+        }
+        wrapper.inSql("id", "SELECT videoBackgroundId FROM video_background_favorite WHERE userId = "
+                + loginUser.getId() + " AND isDelete = 0");
+        Page<VideoBackground> page = this.page(new Page<>(current, pageSize), wrapper);
+        Page<VideoBackgroundVO> result = new Page<>(current, pageSize, page.getTotal());
+        result.setRecords(buildVOList(page.getRecords(), loginUser, false));
+        return result;
+    }
+
     private QueryWrapper<VideoBackground> buildQueryWrapper(VideoBackgroundQueryRequest request, boolean adminView) {
+        return buildQueryWrapper(request, adminView, null);
+    }
+
+    private QueryWrapper<VideoBackground> buildQueryWrapper(VideoBackgroundQueryRequest request, boolean adminView,
+            Long favoriteUserId) {
         QueryWrapper<VideoBackground> wrapper = new QueryWrapper<>();
         if (adminView) {
             wrapper.eq(request.getStatus() != null, "status", request.getStatus());
@@ -223,10 +303,15 @@ public class VideoBackgroundServiceImpl extends ServiceImpl<VideoBackgroundMappe
             wrapper.in("id", relations.stream().map(VideoBackgroundTag::getVideoBackgroundId).distinct()
                     .collect(Collectors.toList()));
         }
-        String sortField = request.getSortField();
-        String sortOrder = request.getSortOrder();
-        wrapper.orderBy(SqlUtils.validSortField(sortField), CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
-        wrapper.orderByDesc("sort", "createTime", "id");
+        if (favoriteUserId != null) {
+            wrapper.last("ORDER BY (SELECT updateTime FROM video_background_favorite f WHERE f.videoBackgroundId = "
+                    + "video_background.id AND f.userId = " + favoriteUserId + " AND f.isDelete = 0) DESC, id DESC");
+        } else {
+            String sortField = request.getSortField();
+            String sortOrder = request.getSortOrder();
+            wrapper.orderBy(SqlUtils.validSortField(sortField), CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
+            wrapper.orderByDesc("sort", "createTime", "id");
+        }
         return wrapper;
     }
 
@@ -256,6 +341,7 @@ public class VideoBackgroundServiceImpl extends ServiceImpl<VideoBackgroundMappe
             }
             result.add(vo);
         }
+        fillFavoriteInfo(result, loginUser == null ? null : loginUser.getId());
         return result;
     }
 
@@ -363,6 +449,53 @@ public class VideoBackgroundServiceImpl extends ServiceImpl<VideoBackgroundMappe
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         return result;
+    }
+
+    private Long normalizeFavoriteVideoBackgroundId(VideoBackgroundFavoriteRequest request) {
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
+        Long videoBackgroundId = request.getVideoBackgroundId();
+        if (videoBackgroundId == null || videoBackgroundId <= 0) {
+            videoBackgroundId = request.getId();
+        }
+        ThrowUtils.throwIf(videoBackgroundId == null || videoBackgroundId <= 0, ErrorCode.PARAMS_ERROR);
+        return videoBackgroundId;
+    }
+
+    private VideoBackgroundFavorite getFavoriteRecord(Long userId, Long videoBackgroundId) {
+        return videoBackgroundFavoriteMapper.selectByUserAndVideoIncludingDeleted(userId, videoBackgroundId);
+    }
+
+    private boolean isFavoritedByUser(Long videoBackgroundId, Long userId) {
+        if (userId == null || videoBackgroundId == null) {
+            return false;
+        }
+        Long count = videoBackgroundFavoriteMapper.selectCount(new QueryWrapper<VideoBackgroundFavorite>()
+                .eq("userId", userId).eq("videoBackgroundId", videoBackgroundId).eq("isDelete", 0));
+        return count != null && count > 0;
+    }
+
+    private void fillFavoriteInfo(List<VideoBackgroundVO> records, Long userId) {
+        if (CollUtil.isEmpty(records)) {
+            return;
+        }
+        List<Long> videoBackgroundIds = records.stream().map(VideoBackgroundVO::getId)
+                .filter(id -> id != null && id > 0).distinct().collect(Collectors.toList());
+        if (CollUtil.isEmpty(videoBackgroundIds)) {
+            return;
+        }
+        List<VideoBackgroundFavorite> favorites = videoBackgroundFavoriteMapper.selectList(
+                new QueryWrapper<VideoBackgroundFavorite>().in("videoBackgroundId", videoBackgroundIds)
+                        .eq("isDelete", 0));
+        Map<Long, Long> countMap = favorites.stream().collect(Collectors.groupingBy(
+                VideoBackgroundFavorite::getVideoBackgroundId, Collectors.counting()));
+        Set<Long> myFavoriteIds = userId == null ? Collections.emptySet() : favorites.stream()
+                .filter(item -> userId.equals(item.getUserId())).map(VideoBackgroundFavorite::getVideoBackgroundId)
+                .collect(Collectors.toSet());
+        for (VideoBackgroundVO record : records) {
+            Long videoBackgroundId = record.getId();
+            record.setFavoriteCount(countMap.getOrDefault(videoBackgroundId, 0L).intValue());
+            record.setFavorited(myFavoriteIds.contains(videoBackgroundId));
+        }
     }
 
     private VideoBackground getPublished(Long id) {

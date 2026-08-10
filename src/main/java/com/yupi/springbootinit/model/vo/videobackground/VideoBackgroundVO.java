@@ -29,6 +29,8 @@ public class VideoBackgroundVO implements Serializable {
     private String videoFormat;
     private Integer sort;
     private Boolean canAccess;
+    private Integer favoriteCount;
+    private Boolean favorited;
     private Date createTime;
     private Date updateTime;
     private static final long serialVersionUID = 1L;

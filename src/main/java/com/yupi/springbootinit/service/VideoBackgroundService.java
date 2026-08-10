@@ -3,6 +3,7 @@ package com.yupi.springbootinit.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundAddRequest;
+import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundFavoriteRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundQueryRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundUpdateRequest;
 import com.yupi.springbootinit.model.entity.User;
@@ -22,4 +23,8 @@ public interface VideoBackgroundService extends IService<VideoBackground> {
             boolean adminView);
     VideoBackgroundResourceVO getVideoBackgroundResource(Long id, User loginUser, String downloadUrl);
     String getVideoBackgroundSourceUrl(Long id, User loginUser);
+    Boolean addFavorite(VideoBackgroundFavoriteRequest request, User loginUser);
+    Boolean cancelFavorite(VideoBackgroundFavoriteRequest request, User loginUser);
+    Boolean isFavorited(Long videoBackgroundId, User loginUser);
+    Page<VideoBackgroundVO> listMyFavoriteVideoBackgroundVOByPage(VideoBackgroundQueryRequest request, User loginUser);
 }

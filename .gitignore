@@ -23,6 +23,7 @@ sql/*.sql
 !sql/artwork_app_category_seed.sql
 !sql/security_access_logging.sql
 !sql/video_background.sql
+!sql/video_background_favorite.sql
 web-admin/node_modules/
 web-admin/dist/
 !.mvn/wrapper/maven-wrapper.jar
