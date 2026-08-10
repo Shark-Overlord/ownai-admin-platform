@@ -4,6 +4,7 @@ import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import UserManage from '../pages/UserManage';
 import ArtworkManage from '../pages/ArtworkManage';
+import VideoBackgroundManage from '../pages/VideoBackgroundManage';
 import ArtworkPreview from '../pages/ArtworkPreview';
 import CategoryManage from '../pages/CategoryManage';
 import CategoryTagTree from '../pages/CategoryTagTree';
@@ -48,6 +49,11 @@ export const routes = [
       {
         path: 'artwork',
         element: <ArtworkManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'video-background',
+        element: <VideoBackgroundManage />,
         meta: { requiresAdmin: true },
       },
       {
@@ -164,6 +170,11 @@ export const menuRoutes = [
         path: '/artwork',
         name: '作品管理',
         icon: 'PictureOutlined',
+      },
+      {
+        path: '/video-background',
+        name: '视频素材',
+        icon: 'VideoCameraOutlined',
       },
       {
         path: '/prompt-asset',

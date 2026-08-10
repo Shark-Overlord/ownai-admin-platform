@@ -22,6 +22,7 @@ sql/*.sql
 !sql/artwork_external_key_migration.sql
 !sql/artwork_app_category_seed.sql
 !sql/security_access_logging.sql
+!sql/video_background.sql
 web-admin/node_modules/
 web-admin/dist/
 !.mvn/wrapper/maven-wrapper.jar
@@ -108,6 +109,7 @@ buildNumber.properties
 .idea/**/contentModel.xml
 
 # Sensitive or high-churn files
+config/application-local-secrets.yml
 .idea/**/dataSources/
 .idea/**/dataSources.ids
 .idea/**/dataSources.local.xml

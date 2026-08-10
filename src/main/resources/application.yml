@@ -21,8 +21,8 @@ spring:
   servlet:
     multipart:
       # 大小限制
-      max-file-size: 100MB
-      max-request-size: 100MB
+      max-file-size: 220MB
+      max-request-size: 220MB
 
 server:
   port: 8011
@@ -35,6 +35,12 @@ server:
     session:
       cookie:
         max-age: 2592000
+
+video:
+  watermark:
+    ffmpeg-path: ${FFMPEG_PATH:ffmpeg}
+    logo-path: ${VIDEO_WATERMARK_LOGO_PATH:classpath:watermark/ownai-logo.png}
+    timeout-seconds: ${VIDEO_WATERMARK_TIMEOUT_SECONDS:600}
 
 mybatis-plus:
   configuration:

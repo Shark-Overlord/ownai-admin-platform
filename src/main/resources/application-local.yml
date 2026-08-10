@@ -3,6 +3,9 @@
 # @from <a href="https://yupi.icu">编程导航知识星球</a>
 
 spring:
+  config:
+    # Local-only credentials, intentionally excluded from version control.
+    import: optional:file:./config/application-local-secrets.yml
   # 数据库配置
   # todo 需替换配置
   datasource:

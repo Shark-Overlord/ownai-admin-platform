@@ -18,6 +18,7 @@ import {
   ShoppingCartOutlined,
   TagOutlined,
   UserOutlined,
+  VideoCameraOutlined,
 } from '@ant-design/icons';
 import { menuRoutes } from '../routes';
 import { getLoginUser } from '../api/user';
@@ -38,6 +39,7 @@ const iconMap: Record<string, React.ReactNode> = {
   NotificationOutlined: <NotificationOutlined />,
   BookOutlined: <BookOutlined />,
   KeyOutlined: <KeyOutlined />,
+  VideoCameraOutlined: <VideoCameraOutlined />,
 };
 
 type MenuRoute = {
