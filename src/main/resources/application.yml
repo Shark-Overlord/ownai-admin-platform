@@ -42,6 +42,12 @@ video:
     logo-path: ${VIDEO_WATERMARK_LOGO_PATH:classpath:watermark/ownai-logo.png}
     timeout-seconds: ${VIDEO_WATERMARK_TIMEOUT_SECONDS:600}
 
+site:
+  analytics:
+    hash-secret: ${SITE_ANALYTICS_HASH_SECRET:ownai-site-analytics-local}
+    aggregate-cron: ${SITE_ANALYTICS_AGGREGATE_CRON:0 */5 * * * ?}
+    cleanup-cron: ${SITE_ANALYTICS_CLEANUP_CRON:0 30 3 * * ?}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: false

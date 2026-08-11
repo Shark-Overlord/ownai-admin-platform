@@ -18,6 +18,8 @@ public class DashboardOverviewVO implements Serializable {
 
     private ImageGenerationStats imageGeneration = new ImageGenerationStats();
 
+    private TrafficStats traffic = new TrafficStats();
+
     private LatestImportBatch latestImportBatch;
 
     @Data
@@ -100,6 +102,20 @@ public class DashboardOverviewVO implements Serializable {
         private BigDecimal todayApiCostCny = BigDecimal.ZERO;
 
         private BigDecimal todayManualCostCny = BigDecimal.ZERO;
+
+        private static final long serialVersionUID = 1L;
+    }
+
+    @Data
+    public static class TrafficStats implements Serializable {
+
+        private Long todayPv = 0L;
+
+        private Long todayUv = 0L;
+
+        private Long todayDau = 0L;
+
+        private Long todayLoggedInVisitors = 0L;
 
         private static final long serialVersionUID = 1L;
     }

@@ -21,6 +21,7 @@ import PromptAssetAiTaggingManage from '../pages/PromptAssetAiTaggingManage';
 import ImageGenerationMessageManage from '../pages/ImageGenerationMessageManage';
 import ImageGenerationConfigManage from '../pages/ImageGenerationConfigManage';
 import YuqueDocsManage from '../pages/YuqueDocsManage';
+import SiteAnalytics from '../pages/SiteAnalytics';
 
 export const routes = [
   {
@@ -39,6 +40,11 @@ export const routes = [
       {
         path: 'dashboard',
         element: <Dashboard />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'site-analytics',
+        element: <SiteAnalytics />,
         meta: { requiresAdmin: true },
       },
       {
@@ -158,6 +164,11 @@ export const menuRoutes = [
         path: '/dashboard',
         name: '概况',
         icon: 'DashboardOutlined',
+      },
+      {
+        path: '/site-analytics',
+        name: '流量分析',
+        icon: 'BarChartOutlined',
       },
     ],
   },

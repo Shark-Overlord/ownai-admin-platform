@@ -38,6 +38,12 @@ export interface DashboardOverview {
     todayApiCostCny: number;
     todayManualCostCny: number;
   };
+  traffic: {
+    todayPv: number;
+    todayUv: number;
+    todayDau: number;
+    todayLoggedInVisitors: number;
+  };
   latestImportBatch?: {
     id?: number;
     status?: string;

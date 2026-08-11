@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { Alert, Card, Col, List, Progress, Row, Spin, Statistic, Tag, Typography } from 'antd';
 import {
+  BarChartOutlined,
   ClockCircleOutlined,
   CrownOutlined,
   DatabaseOutlined,
@@ -11,6 +12,7 @@ import {
   ShoppingCartOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import type { DashboardOverview } from '../../api/dashboard';
 import { getDashboardOverview } from '../../api/dashboard';
 
@@ -36,6 +38,7 @@ const zeroOverview: DashboardOverview = {
     todayApiCostCny: 0,
     todayManualCostCny: 0,
   },
+  traffic: { todayPv: 0, todayUv: 0, todayDau: 0, todayLoggedInVisitors: 0 },
 };
 
 function money(value?: number) {
@@ -50,6 +53,7 @@ function ratio(value: number, total: number) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [overview, setOverview] = useState<DashboardOverview>(zeroOverview);
   const [loading, setLoading] = useState(false);
 
@@ -136,6 +140,18 @@ export default function Dashboard() {
                 prefix={<DollarOutlined />}
               />
               <Typography.Text type="secondary">消耗积分 {overview.imageGeneration.todayPointCost}</Typography.Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic title="今日 DAU" value={overview.traffic.todayDau} prefix={<UserOutlined />} />
+              <Typography.Link onClick={() => navigate('/site-analytics')}>查看流量分析</Typography.Link>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic title="今日 PV" value={overview.traffic.todayPv} prefix={<BarChartOutlined />} />
+              <Typography.Text type="secondary">UV {overview.traffic.todayUv}</Typography.Text>
             </Card>
           </Col>
         </Row>

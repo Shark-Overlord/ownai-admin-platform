@@ -24,6 +24,7 @@ import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.model.enums.OrderStatusEnum;
 import com.yupi.springbootinit.model.vo.dashboard.DashboardOverviewVO;
 import com.yupi.springbootinit.service.DashboardService;
+import com.yupi.springbootinit.service.SiteAnalyticsService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -73,6 +74,9 @@ public class DashboardServiceImpl implements DashboardService {
     @Resource
     private PromptAssetImportBatchMapper promptAssetImportBatchMapper;
 
+    @Resource
+    private SiteAnalyticsService siteAnalyticsService;
+
     @Value("${image.generation.pending-timeout-minutes:20}")
     private Integer pendingTimeoutMinutes;
 
@@ -86,8 +90,20 @@ public class DashboardServiceImpl implements DashboardService {
         overview.setCommerce(buildCommerceStats(todayStart, tomorrowStart));
         overview.setPoint(buildPointStats(todayStart, tomorrowStart));
         overview.setImageGeneration(buildImageGenerationStats(todayStart, tomorrowStart));
+        overview.setTraffic(buildTrafficStats());
         overview.setLatestImportBatch(buildLatestImportBatch());
         return overview;
+    }
+
+    private DashboardOverviewVO.TrafficStats buildTrafficStats() {
+        com.yupi.springbootinit.model.vo.analytics.SiteAnalyticsOverviewVO.MetricSummary today =
+                siteAnalyticsService.getTodayMetrics();
+        DashboardOverviewVO.TrafficStats stats = new DashboardOverviewVO.TrafficStats();
+        stats.setTodayPv(today.getPv());
+        stats.setTodayUv(today.getUv());
+        stats.setTodayDau(today.getDau());
+        stats.setTodayLoggedInVisitors(today.getLoggedInVisitors());
+        return stats;
     }
 
     private DashboardOverviewVO.UserStats buildUserStats(Date todayStart, Date tomorrowStart) {
