@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -85,14 +86,19 @@ public class VideoWatermarkManager {
         command.add(outputFile.getAbsolutePath());
 
         Process process = null;
+        File processLogFile = null;
         try {
-            process = new ProcessBuilder(command).redirectErrorStream(true).start();
+            processLogFile = File.createTempFile("preview-watermark-ffmpeg-", ".log");
+            process = new ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .redirectOutput(processLogFile)
+                    .start();
             boolean completed = process.waitFor(Math.max(videoWatermarkConfig.getTimeoutSeconds(), 1), TimeUnit.SECONDS);
-            String processOutput = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             if (!completed) {
                 process.destroyForcibly();
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "Preview video watermark processing timed out");
             }
+            String processOutput = new String(Files.readAllBytes(processLogFile.toPath()), StandardCharsets.UTF_8);
             if (process.exitValue() != 0 || !outputFile.isFile() || outputFile.length() == 0) {
                 log.warn("preview watermark rendering failed, exitCode={}, output={}", process.exitValue(),
                         StringUtils.abbreviate(processOutput, 1000));
@@ -111,6 +117,9 @@ public class VideoWatermarkManager {
             }
             if (!outputFile.isFile() || outputFile.length() == 0) {
                 deleteQuietly(outputFile);
+            }
+            if (processLogFile != null) {
+                deleteQuietly(processLogFile);
             }
         }
     }
