@@ -1,0 +1,198 @@
+.tutorial-book-filter {
+  margin-bottom: 16px;
+}
+
+.tutorial-book-filter .ant-form {
+  row-gap: 12px;
+}
+
+.tutorial-book-filter-actions {
+  margin-inline-start: auto;
+}
+
+.tutorial-book-workspace {
+  min-height: 420px;
+}
+
+.tutorial-book-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.tutorial-book-toolbar .ant-typography {
+  margin: 0;
+}
+
+.tutorial-book-list {
+  overflow: hidden;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.tutorial-book-list-item {
+  min-height: 74px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.tutorial-book-list-item:last-child {
+  border-bottom: 0;
+}
+
+.tutorial-book-list-item:hover {
+  background: #f7faff;
+}
+
+.tutorial-book-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+}
+
+.tutorial-book-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.tutorial-book-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  color: #1677ff;
+  background: #eaf3ff;
+  font-size: 20px;
+}
+
+.tutorial-book-icon--cover {
+  flex-basis: 64px;
+  width: 64px;
+  height: 40px;
+  overflow: hidden;
+  padding: 0;
+  background: #eef1f5;
+}
+
+.tutorial-book-icon--cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tutorial-book-title-block {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+}
+
+.tutorial-book-title {
+  font-size: 16px;
+}
+
+.tutorial-book-meta {
+  font-size: 13px;
+}
+
+.tutorial-book-actions {
+  flex: 0 0 auto;
+}
+
+.tutorial-book-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+}
+
+.tutorial-book-cover-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.tutorial-book-cover-field__preview {
+  flex: 0 0 240px;
+  width: 240px;
+  height: 135px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f5f7fa;
+}
+
+.tutorial-book-cover-field__preview .ant-image,
+.tutorial-book-cover-field__preview .ant-image-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tutorial-book-cover-field__placeholder {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: #a3adba;
+  font-size: 32px;
+}
+
+.tutorial-book-cover-field__controls {
+  flex: 1;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.tutorial-book-cover-field__controls > .ant-btn-link {
+  padding-inline: 0;
+}
+
+@media (max-width: 960px) {
+  .tutorial-book-filter-actions {
+    margin-inline-start: 0;
+  }
+
+  .tutorial-book-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tutorial-book-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .tutorial-book-toolbar,
+  .tutorial-book-cover-field {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tutorial-book-list-item {
+    padding: 12px;
+  }
+
+  .tutorial-book-cover-field__preview {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .tutorial-book-cover-field__controls {
+    width: 100%;
+  }
+}

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
-import { Card, Col, DatePicker, Row, Segmented, Space, Spin, Statistic, Table, Tag, Typography } from 'antd';
-import { BarChartOutlined, EyeOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
+import { Card, Col, DatePicker, Row, Segmented, Space, Spin, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { BarChartOutlined, BookOutlined, EyeOutlined, FileTextOutlined, StarOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import {
   getSiteAnalyticsOverview,
   type SiteAnalyticsOverview,
   type TrafficDailyMetric,
   type TrafficDimensionMetric,
+  type TutorialBookMetric,
+  type TutorialPostMetric,
 } from '../../api/siteAnalytics';
 
 const { RangePicker } = DatePicker;
@@ -103,6 +105,58 @@ const dimensionColumns = [
   },
 ];
 
+const bookColumns = [
+  {
+    title: '教程书',
+    dataIndex: 'title',
+    ellipsis: true,
+    render: (value: string, record: TutorialBookMetric) => (
+      <Space size={6} wrap>
+        <Typography.Text strong>{value}</Typography.Text>
+        <Tag color={record.memberOnly === 1 ? 'gold' : 'blue'}>
+          {record.memberOnly === 1 ? '会员专享' : '免费教程'}
+        </Tag>
+      </Space>
+    ),
+  },
+  { title: '章节', dataIndex: 'chapterCount', width: 80 },
+  {
+    title: '文章',
+    dataIndex: 'postCount',
+    width: 80,
+  },
+  { title: '有效阅读', dataIndex: 'effectiveReadCount', width: 100, sorter: (a: TutorialBookMetric, b: TutorialBookMetric) => a.effectiveReadCount - b.effectiveReadCount },
+  { title: '独立读者', dataIndex: 'uniqueReaderCount', width: 100, sorter: (a: TutorialBookMetric, b: TutorialBookMetric) => a.uniqueReaderCount - b.uniqueReaderCount },
+  { title: '书籍收藏', dataIndex: 'favoriteCount', width: 100, sorter: (a: TutorialBookMetric, b: TutorialBookMetric) => a.favoriteCount - b.favoriteCount },
+];
+
+const postColumns = [
+  {
+    title: '教程文章',
+    dataIndex: 'title',
+    ellipsis: true,
+    render: (value: string, record: TutorialPostMetric) => (
+      <Space size={6} wrap>
+        <Typography.Text strong>{value}</Typography.Text>
+        {record.memberOnly === 1 && <Tag color="gold">会员专享</Tag>}
+      </Space>
+    ),
+  },
+  {
+    title: '所属教程书 / 章节',
+    key: 'outline',
+    ellipsis: true,
+    render: (_: unknown, record: TutorialPostMetric) => (
+      record.bookTitle
+        ? `${record.bookTitle}${record.chapterTitle ? ` / ${record.chapterTitle}` : ''}`
+        : <Typography.Text type="secondary">独立文章</Typography.Text>
+    ),
+  },
+  { title: '有效阅读', dataIndex: 'effectiveReadCount', width: 100, sorter: (a: TutorialPostMetric, b: TutorialPostMetric) => a.effectiveReadCount - b.effectiveReadCount },
+  { title: '独立读者', dataIndex: 'uniqueReaderCount', width: 100, sorter: (a: TutorialPostMetric, b: TutorialPostMetric) => a.uniqueReaderCount - b.uniqueReaderCount },
+  { title: '收藏量', dataIndex: 'favoriteCount', width: 100, sorter: (a: TutorialPostMetric, b: TutorialPostMetric) => a.favoriteCount - b.favoriteCount },
+];
+
 export default function SiteAnalytics() {
   const [preset, setPreset] = useState<RangePreset>('7d');
   const [range, setRange] = useState<[Dayjs, Dayjs]>(() => presetRange('7d'));
@@ -134,6 +188,7 @@ export default function SiteAnalytics() {
 
   const today = overview?.today;
   const deviceData = useMemo(() => overview?.deviceDistribution || [], [overview]);
+  const contentSummary = overview?.tutorialContentSummary;
 
   return (
     <PageContainer title="流量分析" content="统计前台页面访问、匿名访客与登录活跃用户，数据时区为 Asia/Shanghai。">
@@ -171,6 +226,65 @@ export default function SiteAnalytics() {
 
         <Card title="访问趋势" style={{ marginTop: 16 }}>
           <TrafficTrendChart data={overview?.dailyTrend || []} />
+        </Card>
+
+        <Card
+          title="教程内容表现"
+          extra={<Typography.Text type="secondary">累计数据，不受上方日期范围影响</Typography.Text>}
+          style={{ marginTop: 16 }}
+        >
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} xl={6}>
+              <Statistic title="已启用教程书" value={contentSummary?.bookCount || 0} suffix="本" prefix={<BookOutlined />} />
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <Statistic title="已发布教程文章" value={contentSummary?.postCount || 0} suffix="篇" prefix={<FileTextOutlined />} />
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <Statistic title="有效阅读" value={contentSummary?.effectiveReadCount || 0} suffix={`独立读者 ${contentSummary?.uniqueReaderCount || 0}`} prefix={<EyeOutlined />} />
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <Statistic
+                title="累计收藏"
+                value={contentSummary?.bookFavoriteCount || 0}
+                suffix={`本教程书 · ${contentSummary?.postFavoriteCount || 0} 篇文章`}
+                prefix={<StarOutlined />}
+              />
+            </Col>
+          </Row>
+          <Tabs
+            style={{ marginTop: 16 }}
+            items={[
+              {
+                key: 'books',
+                label: `各教程书（${overview?.tutorialBooks?.length || 0}）`,
+                children: (
+                  <Table<TutorialBookMetric>
+                    rowKey="id"
+                    size="small"
+                    columns={bookColumns}
+                    dataSource={overview?.tutorialBooks || []}
+                    pagination={{ pageSize: 10, showSizeChanger: true }}
+                    scroll={{ x: 760 }}
+                  />
+                ),
+              },
+              {
+                key: 'posts',
+                label: `各教程文章（${overview?.tutorialPosts?.length || 0}）`,
+                children: (
+                  <Table<TutorialPostMetric>
+                    rowKey="id"
+                    size="small"
+                    columns={postColumns}
+                    dataSource={overview?.tutorialPosts || []}
+                    pagination={{ pageSize: 10, showSizeChanger: true }}
+                    scroll={{ x: 820 }}
+                  />
+                ),
+              },
+            ]}
+          />
         </Card>
 
         <Row gutter={[16, 16]} style={{ marginTop: 16 }}>

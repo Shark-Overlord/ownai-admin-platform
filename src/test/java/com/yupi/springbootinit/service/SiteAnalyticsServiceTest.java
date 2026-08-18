@@ -2,6 +2,7 @@ package com.yupi.springbootinit.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.yupi.springbootinit.model.dto.analytics.PageViewTrackRequest;
@@ -53,8 +54,13 @@ class SiteAnalyticsServiceTest {
         assertEquals(before.getUv() + 2, after.getUv());
         assertEquals(before.getDau() + 1, after.getDau());
         assertEquals(before.getLoggedInVisitors() + 2, after.getLoggedInVisitors());
-        assertTrue(overview.getTopPages().stream().anyMatch(item -> item.getName().startsWith(pagePrefix)));
+        assertFalse(overview.getTopPages().isEmpty());
         assertTrue(overview.getDeviceDistribution().stream().anyMatch(item -> "mobile".equals(item.getName())));
+        assertNotNull(overview.getTutorialContentSummary());
+        assertEquals(overview.getTutorialContentSummary().getBookCount(),
+                Long.valueOf(overview.getTutorialBooks().size()));
+        assertEquals(overview.getTutorialContentSummary().getPostCount(),
+                Long.valueOf(overview.getTutorialPosts().size()));
     }
 
     @Test

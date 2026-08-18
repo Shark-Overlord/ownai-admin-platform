@@ -15,6 +15,7 @@ import {
   KeyOutlined,
   NotificationOutlined,
   PictureOutlined,
+  ReadOutlined,
   SettingOutlined,
   ShoppingCartOutlined,
   TagOutlined,
@@ -42,6 +43,7 @@ const iconMap: Record<string, React.ReactNode> = {
   KeyOutlined: <KeyOutlined />,
   VideoCameraOutlined: <VideoCameraOutlined />,
   BarChartOutlined: <BarChartOutlined />,
+  ReadOutlined: <ReadOutlined />,
 };
 
 type MenuRoute = {
@@ -93,6 +95,11 @@ export default function AdminLayout() {
         <Spin size="large" />
       </div>
     );
+  }
+
+  const isTutorialWorkspace = /^\/tutorial-assets\/books\/[^/]+\/workspace\/?$/.test(location.pathname);
+  if (isTutorialWorkspace) {
+    return <Outlet />;
   }
 
   return (

@@ -141,6 +141,9 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
         overview.setTopPages(queryDimensions("page", startDate, endDate, 10));
         overview.setTopSources(queryDimensions("source", startDate, endDate, 10));
         overview.setDeviceDistribution(queryDimensions("device", startDate, endDate, 20));
+        overview.setTutorialContentSummary(queryTutorialContentSummary());
+        overview.setTutorialBooks(queryTutorialBookMetrics());
+        overview.setTutorialPosts(queryTutorialPostMetrics());
         return overview;
     }
 
@@ -293,6 +296,123 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
         target[0] += pv;
         target[1] += uv;
         target[2] += dau;
+    }
+
+    private SiteAnalyticsOverviewVO.TutorialContentSummary queryTutorialContentSummary() {
+        String sql = "SELECT "
+                + "(SELECT COUNT(1) FROM blog_book WHERE isDelete = 0 AND status = 'enabled') AS bookCount, "
+                + "(SELECT COUNT(1) FROM blog_post bp "
+                + "LEFT JOIN blog_chapter bc ON bc.id = bp.chapterId AND bc.isDelete = 0 "
+                + "LEFT JOIN blog_book bb ON bb.id = bc.bookId AND bb.isDelete = 0 "
+                + "WHERE bp.isDelete = 0 AND bp.status = 'published' "
+                + "AND (bp.chapterId IS NULL OR (bc.id IS NOT NULL AND bb.status = 'enabled'))) AS postCount, "
+                + "(SELECT COUNT(1) FROM blog_post_read_event bpre "
+                + "JOIN blog_post bp ON bp.id = bpre.postId AND bp.isDelete = 0 AND bp.status = 'published' "
+                + "LEFT JOIN blog_chapter bc ON bc.id = bp.chapterId AND bc.isDelete = 0 "
+                + "LEFT JOIN blog_book bb ON bb.id = bc.bookId AND bb.isDelete = 0 "
+                + "WHERE bp.chapterId IS NULL OR (bc.id IS NOT NULL AND bb.status = 'enabled')) AS effectiveReadCount, "
+                + "(SELECT COUNT(DISTINCT bpre.readerKey) FROM blog_post_read_event bpre "
+                + "JOIN blog_post bp ON bp.id = bpre.postId AND bp.isDelete = 0 AND bp.status = 'published' "
+                + "LEFT JOIN blog_chapter bc ON bc.id = bp.chapterId AND bc.isDelete = 0 "
+                + "LEFT JOIN blog_book bb ON bb.id = bc.bookId AND bb.isDelete = 0 "
+                + "WHERE bp.chapterId IS NULL OR (bc.id IS NOT NULL AND bb.status = 'enabled')) AS uniqueReaderCount, "
+                + "(SELECT COUNT(1) FROM blog_book_favorite bbf JOIN blog_book bb ON bb.id = bbf.bookId "
+                + "WHERE bbf.isDelete = 0 AND bb.isDelete = 0 AND bb.status = 'enabled') AS bookFavoriteCount, "
+                + "(SELECT COUNT(1) FROM blog_post_favorite bpf "
+                + "JOIN blog_post bp ON bp.id = bpf.postId AND bp.isDelete = 0 AND bp.status = 'published' "
+                + "LEFT JOIN blog_chapter bc ON bc.id = bp.chapterId AND bc.isDelete = 0 "
+                + "LEFT JOIN blog_book bb ON bb.id = bc.bookId AND bb.isDelete = 0 "
+                + "WHERE bpf.isDelete = 0 AND (bp.chapterId IS NULL "
+                + "OR (bc.id IS NOT NULL AND bb.status = 'enabled'))) AS postFavoriteCount";
+        return jdbcTemplate.queryForObject(sql, (row, index) -> {
+            SiteAnalyticsOverviewVO.TutorialContentSummary summary =
+                    new SiteAnalyticsOverviewVO.TutorialContentSummary();
+            summary.setBookCount(row.getLong("bookCount"));
+            summary.setPostCount(row.getLong("postCount"));
+            summary.setEffectiveReadCount(row.getLong("effectiveReadCount"));
+            summary.setUniqueReaderCount(row.getLong("uniqueReaderCount"));
+            summary.setBookFavoriteCount(row.getLong("bookFavoriteCount"));
+            summary.setPostFavoriteCount(row.getLong("postFavoriteCount"));
+            return summary;
+        });
+    }
+
+    private List<SiteAnalyticsOverviewVO.TutorialBookMetric> queryTutorialBookMetrics() {
+        String sql = "SELECT bb.id, bb.title, bb.slug, bb.memberOnly, "
+                + "COUNT(DISTINCT CASE WHEN bp.id IS NOT NULL THEN bc.id END) AS chapterCount, "
+                + "COUNT(DISTINCT bp.id) AS postCount, "
+                + "(SELECT COUNT(1) FROM blog_post_read_event bpre "
+                + "JOIN blog_post read_post ON read_post.id = bpre.postId "
+                + "AND read_post.isDelete = 0 AND read_post.status = 'published' "
+                + "JOIN blog_chapter read_chapter ON read_chapter.id = read_post.chapterId "
+                + "AND read_chapter.isDelete = 0 AND read_chapter.bookId = bb.id "
+                + "WHERE bpre.bookId = bb.id) AS effectiveReadCount, "
+                + "(SELECT COUNT(DISTINCT bpre.readerKey) FROM blog_post_read_event bpre "
+                + "JOIN blog_post read_post ON read_post.id = bpre.postId "
+                + "AND read_post.isDelete = 0 AND read_post.status = 'published' "
+                + "JOIN blog_chapter read_chapter ON read_chapter.id = read_post.chapterId "
+                + "AND read_chapter.isDelete = 0 AND read_chapter.bookId = bb.id "
+                + "WHERE bpre.bookId = bb.id) AS uniqueReaderCount, "
+                + "(SELECT COUNT(1) FROM blog_book_favorite bbf "
+                + "WHERE bbf.bookId = bb.id AND bbf.isDelete = 0) AS favoriteCount "
+                + "FROM blog_book bb "
+                + "LEFT JOIN blog_chapter bc ON bc.bookId = bb.id AND bc.isDelete = 0 "
+                + "LEFT JOIN blog_post bp ON bp.chapterId = bc.id AND bp.isDelete = 0 AND bp.status = 'published' "
+                + "WHERE bb.isDelete = 0 AND bb.status = 'enabled' "
+                + "GROUP BY bb.id, bb.title, bb.slug, bb.memberOnly "
+                + "ORDER BY effectiveReadCount DESC, favoriteCount DESC, bb.updateTime DESC, bb.id DESC";
+        return jdbcTemplate.query(sql, (row, index) -> {
+            SiteAnalyticsOverviewVO.TutorialBookMetric metric =
+                    new SiteAnalyticsOverviewVO.TutorialBookMetric();
+            metric.setId(row.getLong("id"));
+            metric.setTitle(row.getString("title"));
+            metric.setSlug(row.getString("slug"));
+            metric.setMemberOnly(row.getInt("memberOnly"));
+            metric.setChapterCount(row.getLong("chapterCount"));
+            metric.setPostCount(row.getLong("postCount"));
+            metric.setEffectiveReadCount(row.getLong("effectiveReadCount"));
+            metric.setUniqueReaderCount(row.getLong("uniqueReaderCount"));
+            metric.setFavoriteCount(row.getLong("favoriteCount"));
+            return metric;
+        });
+    }
+
+    private List<SiteAnalyticsOverviewVO.TutorialPostMetric> queryTutorialPostMetrics() {
+        String sql = "SELECT bp.id, bp.title, bp.slug, bp.memberOnly, "
+                + "bc.id AS chapterId, bc.title AS chapterTitle, bb.id AS bookId, bb.title AS bookTitle, "
+                + "(SELECT COUNT(1) FROM blog_post_favorite bpf "
+                + "WHERE bpf.postId = bp.id AND bpf.isDelete = 0) AS favoriteCount "
+                + ", (SELECT COUNT(1) FROM blog_post_read_event bpre "
+                + "WHERE bpre.postId = bp.id) AS effectiveReadCount "
+                + ", (SELECT COUNT(DISTINCT bpre.readerKey) FROM blog_post_read_event bpre "
+                + "WHERE bpre.postId = bp.id) AS uniqueReaderCount "
+                + "FROM blog_post bp "
+                + "LEFT JOIN blog_chapter bc ON bc.id = bp.chapterId AND bc.isDelete = 0 "
+                + "LEFT JOIN blog_book bb ON bb.id = bc.bookId AND bb.isDelete = 0 "
+                + "WHERE bp.isDelete = 0 AND bp.status = 'published' "
+                + "AND (bp.chapterId IS NULL OR (bc.id IS NOT NULL AND bb.status = 'enabled')) "
+                + "ORDER BY effectiveReadCount DESC, favoriteCount DESC, bp.updateTime DESC, bp.id DESC";
+        return jdbcTemplate.query(sql, (row, index) -> {
+            SiteAnalyticsOverviewVO.TutorialPostMetric metric =
+                    new SiteAnalyticsOverviewVO.TutorialPostMetric();
+            metric.setId(row.getLong("id"));
+            metric.setTitle(row.getString("title"));
+            metric.setSlug(row.getString("slug"));
+            metric.setMemberOnly(row.getInt("memberOnly"));
+            metric.setEffectiveReadCount(row.getLong("effectiveReadCount"));
+            metric.setUniqueReaderCount(row.getLong("uniqueReaderCount"));
+            metric.setFavoriteCount(row.getLong("favoriteCount"));
+            metric.setChapterId(nullableLong(row, "chapterId"));
+            metric.setChapterTitle(row.getString("chapterTitle"));
+            metric.setBookId(nullableLong(row, "bookId"));
+            metric.setBookTitle(row.getString("bookTitle"));
+            return metric;
+        });
+    }
+
+    private Long nullableLong(java.sql.ResultSet row, String columnName) throws java.sql.SQLException {
+        long value = row.getLong(columnName);
+        return row.wasNull() ? null : value;
     }
 
     private String resolveDimensionColumn(String dimensionType) {

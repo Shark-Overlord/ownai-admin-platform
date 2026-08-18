@@ -27,6 +27,41 @@ export interface TrafficDimensionMetric {
   percentage: number;
 }
 
+export interface TutorialContentSummary {
+  bookCount: number;
+  postCount: number;
+  effectiveReadCount: number;
+  uniqueReaderCount: number;
+  bookFavoriteCount: number;
+  postFavoriteCount: number;
+}
+
+export interface TutorialBookMetric {
+  id: string;
+  title: string;
+  slug: string;
+  memberOnly: 0 | 1;
+  chapterCount: number;
+  postCount: number;
+  effectiveReadCount: number;
+  uniqueReaderCount: number;
+  favoriteCount: number;
+}
+
+export interface TutorialPostMetric {
+  id: string;
+  title: string;
+  slug: string;
+  memberOnly: 0 | 1;
+  effectiveReadCount: number;
+  uniqueReaderCount: number;
+  favoriteCount: number;
+  bookId?: string;
+  bookTitle?: string;
+  chapterId?: string;
+  chapterTitle?: string;
+}
+
 export interface SiteAnalyticsOverview {
   startDate: string;
   endDate: string;
@@ -37,6 +72,9 @@ export interface SiteAnalyticsOverview {
   topPages: TrafficDimensionMetric[];
   topSources: TrafficDimensionMetric[];
   deviceDistribution: TrafficDimensionMetric[];
+  tutorialContentSummary: TutorialContentSummary;
+  tutorialBooks: TutorialBookMetric[];
+  tutorialPosts: TutorialPostMetric[];
 }
 
 export async function getSiteAnalyticsOverview(params: { startDate: string; endDate: string }) {

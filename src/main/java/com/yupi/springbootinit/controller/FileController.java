@@ -78,7 +78,9 @@ public class FileController {
         }
         if ((FileUploadBizEnum.VIDEO_BACKGROUND_COVER.equals(fileUploadBizEnum)
                 || FileUploadBizEnum.VIDEO_BACKGROUND_PREVIEW.equals(fileUploadBizEnum)
-                || FileUploadBizEnum.VIDEO_BACKGROUND_SOURCE.equals(fileUploadBizEnum))
+                || FileUploadBizEnum.VIDEO_BACKGROUND_SOURCE.equals(fileUploadBizEnum)
+                || FileUploadBizEnum.BLOG_IMAGE.equals(fileUploadBizEnum)
+                || FileUploadBizEnum.BLOG_VIDEO.equals(fileUploadBizEnum))
                 && !userService.isAdmin(loginUser)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
@@ -205,6 +207,7 @@ public class FileController {
         final long ONE_M = 1024 * 1024L;
         final long TEN_M = 10 * ONE_M;
         final long FIFTY_M = 50 * ONE_M;
+        final long ONE_HUNDRED_M = 100 * ONE_M;
         final long TWO_HUNDRED_M = 200 * ONE_M;
         if (FileUploadBizEnum.USER_AVATAR.equals(fileUploadBizEnum)) {
             validSuffix(fileSuffix, Arrays.asList("jpeg", "jpg", "svg", "png", "webp"));
@@ -216,17 +219,28 @@ public class FileController {
         if (FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
                 || FileUploadBizEnum.PROMPT_ASSET_COVER.equals(fileUploadBizEnum)
                 || FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum)
-                || FileUploadBizEnum.VIDEO_BACKGROUND_COVER.equals(fileUploadBizEnum)) {
+                || FileUploadBizEnum.VIDEO_BACKGROUND_COVER.equals(fileUploadBizEnum)
+                || FileUploadBizEnum.BLOG_IMAGE.equals(fileUploadBizEnum)) {
             List<String> allowedImageSuffixes = FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
                     ? Arrays.asList("jpeg", "jpg", "png", "gif", "webp")
                     : Arrays.asList("jpeg", "jpg", "png", "webp");
             validSuffix(fileSuffix, allowedImageSuffixes);
-            long maxSize = FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum) ? FIFTY_M : TEN_M;
+            long maxSize = FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum) ? FIFTY_M
+                    : FileUploadBizEnum.BLOG_IMAGE.equals(fileUploadBizEnum) ? 20 * ONE_M : TEN_M;
             if (fileSize > maxSize) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR,
                         FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum)
                                 ? "Image result file cannot exceed 50MB"
+                                : FileUploadBizEnum.BLOG_IMAGE.equals(fileUploadBizEnum)
+                                        ? "Blog image cannot exceed 20MB"
                                 : "Cover file cannot exceed 10MB");
+            }
+            return;
+        }
+        if (FileUploadBizEnum.BLOG_VIDEO.equals(fileUploadBizEnum)) {
+            validSuffix(fileSuffix, Arrays.asList("mp4", "webm", "m4v"));
+            if (fileSize > ONE_HUNDRED_M) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "Blog video cannot exceed 100MB");
             }
             return;
         }

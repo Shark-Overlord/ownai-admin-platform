@@ -27,6 +27,12 @@ public class SiteAnalyticsOverviewVO implements Serializable {
 
     private List<DimensionMetric> deviceDistribution = new ArrayList<>();
 
+    private TutorialContentSummary tutorialContentSummary = new TutorialContentSummary();
+
+    private List<TutorialBookMetric> tutorialBooks = new ArrayList<>();
+
+    private List<TutorialPostMetric> tutorialPosts = new ArrayList<>();
+
     @Data
     public static class MetricSummary implements Serializable {
 
@@ -77,6 +83,76 @@ public class SiteAnalyticsOverviewVO implements Serializable {
         private Long dau = 0L;
 
         private Double percentage = 0D;
+
+        private static final long serialVersionUID = 1L;
+    }
+
+    @Data
+    public static class TutorialContentSummary implements Serializable {
+
+        private Long bookCount = 0L;
+
+        private Long postCount = 0L;
+
+        private Long effectiveReadCount = 0L;
+
+        private Long uniqueReaderCount = 0L;
+
+        private Long bookFavoriteCount = 0L;
+
+        private Long postFavoriteCount = 0L;
+
+        private static final long serialVersionUID = 1L;
+    }
+
+    @Data
+    public static class TutorialBookMetric implements Serializable {
+
+        private Long id;
+
+        private String title;
+
+        private String slug;
+
+        private Integer memberOnly;
+
+        private Long chapterCount = 0L;
+
+        private Long postCount = 0L;
+
+        private Long effectiveReadCount = 0L;
+
+        private Long uniqueReaderCount = 0L;
+
+        private Long favoriteCount = 0L;
+
+        private static final long serialVersionUID = 1L;
+    }
+
+    @Data
+    public static class TutorialPostMetric implements Serializable {
+
+        private Long id;
+
+        private String title;
+
+        private String slug;
+
+        private Integer memberOnly;
+
+        private Long effectiveReadCount = 0L;
+
+        private Long uniqueReaderCount = 0L;
+
+        private Long favoriteCount = 0L;
+
+        private Long bookId;
+
+        private String bookTitle;
+
+        private Long chapterId;
+
+        private String chapterTitle;
 
         private static final long serialVersionUID = 1L;
     }

@@ -22,6 +22,9 @@ import ImageGenerationMessageManage from '../pages/ImageGenerationMessageManage'
 import ImageGenerationConfigManage from '../pages/ImageGenerationConfigManage';
 import YuqueDocsManage from '../pages/YuqueDocsManage';
 import SiteAnalytics from '../pages/SiteAnalytics';
+import BlogManage from '../pages/BlogManage';
+import BlogBookManage from '../pages/BlogBookManage';
+import BlogBookWorkspace from '../pages/BlogBookWorkspace';
 
 export const routes = [
   {
@@ -75,6 +78,36 @@ export const routes = [
       {
         path: 'yuque-docs',
         element: <YuqueDocsManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'blog',
+        element: <Navigate to="/tutorial-assets/articles" replace />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'tutorial-assets/books',
+        element: <BlogBookManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'tutorial-assets/books/:bookId/workspace',
+        element: <BlogBookWorkspace />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'tutorial-assets/articles',
+        element: <BlogManage key="posts" initialTab="posts" />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'tutorial-assets/categories',
+        element: <BlogManage key="categories" initialTab="categories" />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'tutorial-assets/tags',
+        element: <BlogManage key="tags" initialTab="tags" />,
         meta: { requiresAdmin: true },
       },
       {
@@ -215,6 +248,33 @@ export const menuRoutes = [
       {
         path: '/tag',
         name: '标签管理',
+        icon: 'TagOutlined',
+      },
+    ],
+  },
+  {
+    path: '/tutorial-assets',
+    name: '教程资产',
+    icon: 'BookOutlined',
+    routes: [
+      {
+        path: '/tutorial-assets/books',
+        name: '教程书',
+        icon: 'ReadOutlined',
+      },
+      {
+        path: '/tutorial-assets/articles',
+        name: '教程文章',
+        icon: 'FileTextOutlined',
+      },
+      {
+        path: '/tutorial-assets/categories',
+        name: '教程分类',
+        icon: 'AppstoreOutlined',
+      },
+      {
+        path: '/tutorial-assets/tags',
+        name: '教程标签',
         icon: 'TagOutlined',
       },
     ],

@@ -1,0 +1,386 @@
+.tutorial-workspace,
+.tutorial-workspace * {
+  box-sizing: border-box;
+}
+
+.tutorial-workspace {
+  height: 100vh;
+  min-width: 960px;
+  overflow: hidden;
+  background: #fff;
+  color: #1f2329;
+}
+
+.tutorial-workspace-loading {
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: #f7f8fa;
+}
+
+.tutorial-workspace__create-empty {
+  display: flex;
+  height: calc(100vh - 60px);
+  align-items: center;
+  justify-content: center;
+  background: #f7f8fa;
+}
+
+.tutorial-workspace__topbar {
+  display: flex;
+  height: 60px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 0 12px;
+  border-bottom: 1px solid #e8eaf0;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(31 35 41 / 3%);
+}
+
+.tutorial-workspace__book-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.tutorial-workspace__divider {
+  width: 1px;
+  height: 20px;
+  background: #e5e6eb;
+}
+
+.tutorial-workspace__book-title {
+  max-width: 260px;
+  overflow: hidden;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutorial-workspace__save-state {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+.tutorial-book-cover-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.tutorial-book-cover-field__preview {
+  flex: 0 0 160px;
+  width: 160px;
+  height: 90px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f5f7fa;
+}
+
+.tutorial-book-cover-field__preview .ant-image,
+.tutorial-book-cover-field__preview .ant-image-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tutorial-book-cover-field__placeholder {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: #a3adba;
+  font-size: 30px;
+}
+
+.tutorial-book-cover-field__controls {
+  flex: 1;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.tutorial-book-cover-field__controls > .ant-btn-link {
+  padding-inline: 0;
+}
+
+.tutorial-workspace__body {
+  display: grid;
+  height: calc(100vh - 60px);
+  grid-template-columns: 344px minmax(520px, 1fr) 344px;
+  transition: grid-template-columns 180ms ease;
+}
+
+.tutorial-workspace--inspector-closed .tutorial-workspace__body {
+  grid-template-columns: 344px minmax(520px, 1fr) 0;
+}
+
+.tutorial-outline-panel,
+.tutorial-inspector-panel {
+  min-width: 0;
+  overflow: hidden auto;
+  background: #fbfbfc;
+}
+
+.tutorial-outline-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 14px 12px;
+  border-right: 1px solid #e8eaf0;
+}
+
+.tutorial-outline-panel__header,
+.tutorial-inspector-panel__header,
+.tutorial-editor-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tutorial-outline-panel__header {
+  padding: 0 2px;
+}
+
+.tutorial-outline-panel__header > :last-child {
+  font-size: 12px;
+}
+
+.tutorial-outline-panel .ant-dropdown-button {
+  display: flex;
+  width: 100%;
+}
+
+.tutorial-outline-panel .ant-dropdown-button > .ant-btn:first-child {
+  flex: 1;
+}
+
+.tutorial-outline-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0 -6px;
+  padding: 0 6px 24px;
+}
+
+.tutorial-outline-chapter {
+  margin-bottom: 14px;
+}
+
+.tutorial-outline-chapter__header {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 4px;
+  color: #4e5969;
+}
+
+.tutorial-outline-chapter__header .ant-space:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.tutorial-outline-chapter__header .ant-space-item:last-child {
+  min-width: 0;
+}
+
+.tutorial-outline-chapter__header .ant-btn {
+  opacity: 0;
+}
+
+.tutorial-outline-chapter__header:hover .ant-btn,
+.tutorial-outline-chapter__header:focus-within .ant-btn {
+  opacity: 1;
+}
+
+.tutorial-outline-chapter__posts {
+  display: flex;
+  min-height: 8px;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tutorial-outline-post {
+  display: grid;
+  min-height: 38px;
+  cursor: pointer;
+  align-items: center;
+  grid-template-columns: 14px 18px minmax(0, 1fr) 28px;
+  gap: 7px;
+  padding: 5px 4px 5px 10px;
+  border-radius: 6px;
+  color: #4e5969;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.tutorial-outline-post:hover {
+  background: #f0f3f8;
+  color: #1f2329;
+}
+
+.tutorial-outline-post--active {
+  background: #eaf2ff;
+  color: #165dff;
+}
+
+.tutorial-outline-post--draft {
+  grid-template-columns: 14px 18px minmax(0, 1fr) auto;
+}
+
+.tutorial-outline-post--draft .ant-tag {
+  margin-inline-end: 2px;
+  font-size: 11px;
+}
+
+.tutorial-outline-post .ant-btn {
+  opacity: 0;
+}
+
+.tutorial-outline-post:hover .ant-btn,
+.tutorial-outline-post:focus-within .ant-btn {
+  opacity: 1;
+}
+
+.tutorial-outline-drag {
+  cursor: grab;
+  color: #c0c4cc;
+}
+
+.tutorial-outline-drag:active {
+  cursor: grabbing;
+}
+
+.tutorial-outline-panel__footer {
+  padding-top: 10px;
+  border-top: 1px solid #eceef2;
+  color: #8f959e;
+  font-size: 12px;
+  text-align: center;
+}
+
+.tutorial-editor-panel {
+  min-width: 0;
+  overflow: hidden auto;
+  background: #fff;
+}
+
+.tutorial-editor-panel__empty {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.tutorial-editor-panel__breadcrumb,
+.tutorial-editor-panel__title,
+.tutorial-editor-panel > .blog-editor,
+.tutorial-editor-panel__footer {
+  width: min(820px, calc(100% - 48px));
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.tutorial-editor-panel__breadcrumb {
+  display: flex;
+  gap: 8px;
+  padding-top: 28px;
+  font-size: 13px;
+}
+
+.tutorial-editor-panel__title.ant-input {
+  display: block;
+  margin-top: 30px;
+  margin-bottom: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: #1f2329;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.25;
+  resize: none;
+}
+
+.tutorial-editor-panel__title.ant-input:focus {
+  box-shadow: none;
+}
+
+.tutorial-editor-panel__title::placeholder {
+  color: #c9cdd4;
+}
+
+.tutorial-editor-panel__footer {
+  min-height: 52px;
+  padding: 12px 0 28px;
+  border-top: 1px solid #f0f1f3;
+  font-size: 12px;
+}
+
+.tutorial-inspector-panel {
+  padding: 18px 20px 32px;
+  border-left: 1px solid #e8eaf0;
+  transition: opacity 150ms ease;
+}
+
+.tutorial-workspace--inspector-closed .tutorial-inspector-panel {
+  visibility: hidden;
+  padding-right: 0;
+  padding-left: 0;
+  opacity: 0;
+}
+
+.tutorial-inspector-panel__header {
+  min-height: 30px;
+  margin-bottom: 22px;
+}
+
+.tutorial-inspector-panel__content .ant-form-item {
+  margin-bottom: 18px;
+}
+
+.tutorial-inspector-panel__hint {
+  margin-top: -10px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tutorial-inspector-panel__cover {
+  max-height: 138px;
+  margin-top: 12px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.tutorial-inspector-panel__collapse {
+  margin-top: 18px;
+  border-top: 1px solid #eceef2;
+}
+
+.tutorial-inspector-panel__collapse .ant-collapse-header {
+  padding-right: 0 !important;
+  padding-left: 0 !important;
+}
+
+@media (max-width: 1180px) {
+  .tutorial-workspace__body {
+    grid-template-columns: 248px minmax(500px, 1fr) 292px;
+  }
+
+  .tutorial-workspace--inspector-closed .tutorial-workspace__body {
+    grid-template-columns: 248px minmax(500px, 1fr) 0;
+  }
+
+  .tutorial-editor-panel__breadcrumb,
+  .tutorial-editor-panel__title,
+  .tutorial-editor-panel > .blog-editor,
+  .tutorial-editor-panel__footer {
+    width: calc(100% - 56px);
+  }
+}

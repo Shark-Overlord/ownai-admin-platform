@@ -16,7 +16,9 @@ public enum FileUploadBizEnum {
     ARTWORK_SOURCE("作品源码", "artwork_source"),
     VIDEO_BACKGROUND_COVER("视频素材封面", "video_background_cover"),
     VIDEO_BACKGROUND_PREVIEW("视频素材预览", "video_background_preview"),
-    VIDEO_BACKGROUND_SOURCE("视频素材原视频", "video_background_source");
+    VIDEO_BACKGROUND_SOURCE("视频素材原视频", "video_background_source"),
+    BLOG_IMAGE("博客图片", "blog_image"),
+    BLOG_VIDEO("博客视频", "blog_video");
 
     private final String text;
 
