@@ -20,7 +20,7 @@ import {
   Upload,
   message,
 } from 'antd';
-import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, ReloadOutlined, SendOutlined, UnlockOutlined, UploadOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, ReloadOutlined, RobotOutlined, SendOutlined, UnlockOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   addBlogPost,
@@ -30,6 +30,8 @@ import {
   deleteBlogCategory,
   deleteBlogPost,
   deleteBlogTag,
+  generateBlogAiSeo,
+  generateBlogAiSlug,
   getBlogPost,
   listBlogBooks,
   listBlogCategories,
@@ -53,6 +55,15 @@ import BlogEditor from '../../components/BlogEditor';
 import { generateBlogSlug } from '../../utils/blogSlug';
 
 const EMPTY_DOCUMENT = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] });
+
+const htmlToPlainText = (html?: string) => (html || '')
+  .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;/gi, ' ')
+  .replace(/&amp;/gi, '&')
+  .replace(/\s+/g, ' ')
+  .trim();
 
 const statusMap: Record<string, { text: string; color: string }> = {
   draft: { text: '草稿', color: 'default' },
@@ -99,6 +110,7 @@ export default function BlogManage({ initialTab = 'posts' }: BlogManageProps) {
   const [saving, setSaving] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [aiAction, setAiAction] = useState<'slug' | 'seo' | null>(null);
   const [selectedPostKeys, setSelectedPostKeys] = useState<BlogId[]>([]);
   const [batchOperating, setBatchOperating] = useState<'publish' | 'delete' | 'member' | 'free' | null>(null);
   const [publishError, setPublishError] = useState<{ title: string; content: string } | null>(null);
@@ -221,6 +233,51 @@ export default function BlogManage({ initialTab = 'posts' }: BlogManageProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const generatePostSlug = async () => {
+    const title = postForm.getFieldValue('title');
+    if (!title?.trim()) {
+      message.warning('请先填写文章标题');
+      return;
+    }
+    setAiAction('slug');
+    try {
+      const res = await generateBlogAiSlug({ resourceType: 'post', title, excludeId: currentPost?.id });
+      postSlugAutoRef.current = false;
+      postForm.setFieldValue('slug', res.data.slug);
+      message.success('文章 Slug 已生成，请确认后保存');
+    } finally {
+      setAiAction(null);
+    }
+  };
+
+  const generatePostSeo = async () => {
+    const title = postForm.getFieldValue('title');
+    if (!title?.trim()) {
+      message.warning('请先填写文章标题');
+      return;
+    }
+    const run = async () => {
+      setAiAction('seo');
+      try {
+        const res = await generateBlogAiSeo({
+          resourceType: 'post',
+          title,
+          summary: postForm.getFieldValue('summary'),
+          contentText: htmlToPlainText(contentHtml).slice(0, 6000),
+        });
+        postForm.setFieldsValue(res.data);
+        message.success('文章 SEO 已生成，请确认后保存');
+      } finally {
+        setAiAction(null);
+      }
+    };
+    if (postForm.getFieldValue('seoTitle') || postForm.getFieldValue('seoDescription')) {
+      Modal.confirm({ title: '覆盖现有 SEO？', content: 'AI 生成结果将替换当前表单中的 SEO 标题和描述，保存前仍可修改。', onOk: run });
+      return;
+    }
+    await run();
   };
 
   const handlePublish = async (record: BlogPostVO) => {
@@ -611,7 +668,9 @@ export default function BlogManage({ initialTab = 'posts' }: BlogManageProps) {
               </Form.Item>
             </div>
             <div>
-              <Form.Item name="slug" label="文章 Slug" extra="仅小写字母、数字和中划线，例如 spring-boot-blog" rules={[{ required: true }, { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: 'Slug 格式不正确' }]}><Input /></Form.Item>
+              <Form.Item name="slug" label="文章 Slug" extra="仅小写字母、数字和中划线，例如 spring-boot-blog" rules={[{ required: true }, { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: 'Slug 格式不正确' }]}>
+                <Input suffix={<Button type="link" size="small" icon={<RobotOutlined />} loading={aiAction === 'slug'} onClick={() => void generatePostSlug()}>AI 生成</Button>} />
+              </Form.Item>
               <Form.Item name="bookId" label="教程书" extra="不选择时保存为独立文章">
                 <Select
                   allowClear
@@ -649,8 +708,9 @@ export default function BlogManage({ initialTab = 'posts' }: BlogManageProps) {
                 ghost
                 items={[{
                   key: 'seo', label: 'SEO 设置', children: <>
-                    <Form.Item name="seoTitle" label="SEO 标题"><Input maxLength={255} /></Form.Item>
-                    <Form.Item name="seoDescription" label="SEO 描述"><Input.TextArea rows={4} maxLength={512} showCount /></Form.Item>
+                    <Button block icon={<RobotOutlined />} loading={aiAction === 'seo'} onClick={() => void generatePostSeo()} style={{ marginBottom: 12 }}>AI 生成 SEO</Button>
+                    <Form.Item name="seoTitle" label="SEO 标题" extra="建议不超过 60 个字符"><Input maxLength={255} /></Form.Item>
+                    <Form.Item name="seoDescription" label="SEO 描述" extra="AI 默认生成 80～160 个字符"><Input.TextArea rows={4} maxLength={512} showCount /></Form.Item>
                   </>,
                 }]}
               />

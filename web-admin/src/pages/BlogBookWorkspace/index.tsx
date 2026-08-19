@@ -10,6 +10,7 @@ import {
   LinkOutlined,
   MoreOutlined,
   PlusOutlined,
+  RobotOutlined,
   SaveOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -44,6 +45,8 @@ import {
   addBlogPost,
   assignBlogPost,
   deleteBlogChapter,
+  generateBlogAiSeo,
+  generateBlogAiSlug,
   getBlogBook,
   getBlogPost,
   listBlogCategories,
@@ -70,7 +73,7 @@ import './index.css';
 
 const EMPTY_DOCUMENT = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] });
 
-type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
+type SaveState = 'saved' | 'unsaved' | 'manual' | 'saving' | 'error';
 type DragItem =
   | { type: 'chapter'; chapterId: BlogId }
   | { type: 'post'; postId: BlogId; chapterId: BlogId };
@@ -83,6 +86,17 @@ const postStatusLabel: Record<BlogPostVO['status'], string> = {
 
 function sameId(left?: BlogId, right?: BlogId) {
   return left !== undefined && right !== undefined && String(left) === String(right);
+}
+
+function htmlToPlainText(html?: string) {
+  return (html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export default function BlogBookWorkspace() {
@@ -98,6 +112,7 @@ export default function BlogBookWorkspace() {
   const articleSlugSeedRef = useRef(Date.now().toString(36));
   const bookSlugAutoRef = useRef(true);
   const bookSlugSeedRef = useRef(Date.now().toString(36));
+  const manualSaveRequiredRef = useRef(false);
   const [articleForm] = Form.useForm<BlogPostSaveRequest>();
   const [chapterForm] = Form.useForm();
   const [bookForm] = Form.useForm<BlogBookSaveRequest>();
@@ -113,6 +128,7 @@ export default function BlogBookWorkspace() {
   const [loading, setLoading] = useState(true);
   const [postLoading, setPostLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [aiAction, setAiAction] = useState<'book-slug' | 'book-seo' | 'post-slug' | 'post-seo' | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [lastChangeAt, setLastChangeAt] = useState(0);
   const [outlineSearch, setOutlineSearch] = useState('');
@@ -147,6 +163,7 @@ export default function BlogBookWorkspace() {
       contentHtml: '<p></p>',
       contentSchemaVersion: 1,
     });
+    manualSaveRequiredRef.current = false;
     setSaveState('unsaved');
     setLastChangeAt(0);
   }, [articleForm]);
@@ -177,6 +194,7 @@ export default function BlogBookWorkspace() {
         memberOnly: post.memberOnly === 1,
         tagIds: post.tags?.map((item) => item.id) || [],
       });
+      manualSaveRequiredRef.current = false;
       setSaveState('saved');
       setLastChangeAt(0);
     } finally {
@@ -229,6 +247,11 @@ export default function BlogBookWorkspace() {
   }, [bookForm, bookId, creatingBook, openPost, prepareNewPost, requestedChapterId, requestedEditPostId, requestedNewPost]);
 
   const markChanged = () => {
+    if (manualSaveRequiredRef.current) {
+      setSaveState('manual');
+      setLastChangeAt(0);
+      return;
+    }
     setSaveState('unsaved');
     setLastChangeAt(Date.now());
   };
@@ -273,6 +296,7 @@ export default function BlogBookWorkspace() {
         memberOnly: savedPost.memberOnly === 1,
         tagIds: savedPost.tags?.map((item) => item.id) || [],
       });
+      manualSaveRequiredRef.current = false;
       setSaveState('saved');
       setLastChangeAt(0);
       await refreshOutline();
@@ -380,7 +404,15 @@ export default function BlogBookWorkspace() {
 
   const activeChapter = outline.find((chapter) => sameId(chapter.id, activeChapterId));
   const editorTextLength = contentHtml.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length;
-  const saveLabel = saveState === 'saving' ? '保存中' : saveState === 'error' ? '保存失败' : saveState === 'unsaved' ? '有未保存修改' : '已保存';
+  const saveLabel = saveState === 'saving'
+    ? '保存中'
+    : saveState === 'error'
+      ? '保存失败'
+      : saveState === 'manual'
+        ? 'AI 结果待手动保存'
+        : saveState === 'unsaved'
+          ? '有未保存修改'
+          : '已保存';
 
   const openBookSettings = () => {
     if (book) {
@@ -389,6 +421,106 @@ export default function BlogBookWorkspace() {
       bookForm.setFieldsValue(book);
     }
     setBookSettingsOpen(true);
+  };
+
+  const generateBookSlug = async () => {
+    const title = bookForm.getFieldValue('title');
+    if (!title?.trim()) {
+      message.warning('请先填写教程书名称');
+      return;
+    }
+    setAiAction('book-slug');
+    try {
+      const res = await generateBlogAiSlug({ resourceType: 'book', title, excludeId: book?.id });
+      bookSlugAutoRef.current = false;
+      bookForm.setFieldValue('slug', res.data.slug);
+      message.success('教程书 Slug 已生成，请确认后保存');
+    } finally {
+      setAiAction(null);
+    }
+  };
+
+  const generateBookSeo = async () => {
+    const title = bookForm.getFieldValue('title');
+    if (!title?.trim()) {
+      message.warning('请先填写教程书名称');
+      return;
+    }
+    const run = async () => {
+      setAiAction('book-seo');
+      try {
+        const directoryText = outline.map((chapter, index) => {
+          const posts = (chapter.posts || []).map((post) => post.title).join('、');
+          return `第 ${index + 1} 章 ${chapter.title}${posts ? `：${posts}` : ''}`;
+        }).join('\n');
+        const res = await generateBlogAiSeo({
+          resourceType: 'book',
+          title,
+          summary: bookForm.getFieldValue('summary'),
+          contentText: directoryText,
+        });
+        bookForm.setFieldsValue(res.data);
+        message.success('教程书 SEO 已生成，请确认后保存');
+      } finally {
+        setAiAction(null);
+      }
+    };
+    if (bookForm.getFieldValue('seoTitle') || bookForm.getFieldValue('seoDescription')) {
+      Modal.confirm({ title: '覆盖现有 SEO？', content: 'AI 生成结果将替换当前表单中的 SEO 标题和描述，保存前仍可修改。', onOk: run });
+      return;
+    }
+    await run();
+  };
+
+  const generatePostSlug = async () => {
+    const title = articleForm.getFieldValue('title');
+    if (!title?.trim()) {
+      message.warning('请先填写文章标题');
+      return;
+    }
+    setAiAction('post-slug');
+    try {
+      const res = await generateBlogAiSlug({ resourceType: 'post', title, excludeId: activePost?.id });
+      articleSlugAutoRef.current = false;
+      articleForm.setFieldValue('slug', res.data.slug);
+      manualSaveRequiredRef.current = true;
+      setSaveState('manual');
+      setLastChangeAt(0);
+      message.success('文章 Slug 已生成，请确认后保存');
+    } finally {
+      setAiAction(null);
+    }
+  };
+
+  const generatePostSeo = async () => {
+    const title = articleForm.getFieldValue('title');
+    if (!title?.trim()) {
+      message.warning('请先填写文章标题');
+      return;
+    }
+    const run = async () => {
+      setAiAction('post-seo');
+      try {
+        const res = await generateBlogAiSeo({
+          resourceType: 'post',
+          title,
+          summary: articleForm.getFieldValue('summary'),
+          contentText: htmlToPlainText(contentHtml).slice(0, 6000),
+        });
+        articleForm.setFieldsValue(res.data);
+        manualSaveRequiredRef.current = true;
+        setSaveState('manual');
+        setLastChangeAt(0);
+        message.success('文章 SEO 已生成，请确认后保存');
+      } finally {
+        setAiAction(null);
+      }
+    };
+    if (articleForm.getFieldValue('seoTitle') || articleForm.getFieldValue('seoDescription')) {
+      Modal.confirm({ title: '覆盖现有 SEO？', content: 'AI 生成结果将替换当前表单中的 SEO 标题和描述，保存前仍可修改。', onOk: run });
+      return;
+    }
+    await run();
   };
 
   const uploadBookCover = async (options: UploadRequestOption) => {
@@ -458,7 +590,10 @@ export default function BlogBookWorkspace() {
           extra="根据名称自动生成，用于教程链接；也可以手动修改"
           rules={[{ required: true }, { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: '仅支持小写字母、数字和中划线' }]}
         >
-          <Input placeholder="自动生成" />
+          <Input
+            placeholder="自动生成"
+            suffix={<Button type="link" size="small" icon={<RobotOutlined />} loading={aiAction === 'book-slug'} onClick={() => void generateBookSlug()}>AI 生成</Button>}
+          />
         </Form.Item>
         <Form.Item
           name="categoryId"
@@ -514,8 +649,9 @@ export default function BlogBookWorkspace() {
           </Form.Item>
           <Form.Item name="sort" label="排序"><InputNumber precision={0} /></Form.Item>
         </Space>
-        <Form.Item name="seoTitle" label="SEO 标题"><Input maxLength={255} /></Form.Item>
-        <Form.Item name="seoDescription" label="SEO 描述"><Input.TextArea rows={3} maxLength={512} /></Form.Item>
+        <Button block icon={<RobotOutlined />} loading={aiAction === 'book-seo'} onClick={() => void generateBookSeo()} style={{ marginBottom: 16 }}>AI 生成 SEO</Button>
+        <Form.Item name="seoTitle" label="SEO 标题" extra="建议不超过 60 个字符"><Input maxLength={255} /></Form.Item>
+        <Form.Item name="seoDescription" label="SEO 描述" extra="AI 默认生成 80～160 个字符"><Input.TextArea rows={3} maxLength={512} showCount /></Form.Item>
       </Form>
     </Modal>
   );
@@ -823,7 +959,10 @@ export default function BlogBookWorkspace() {
                   <Select mode="multiple" allowClear options={tags.filter((item) => item.status === 'enabled').map((item) => ({ label: item.name, value: item.id }))} />
                 </Form.Item>
                 <Form.Item name="slug" label="Slug" rules={[{ required: true, message: '请输入文章 Slug' }, { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: '仅支持小写字母、数字和中划线' }]}>
-                  <Input placeholder="variables-and-types" />
+                  <Input
+                    placeholder="variables-and-types"
+                    suffix={<Button type="link" size="small" icon={<RobotOutlined />} loading={aiAction === 'post-slug'} onClick={() => void generatePostSlug()}>AI 生成</Button>}
+                  />
                 </Form.Item>
                 <Typography.Paragraph type="secondary" className="tutorial-inspector-panel__hint">用于生成文章链接，仅支持小写字母、数字和中划线。</Typography.Paragraph>
                 <Form.Item name="coverUrl" label="封面图">
@@ -853,8 +992,9 @@ export default function BlogBookWorkspace() {
                       label: 'SEO 设置',
                       children: (
                         <>
-                          <Form.Item name="seoTitle" label="SEO 标题"><Input maxLength={255} /></Form.Item>
-                          <Form.Item name="seoDescription" label="SEO 描述"><Input.TextArea rows={4} maxLength={512} /></Form.Item>
+                          <Button block icon={<RobotOutlined />} loading={aiAction === 'post-seo'} onClick={() => void generatePostSeo()} style={{ marginBottom: 12 }}>AI 生成 SEO</Button>
+                          <Form.Item name="seoTitle" label="SEO 标题" extra="建议不超过 60 个字符"><Input maxLength={255} /></Form.Item>
+                          <Form.Item name="seoDescription" label="SEO 描述" extra="AI 默认生成 80～160 个字符"><Input.TextArea rows={4} maxLength={512} showCount /></Form.Item>
                         </>
                       ),
                     },

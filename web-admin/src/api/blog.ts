@@ -167,6 +167,25 @@ export async function listBlogPosts(params: BlogPostQuery) {
   return request.post('/blog/admin/posts/list/page', params) as Promise<{ data: PageData<BlogPostVO> }>;
 }
 
+export async function generateBlogAiSlug(params: {
+  resourceType: 'book' | 'post';
+  title: string;
+  excludeId?: BlogId;
+}) {
+  return request.post('/blog/admin/ai/slug/generate', params, { timeout: 120000 }) as Promise<{ data: { slug: string } }>;
+}
+
+export async function generateBlogAiSeo(params: {
+  resourceType: 'book' | 'post';
+  title: string;
+  summary?: string;
+  contentText?: string;
+}) {
+  return request.post('/blog/admin/ai/seo/generate', params, { timeout: 120000 }) as Promise<{
+    data: { seoTitle: string; seoDescription: string };
+  }>;
+}
+
 export async function getBlogPost(id: BlogId) {
   return request.get('/blog/admin/posts/get', { params: { id } }) as Promise<{ data: BlogPostVO }>;
 }

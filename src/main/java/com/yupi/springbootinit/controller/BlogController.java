@@ -10,6 +10,8 @@ import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.dto.blog.BlogCategorySaveRequest;
+import com.yupi.springbootinit.model.dto.blog.BlogAiSeoGenerateRequest;
+import com.yupi.springbootinit.model.dto.blog.BlogAiSlugGenerateRequest;
 import com.yupi.springbootinit.model.dto.blog.BlogBookFavoriteRequest;
 import com.yupi.springbootinit.model.dto.blog.BlogFrontBookQueryRequest;
 import com.yupi.springbootinit.model.dto.blog.BlogFrontPostQueryRequest;
@@ -27,6 +29,8 @@ import com.yupi.springbootinit.model.dto.blog.BlogPostUpdateRequest;
 import com.yupi.springbootinit.model.dto.blog.BlogTagSaveRequest;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.blog.BlogCategoryVO;
+import com.yupi.springbootinit.model.vo.blog.BlogAiSeoVO;
+import com.yupi.springbootinit.model.vo.blog.BlogAiSlugVO;
 import com.yupi.springbootinit.model.vo.blog.BlogBookVO;
 import com.yupi.springbootinit.model.vo.blog.BlogChapterVO;
 import com.yupi.springbootinit.model.vo.blog.BlogPostVO;
@@ -40,6 +44,7 @@ import com.yupi.springbootinit.model.vo.blog.front.BlogFrontPostOutlineVO;
 import com.yupi.springbootinit.model.vo.blog.front.BlogPostReadResultVO;
 import com.yupi.springbootinit.manager.PublicContentAntiCrawlerManager;
 import com.yupi.springbootinit.service.BlogCategoryService;
+import com.yupi.springbootinit.service.BlogAiService;
 import com.yupi.springbootinit.service.BlogFrontService;
 import com.yupi.springbootinit.service.BlogBookService;
 import com.yupi.springbootinit.service.BlogPostService;
@@ -67,6 +72,9 @@ public class BlogController {
     private BlogPostService blogPostService;
 
     @Resource
+    private BlogAiService blogAiService;
+
+    @Resource
     private BlogBookService blogBookService;
 
     @Resource
@@ -83,6 +91,22 @@ public class BlogController {
 
     @Resource
     private UserService userService;
+
+    @PostMapping("/admin/ai/slug/generate")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "blog", action = "generate_ai_slug")
+    @ApiOperation("Admin generate tutorial slug with AI")
+    public BaseResponse<BlogAiSlugVO> generateAiSlug(@RequestBody BlogAiSlugGenerateRequest request) {
+        return ResultUtils.success(blogAiService.generateSlug(request));
+    }
+
+    @PostMapping("/admin/ai/seo/generate")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "blog", action = "generate_ai_seo")
+    @ApiOperation("Admin generate tutorial SEO metadata with AI")
+    public BaseResponse<BlogAiSeoVO> generateAiSeo(@RequestBody BlogAiSeoGenerateRequest request) {
+        return ResultUtils.success(blogAiService.generateSeo(request));
+    }
 
     @GetMapping("/front/overview")
     @ApiOperation("Get frontend tutorial overview")

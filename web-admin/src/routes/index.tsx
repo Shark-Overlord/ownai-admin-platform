@@ -25,6 +25,7 @@ import SiteAnalytics from '../pages/SiteAnalytics';
 import BlogManage from '../pages/BlogManage';
 import BlogBookManage from '../pages/BlogBookManage';
 import BlogBookWorkspace from '../pages/BlogBookWorkspace';
+import AiConfigManage from '../pages/AiConfigManage';
 
 export const routes = [
   {
@@ -73,6 +74,11 @@ export const routes = [
       {
         path: 'prompt-asset-ai-tagging',
         element: <PromptAssetAiTaggingManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'ai-config',
+        element: <AiConfigManage />,
         meta: { requiresAdmin: true },
       },
       {
@@ -347,6 +353,11 @@ export const menuRoutes = [
         path: '/content-api-key',
         name: 'API 密钥管理',
         icon: 'KeyOutlined',
+      },
+      {
+        path: '/ai-config',
+        name: 'AI 配置',
+        icon: 'RobotOutlined',
       },
       {
         path: '/operation-log',

@@ -26,6 +26,7 @@ sql/*.sql
 !sql/video_background_favorite.sql
 !sql/site_analytics.sql
 !sql/blog_schema.sql
+!sql/system_ai_config_migration.sql
 !sql/blog_book_chapter_migration.sql
 !sql/blog_member_only_migration.sql
 !sql/blog_book_member_only_migration.sql
@@ -119,6 +120,7 @@ buildNumber.properties
 
 # Sensitive or high-churn files
 config/application-local-secrets.yml
+config/application-ai-secrets.yml
 .idea/**/dataSources/
 .idea/**/dataSources.ids
 .idea/**/dataSources.local.xml

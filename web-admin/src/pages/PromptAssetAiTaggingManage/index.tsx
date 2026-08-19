@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import {
   Alert,
@@ -17,12 +18,11 @@ import {
   Typography,
   message,
 } from 'antd';
-import { ReloadOutlined, SaveOutlined, TagsOutlined } from '@ant-design/icons';
+import { SettingOutlined, TagsOutlined } from '@ant-design/icons';
 import { listCategory, type CategoryVO } from '../../api/category';
+import { getAiSystemConfig } from '../../api/aiConfig';
 import {
-  getPromptAssetAiTagConfig,
   runPromptAssetAiTagging,
-  savePromptAssetAiTagConfig,
   type PromptAssetAiTagItemResultVO,
   type PromptAssetAiTagRunResultVO,
 } from '../../api/promptAssetAiTagging';
@@ -41,34 +41,20 @@ const statusOptions = [
 ];
 
 export default function PromptAssetAiTaggingManage() {
-  const [configForm] = Form.useForm();
+  const navigate = useNavigate();
   const [runForm] = Form.useForm();
   const [categories, setCategories] = useState<CategoryVO[]>([]);
-  const [loadingConfig, setLoadingConfig] = useState(false);
-  const [savingConfig, setSavingConfig] = useState(false);
+  const [aiReady, setAiReady] = useState(false);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<PromptAssetAiTagRunResultVO | null>(null);
 
   const categoryOptions = categories.map((item) => ({ label: item.name, value: item.id }));
 
-  const loadConfig = async () => {
-    setLoadingConfig(true);
-    try {
-      const res = await getPromptAssetAiTagConfig();
-      configForm.setFieldsValue({
-        ...res.data,
-        apiKey: '',
-        status: res.data.status ?? 1,
-        timeoutSeconds: res.data.timeoutSeconds ?? 60,
-        maxTags: res.data.maxTags ?? 8,
-      });
-    } finally {
-      setLoadingConfig(false);
-    }
-  };
-
   useEffect(() => {
-    loadConfig();
+    getAiSystemConfig().then((res) => {
+      const task = res.data.tasks?.find((item) => item.taskCode === 'prompt_asset_tagging');
+      setAiReady(res.data.provider?.status === 1 && Boolean(res.data.provider?.apiKeyUsable) && task?.status === 1);
+    });
     listCategory().then((res) => setCategories(res.data || []));
     runForm.setFieldsValue({
       dryRun: true,
@@ -78,22 +64,6 @@ export default function PromptAssetAiTaggingManage() {
       assetType: 'image_prompt',
     });
   }, []);
-
-  const handleSaveConfig = async () => {
-    const values = await configForm.validateFields();
-    setSavingConfig(true);
-    try {
-      const payload = { ...values };
-      if (!payload.apiKey) {
-        delete payload.apiKey;
-      }
-      await savePromptAssetAiTagConfig(payload);
-      message.success('DeepSeek 配置已保存');
-      await loadConfig();
-    } finally {
-      setSavingConfig(false);
-    }
-  };
 
   const handleRun = async () => {
     const values = await runForm.validateFields();
@@ -153,90 +123,11 @@ export default function PromptAssetAiTaggingManage() {
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Alert
           showIcon
-          type="info"
-          message="该功能会用 DeepSeek 覆盖生成 Prompt 资产的资产描述标签，写入 assetTagText，并把 aiTagStatus 标记为已处理；不会新增系统标签，也不会修改二级场景标签。"
+          type={aiReady ? 'info' : 'warning'}
+          message={aiReady ? 'DeepSeek 服务已就绪' : 'DeepSeek 服务未启用、密钥不可用或标签任务已停用'}
+          description="该功能会生成 Prompt 资产的描述标签，写入 assetTagText，并把 aiTagStatus 标记为已处理；不会新增系统标签，也不会修改二级场景标签。"
+          action={<Button icon={<SettingOutlined />} onClick={() => navigate('/ai-config')}>前往 AI 配置</Button>}
         />
-
-        <Card
-          title="DeepSeek 配置"
-          extra={
-            <Button icon={<ReloadOutlined />} loading={loadingConfig} onClick={loadConfig}>
-              刷新
-            </Button>
-          }
-        >
-          <Form form={configForm} layout="vertical">
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item label="Provider Code" name="providerCode">
-                  <Input placeholder="deepseek" />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item label="Provider Name" name="providerName">
-                  <Input placeholder="DeepSeek" />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item label="启用状态" name="status">
-                  <Select
-                    options={[
-                      { label: '启用', value: 1 },
-                      { label: '停用', value: 0 },
-                    ]}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Base URL" name="baseUrl" rules={[{ required: true, message: '请输入 Base URL' }]}>
-                  <Input placeholder="https://api.deepseek.com" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Chat Path" name="chatPath" rules={[{ required: true, message: '请输入 Chat Path' }]}>
-                  <Input placeholder="/v1/chat/completions" />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item label="模型" name="modelCode" rules={[{ required: true, message: '请输入模型名称' }]}>
-                  <Input placeholder="deepseek-chat" />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item label="鉴权方式" name="authType">
-                  <Select options={[{ label: 'Bearer Token', value: 'bearer' }]} />
-                </Form.Item>
-              </Col>
-              <Col span={4}>
-                <Form.Item label="超时秒数" name="timeoutSeconds">
-                  <InputNumber min={1} max={300} style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-              <Col span={4}>
-                <Form.Item label="最多标签数" name="maxTags">
-                  <InputNumber min={1} max={20} style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-              <Col span={24}>
-                <Form.Item
-                  label="API Key"
-                  name="apiKey"
-                  extra="保存后后台只脱敏展示；留空表示不修改已保存的 API Key。"
-                >
-                  <Input.Password placeholder="sk-..." />
-                </Form.Item>
-              </Col>
-              <Col span={24}>
-                <Form.Item label="系统提示词" name="systemPrompt">
-                  <Input.TextArea rows={4} />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Button type="primary" icon={<SaveOutlined />} loading={savingConfig} onClick={handleSaveConfig}>
-              保存配置
-            </Button>
-          </Form>
-        </Card>
 
         <Card title="批量重标注">
           <Alert
