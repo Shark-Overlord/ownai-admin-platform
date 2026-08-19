@@ -26,6 +26,7 @@ import com.yupi.springbootinit.model.vo.blog.BlogChapterVO;
 import com.yupi.springbootinit.model.vo.blog.BlogPostVO;
 import com.yupi.springbootinit.service.BlogBookService;
 import com.yupi.springbootinit.service.BlogPostService;
+import com.yupi.springbootinit.utils.BlogHtmlSanitizer;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +40,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +51,7 @@ public class BlogBookServiceImpl extends ServiceImpl<BlogBookMapper, BlogBook> i
     private static final String STATUS_ENABLED = "enabled";
     private static final String STATUS_DISABLED = "disabled";
     private static final String POST_PUBLISHED = "published";
+    private static final int MAX_INTRODUCTION_HTML_LENGTH = 500_000;
 
     @Resource
     private BlogCategoryMapper blogCategoryMapper;
@@ -88,7 +91,16 @@ public class BlogBookServiceImpl extends ServiceImpl<BlogBookMapper, BlogBook> i
         book.setCategoryId(request.getCategoryId());
         book.setTitle(request.getTitle().trim());
         book.setSlug(request.getSlug().trim().toLowerCase());
-        book.setSummary(StringUtils.trimToEmpty(request.getSummary()));
+        if (request.getIntroductionHtml() != null) {
+            String introductionHtml = BlogHtmlSanitizer.sanitize(request.getIntroductionHtml());
+            book.setIntroductionHtml(introductionHtml);
+            book.setSummary(StringUtils.left(toPlainText(introductionHtml), 1000));
+        } else {
+            book.setSummary(StringUtils.trimToEmpty(request.getSummary()));
+            if (existing == null) {
+                book.setIntroductionHtml("");
+            }
+        }
         book.setCoverUrl(StringUtils.trimToEmpty(request.getCoverUrl()));
         book.setSeoTitle(StringUtils.trimToEmpty(request.getSeoTitle()));
         book.setSeoDescription(StringUtils.trimToEmpty(request.getSeoDescription()));
@@ -322,6 +334,9 @@ public class BlogBookServiceImpl extends ServiceImpl<BlogBookMapper, BlogBook> i
         for (BlogBook book : books) {
             BlogBookVO vo = new BlogBookVO();
             BeanUtils.copyProperties(book, vo);
+            if (!includeOutline) {
+                vo.setIntroductionHtml(null);
+            }
             BlogCategory category = categories.get(book.getCategoryId());
             if (category != null) {
                 BlogCategoryVO categoryVO = new BlogCategoryVO();
@@ -375,6 +390,10 @@ public class BlogBookServiceImpl extends ServiceImpl<BlogBookMapper, BlogBook> i
         if (request.getSummary() != null && request.getSummary().length() > 1000) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "教程书摘要不能超过 1000 字");
         }
+        if (request.getIntroductionHtml() != null
+                && request.getIntroductionHtml().length() > MAX_INTRODUCTION_HTML_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "教程书介绍内容过长");
+        }
         if (request.getSeoDescription() != null && request.getSeoDescription().length() > 512) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "SEO 描述不能超过 512 字");
         }
@@ -386,6 +405,14 @@ public class BlogBookServiceImpl extends ServiceImpl<BlogBookMapper, BlogBook> i
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "教程书权限仅支持免费或会员专享");
         }
         validateHttpsUrl(request.getCoverUrl());
+    }
+
+    private String toPlainText(String html) {
+        String withoutTags = StringUtils.defaultString(html)
+                .replaceAll("(?i)<br\\s*/?>", " ")
+                .replaceAll("(?i)</(?:p|h[1-6]|li|blockquote)>", " ")
+                .replaceAll("<[^>]+>", " ");
+        return StringUtils.normalizeSpace(StringEscapeUtils.unescapeHtml4(withoutTags));
     }
 
     private void validateHttpsUrl(String value) {

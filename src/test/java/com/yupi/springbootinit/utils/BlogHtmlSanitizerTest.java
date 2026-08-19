@@ -32,4 +32,17 @@ class BlogHtmlSanitizerTest {
         assertFalse(sanitized.contains("http://"));
         assertFalse(sanitized.contains("javascript:"));
     }
+
+    @Test
+    void keepsSafeTextColorAndRejectsOtherInlineStyles() {
+        String sanitized = BlogHtmlSanitizer.sanitize(
+                "<p><span style=\"color: rgb(22, 119, 255)\">蓝色文字</span>"
+                        + "<span style=\"color: red; background: url(javascript:alert(1))\">危险文字</span></p>");
+
+        assertTrue(sanitized.contains("style=\"color: rgb(22, 119, 255)\""), sanitized);
+        assertTrue(sanitized.contains("蓝色文字"));
+        assertTrue(sanitized.contains("危险文字"));
+        assertFalse(sanitized.contains("background"));
+        assertFalse(sanitized.contains("javascript"));
+    }
 }

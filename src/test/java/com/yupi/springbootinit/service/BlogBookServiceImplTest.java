@@ -1,7 +1,9 @@
 package com.yupi.springbootinit.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -15,9 +17,11 @@ import com.yupi.springbootinit.mapper.BlogCategoryMapper;
 import com.yupi.springbootinit.mapper.BlogChapterMapper;
 import com.yupi.springbootinit.mapper.BlogPostMapper;
 import com.yupi.springbootinit.model.entity.BlogBook;
+import com.yupi.springbootinit.model.entity.BlogCategory;
 import com.yupi.springbootinit.model.entity.BlogChapter;
 import com.yupi.springbootinit.model.entity.BlogPost;
 import com.yupi.springbootinit.model.dto.blog.BlogOutlineReorderRequest;
+import com.yupi.springbootinit.model.dto.blog.BlogBookSaveRequest;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -122,6 +126,38 @@ class BlogBookServiceImplTest {
         assertEquals(firstPost.getId(), updates.get(0).getId());
         assertEquals(first.getId(), updates.get(1).getChapterId());
         assertEquals(secondPost.getId(), updates.get(1).getId());
+    }
+
+    @Test
+    void savingBookSanitizesRichIntroductionAndDerivesPlainSummary() {
+        BlogBook existing = new BlogBook();
+        existing.setId(40L);
+        existing.setCategoryId(50L);
+        BlogCategory category = new BlogCategory();
+        category.setId(50L);
+        category.setStatus("enabled");
+        BlogBookSaveRequest request = new BlogBookSaveRequest();
+        request.setId(existing.getId());
+        request.setCategoryId(category.getId());
+        request.setTitle("智能体入门");
+        request.setSlug("agent-basics");
+        request.setStatus("enabled");
+        request.setIntroductionHtml("<h2>课程介绍，</h2><p><span style=\"color: rgb(22, 119, 255)\">"
+                + "从零开始</span></p><script>alert(1)</script>");
+
+        when(blogCategoryMapper.selectById(category.getId())).thenReturn(category);
+        when(blogBookMapper.selectCount(any())).thenReturn(0L);
+        when(blogBookMapper.selectOne(any())).thenReturn(existing);
+        when(blogBookMapper.updateById(any(BlogBook.class))).thenReturn(1);
+
+        service.saveBook(request, null);
+
+        ArgumentCaptor<BlogBook> captor = ArgumentCaptor.forClass(BlogBook.class);
+        verify(blogBookMapper).updateById(captor.capture());
+        BlogBook saved = captor.getValue();
+        assertTrue(saved.getIntroductionHtml().contains("color: rgb(22, 119, 255)"));
+        assertFalse(saved.getIntroductionHtml().contains("script"));
+        assertEquals("课程介绍， 从零开始", saved.getSummary());
     }
 
     private BlogChapter chapter(Long id, Long bookId) {

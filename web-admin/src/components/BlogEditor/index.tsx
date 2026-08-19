@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react';
-import { Button, Divider, Select, Space, Tooltip, Upload, message } from 'antd';
+import { Button, ColorPicker, Divider, Select, Space, Tooltip, Upload, message } from 'antd';
 import type { UploadProps } from 'antd';
 import {
   BoldOutlined,
+  ClearOutlined,
   CodeOutlined,
   FileImageOutlined,
+  FontColorsOutlined,
   ItalicOutlined,
   LinkOutlined,
   OrderedListOutlined,
@@ -14,7 +16,9 @@ import {
 } from '@ant-design/icons';
 import { mergeAttributes, Node } from '@tiptap/core';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import FileHandler from '@tiptap/extension-file-handler';
 import Image from '@tiptap/extension-image';
+import { Color, TextStyle } from '@tiptap/extension-text-style';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { common, createLowlight } from 'lowlight';
@@ -22,6 +26,21 @@ import { uploadBlogMedia } from '../../api/blog';
 import './index.css';
 
 const lowlight = createLowlight(common);
+const BLOG_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const BLOG_IMAGE_MAX_SIZE = 20 * 1024 * 1024;
+const TEXT_COLOR_PRESETS = [
+  '#1f2329',
+  '#8c8c8c',
+  '#f5222d',
+  '#fa541c',
+  '#faad14',
+  '#52c41a',
+  '#13c2c2',
+  '#1677ff',
+  '#2f54eb',
+  '#722ed1',
+  '#eb2f96',
+];
 
 const Video = Node.create({
   name: 'video',
@@ -49,22 +68,25 @@ const EMPTY_DOCUMENT = JSON.stringify({
   content: [{ type: 'paragraph' }],
 });
 
-function parseContent(value?: string) {
-  if (!value) return JSON.parse(EMPTY_DOCUMENT);
-  try {
-    return JSON.parse(value);
-  } catch {
-    return JSON.parse(EMPTY_DOCUMENT);
+function parseContent(value?: string, html?: string) {
+  if (value) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      // Fall through to the HTML representation for rich-text fields that do not store editor JSON.
+    }
   }
+  return html || JSON.parse(EMPTY_DOCUMENT);
 }
 
 export interface BlogEditorProps {
   initialContentJson?: string;
+  initialContentHtml?: string;
   onChange: (contentJson: string, contentHtml: string) => void;
-  variant?: 'default' | 'workspace';
+  variant?: 'default' | 'workspace' | 'compact';
 }
 
-export default function BlogEditor({ initialContentJson, onChange, variant = 'default' }: BlogEditorProps) {
+export default function BlogEditor({ initialContentJson, initialContentHtml, onChange, variant = 'default' }: BlogEditorProps) {
   const [uploading, setUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const editor = useEditor({
@@ -73,11 +95,54 @@ export default function BlogEditor({ initialContentJson, onChange, variant = 'de
         codeBlock: false,
         link: { openOnClick: false, autolink: true },
       }),
+      TextStyle,
+      Color,
       Image.configure({ resize: { enabled: true }, allowBase64: false }),
       CodeBlockLowlight.configure({ lowlight, defaultLanguage: 'plaintext', enableTabIndentation: true, tabSize: 2 }),
       Video,
+      FileHandler.configure({
+        allowedMimeTypes: BLOG_IMAGE_MIME_TYPES,
+        consumePasteEvent: true,
+        onPaste: (currentEditor, files) => {
+          const images = files.filter((file) => BLOG_IMAGE_MIME_TYPES.includes(file.type));
+          if (!images.length) return;
+
+          const validImages = images.filter((file) => {
+            if (file.size <= BLOG_IMAGE_MAX_SIZE) return true;
+            message.error(`${file.name || '截图'} 超过 20MB，无法插入`);
+            return false;
+          });
+          if (!validImages.length) return;
+
+          let insertPosition = currentEditor.state.selection.from;
+          setUploading(true);
+          void (async () => {
+            let insertedCount = 0;
+            try {
+              for (const file of validImages) {
+                const res = await uploadBlogMedia(file, 'image');
+                currentEditor
+                  .chain()
+                  .focus()
+                  .insertContentAt(insertPosition, {
+                    type: 'image',
+                    attrs: { src: res.data, alt: file.name || '粘贴的截图' },
+                  })
+                  .run();
+                insertPosition += 1;
+                insertedCount += 1;
+              }
+              message.success(insertedCount > 1 ? `${insertedCount} 张截图已插入` : '截图已插入');
+            } catch {
+              message.error('截图上传失败，请重试');
+            } finally {
+              setUploading(false);
+            }
+          })();
+        },
+      }),
     ],
-    content: parseContent(initialContentJson),
+    content: parseContent(initialContentJson, initialContentHtml),
     editorProps: {
       attributes: { class: 'blog-editor__content' },
     },
@@ -131,7 +196,7 @@ export default function BlogEditor({ initialContentJson, onChange, variant = 'de
   };
 
   return (
-    <div className={`blog-editor${variant === 'workspace' ? ' blog-editor--workspace' : ''}`}>
+    <div className={`blog-editor${variant === 'workspace' ? ' blog-editor--workspace' : ''}${variant === 'compact' ? ' blog-editor--compact' : ''}`}>
       <div className="blog-editor__toolbar">
         <Space size={4} wrap>
           <Select
@@ -151,6 +216,31 @@ export default function BlogEditor({ initialContentJson, onChange, variant = 'de
           />
           <Tooltip title="粗体"><Button size="small" type={editor.isActive('bold') ? 'primary' : 'default'} icon={<BoldOutlined />} onClick={() => editor.chain().focus().toggleBold().run()} /></Tooltip>
           <Tooltip title="斜体"><Button size="small" type={editor.isActive('italic') ? 'primary' : 'default'} icon={<ItalicOutlined />} onClick={() => editor.chain().focus().toggleItalic().run()} /></Tooltip>
+          <Tooltip title="文字颜色">
+            <ColorPicker
+              value={editor.getAttributes('textStyle').color || '#1f2329'}
+              disabledAlpha
+              presets={[{ label: '常用颜色', colors: TEXT_COLOR_PRESETS }]}
+              onChangeComplete={(color) => editor.chain().focus().setColor(color.toHexString()).run()}
+            >
+              <Button
+                aria-label="设置文字颜色"
+                size="small"
+                type="text"
+                icon={<FontColorsOutlined style={{ color: editor.getAttributes('textStyle').color || undefined }} />}
+              />
+            </ColorPicker>
+          </Tooltip>
+          <Tooltip title="清除文字颜色">
+            <Button
+              aria-label="清除文字颜色"
+              size="small"
+              type="text"
+              icon={<ClearOutlined />}
+              disabled={!editor.getAttributes('textStyle').color}
+              onClick={() => editor.chain().focus().unsetColor().run()}
+            />
+          </Tooltip>
           <Tooltip title="链接"><Button size="small" type={editor.isActive('link') ? 'primary' : 'default'} icon={<LinkOutlined />} onClick={setLink} /></Tooltip>
           <Divider type="vertical" />
           <Tooltip title="无序列表"><Button size="small" type={editor.isActive('bulletList') ? 'primary' : 'default'} icon={<UnorderedListOutlined />} onClick={() => editor.chain().focus().toggleBulletList().run()} /></Tooltip>
@@ -169,7 +259,7 @@ export default function BlogEditor({ initialContentJson, onChange, variant = 'de
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) {
-              if (file.size > 20 * 1024 * 1024) message.error('博客图片不能超过 20MB');
+              if (file.size > BLOG_IMAGE_MAX_SIZE) message.error('博客图片不能超过 20MB');
               else void uploadAndInsert(file, 'image');
             }
             event.target.value = '';

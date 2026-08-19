@@ -573,6 +573,7 @@ public class BlogFrontServiceImpl implements BlogFrontService {
         for (BlogBook book : books) {
             BlogFrontBookDetailVO vo = new BlogFrontBookDetailVO();
             BeanUtils.copyProperties(book, vo);
+            vo.setIntroductionHtml(includeOutline ? book.getIntroductionHtml() : null);
             vo.setCategory(toCategoryVO(categoryMap.get(book.getCategoryId())));
             List<BlogFrontChapterVO> chapterVOs = new ArrayList<>();
             List<BlogPost> bookPosts = new ArrayList<>();

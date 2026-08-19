@@ -87,6 +87,7 @@ export interface BlogBookVO {
   title: string;
   slug: string;
   summary?: string;
+  introductionHtml?: string;
   coverUrl?: string;
   seoTitle?: string;
   seoDescription?: string;
@@ -148,6 +149,7 @@ export interface BlogBookSaveRequest {
   title: string;
   slug: string;
   summary?: string;
+  introductionHtml?: string;
   coverUrl?: string;
   seoTitle?: string;
   seoDescription?: string;

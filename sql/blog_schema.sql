@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS `blog_book` (
   `title` varchar(255) NOT NULL COMMENT 'book title',
   `slug` varchar(160) NOT NULL COMMENT 'route slug',
   `summary` varchar(1000) DEFAULT NULL COMMENT 'book summary',
+  `introductionHtml` mediumtext COMMENT 'sanitized rich-text book introduction',
   `coverUrl` varchar(1024) DEFAULT NULL COMMENT 'cover image url',
   `seoTitle` varchar(255) DEFAULT NULL COMMENT 'SEO title',
   `seoDescription` varchar(512) DEFAULT NULL COMMENT 'SEO description',

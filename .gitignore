@@ -28,6 +28,7 @@ sql/*.sql
 !sql/blog_schema.sql
 !sql/system_ai_config_migration.sql
 !sql/blog_book_chapter_migration.sql
+!sql/blog_book_introduction_migration.sql
 !sql/blog_member_only_migration.sql
 !sql/blog_book_member_only_migration.sql
 !sql/blog_favorite_migration.sql

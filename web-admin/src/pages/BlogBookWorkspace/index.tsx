@@ -99,6 +99,68 @@ function htmlToPlainText(html?: string) {
     .trim();
 }
 
+function escapePreviewHtml(value?: string) {
+  return (value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function plainTextToHtml(value?: string) {
+  const escaped = escapePreviewHtml(value);
+  return escaped ? `<p>${escaped.replace(/\r?\n/g, '<br>')}</p>` : '<p></p>';
+}
+
+function buildArticlePreviewDocument(params: {
+  bookTitle?: string;
+  chapterTitle?: string;
+  title?: string;
+  coverUrl?: string;
+  contentHtml?: string;
+}) {
+  const title = escapePreviewHtml(params.title || '未命名文章');
+  const bookTitle = escapePreviewHtml(params.bookTitle);
+  const chapterTitle = escapePreviewHtml(params.chapterTitle);
+  const coverUrl = escapePreviewHtml(params.coverUrl);
+  const breadcrumb = [bookTitle, chapterTitle].filter(Boolean).join(' / ');
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: light; font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #1f2329; }
+    article { width: min(820px, calc(100% - 48px)); margin: 0 auto; padding: 48px 0 80px; }
+    .breadcrumb { margin-bottom: 20px; color: #86909c; font-size: 14px; }
+    h1 { margin: 0 0 28px; color: #101828; font-size: clamp(30px, 5vw, 44px); line-height: 1.25; letter-spacing: -0.02em; }
+    .cover { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 0 0 32px; border-radius: 12px; object-fit: cover; }
+    .content { color: #344054; font-size: 17px; line-height: 1.9; overflow-wrap: anywhere; }
+    .content h2, .content h3, .content h4 { margin: 1.8em 0 0.7em; color: #101828; line-height: 1.4; }
+    .content p { margin: 0 0 1.15em; }
+    .content img, .content video { max-width: 100%; height: auto; border-radius: 8px; }
+    .content pre { overflow: auto; padding: 18px 20px; border-radius: 10px; background: #101828; color: #f8fafc; font: 14px/1.7 Consolas, Monaco, monospace; }
+    .content code { padding: 0.15em 0.35em; border-radius: 4px; background: #f2f4f7; font-family: Consolas, Monaco, monospace; }
+    .content pre code { padding: 0; background: transparent; }
+    .content blockquote { margin: 1.4em 0; padding: 2px 0 2px 18px; border-left: 4px solid #1677ff; color: #667085; }
+    .content hr { margin: 32px 0; border: 0; border-top: 1px solid #e4e7ec; }
+    @media (max-width: 640px) { article { width: min(100% - 32px, 820px); padding-top: 28px; } }
+  </style>
+</head>
+<body>
+  <article>
+    ${breadcrumb ? `<div class="breadcrumb">${breadcrumb}</div>` : ''}
+    <h1>${title}</h1>
+    ${coverUrl ? `<img class="cover" src="${coverUrl}" alt="${title}" />` : ''}
+    <div class="content">${params.contentHtml || '<p>暂无正文内容</p>'}</div>
+  </article>
+</body>
+</html>`;
+}
+
 export default function BlogBookWorkspace() {
   const { bookId } = useParams();
   const navigate = useNavigate();
@@ -128,6 +190,7 @@ export default function BlogBookWorkspace() {
   const [loading, setLoading] = useState(true);
   const [postLoading, setPostLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [aiAction, setAiAction] = useState<'book-slug' | 'book-seo' | 'post-slug' | 'post-seo' | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [lastChangeAt, setLastChangeAt] = useState(0);
@@ -143,6 +206,17 @@ export default function BlogBookWorkspace() {
   const coverUrl = Form.useWatch('coverUrl', articleForm);
   const bookCoverUrl = Form.useWatch('coverUrl', bookForm);
   const draftTitle = Form.useWatch('title', articleForm);
+  const activeChapterTitle = useMemo(
+    () => outline.find((chapter) => sameId(chapter.id, activeChapterId))?.title,
+    [activeChapterId, outline],
+  );
+  const articlePreviewDocument = useMemo(() => buildArticlePreviewDocument({
+    bookTitle: book?.title,
+    chapterTitle: activeChapterTitle,
+    title: draftTitle,
+    coverUrl: coverUrl ? String(coverUrl) : undefined,
+    contentHtml,
+  }), [activeChapterTitle, book?.title, contentHtml, coverUrl, draftTitle]);
 
   const prepareNewPost = useCallback((chapter: BlogChapterVO, categoryId?: BlogId) => {
     articleSlugAutoRef.current = true;
@@ -554,7 +628,7 @@ export default function BlogBookWorkspace() {
       title={creatingBook ? '创建教程书' : '书籍设置'}
       open={bookSettingsOpen}
       forceRender
-      width={680}
+      width={900}
       okText={creatingBook ? '创建并进入工作台' : '保存'}
       onCancel={() => {
         setBookSettingsOpen(false);
@@ -605,7 +679,22 @@ export default function BlogBookWorkspace() {
         >
           <Select options={categories.filter((item) => item.status === 'enabled').map((item) => ({ label: item.name, value: item.id }))} />
         </Form.Item>
-        <Form.Item name="summary" label="简介"><Input.TextArea rows={4} maxLength={1000} showCount /></Form.Item>
+        <Form.Item
+          label="课程介绍"
+          extra="支持文字颜色、代码块、图片和视频；截图后可在光标位置按 Ctrl+V 插入。列表摘要会从介绍正文中自动提取。"
+        >
+          <BlogEditor
+            key={`book-introduction-${book?.id || 'new'}-${bookSettingsOpen ? 'open' : 'closed'}`}
+            variant="compact"
+            initialContentHtml={book?.introductionHtml || plainTextToHtml(book?.summary)}
+            onChange={(_, html) => bookForm.setFieldsValue({
+              introductionHtml: html,
+              summary: htmlToPlainText(html).slice(0, 1000),
+            })}
+          />
+        </Form.Item>
+        <Form.Item name="introductionHtml" hidden><Input /></Form.Item>
+        <Form.Item name="summary" hidden><Input /></Form.Item>
         <Form.Item
           name="memberOnly"
           label="教程权限"
@@ -697,7 +786,7 @@ export default function BlogBookWorkspace() {
           </Typography.Text>
         </div>
         <Space>
-          <Button icon={<EyeOutlined />} onClick={() => message.info('公开教程页面将在后续接入')}>预览</Button>
+          <Button icon={<EyeOutlined />} disabled={!activeChapterId} onClick={() => setPreviewOpen(true)}>预览</Button>
           <Button icon={<SaveOutlined />} onClick={() => void saveCurrent(false)} disabled={!activeChapterId}>保存</Button>
           <Button
             type="primary"
@@ -1010,6 +1099,22 @@ export default function BlogBookWorkspace() {
           </aside>
         </div>
       </Form>
+
+      <Modal
+        title="文章预览"
+        open={previewOpen}
+        footer={null}
+        width={960}
+        destroyOnHidden
+        onCancel={() => setPreviewOpen(false)}
+      >
+        <iframe
+          className="tutorial-article-preview-frame"
+          title="文章预览"
+          sandbox=""
+          srcDoc={articlePreviewDocument}
+        />
+      </Modal>
 
       <Modal
         title={editingChapter ? '编辑章节' : '新建章节'}

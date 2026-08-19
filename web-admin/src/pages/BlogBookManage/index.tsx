@@ -32,6 +32,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   deleteBlogBook,
+  getBlogBook,
   listBlogBooks,
   listBlogCategories,
   saveBlogBook,
@@ -41,11 +42,37 @@ import {
   type BlogBookVO,
   type BlogCategoryVO,
 } from '../../api/blog';
+import BlogEditor from '../../components/BlogEditor';
 import './index.css';
 
 const bookStatus = (status: BlogBookVO['status']) => (
   status === 'enabled' ? <Tag color="green">已启用</Tag> : <Tag>已停用</Tag>
 );
+
+function htmlToPlainText(html?: string) {
+  return (html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function plainTextToHtml(value?: string) {
+  const escaped = (value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  return escaped ? `<p>${escaped.replace(/\r?\n/g, '<br>')}</p>` : '<p></p>';
+}
 
 export default function BlogBookManage() {
   const navigate = useNavigate();
@@ -90,20 +117,23 @@ export default function BlogBookManage() {
     ]);
   }, []);
 
-  const openEditDrawer = (book: BlogBookVO) => {
-    setEditingBook(book);
+  const openEditDrawer = async (book: BlogBookVO) => {
+    const res = await getBlogBook(book.id);
+    const detail = res.data;
+    setEditingBook(detail);
     bookForm.resetFields();
     bookForm.setFieldsValue({
-      categoryId: book.categoryId,
-      title: book.title,
-      slug: book.slug,
-      summary: book.summary,
-      coverUrl: book.coverUrl,
-      seoTitle: book.seoTitle,
-      seoDescription: book.seoDescription,
-      memberOnly: book.memberOnly,
-      status: book.status,
-      sort: book.sort,
+      categoryId: detail.categoryId,
+      title: detail.title,
+      slug: detail.slug,
+      summary: detail.summary,
+      introductionHtml: detail.introductionHtml,
+      coverUrl: detail.coverUrl,
+      seoTitle: detail.seoTitle,
+      seoDescription: detail.seoDescription,
+      memberOnly: detail.memberOnly,
+      status: detail.status,
+      sort: detail.sort,
     });
     setDrawerOpen(true);
   };
@@ -195,7 +225,7 @@ export default function BlogBookManage() {
         >
           进入工作台
         </Button>
-        <Button size="small" icon={<EditOutlined />} onClick={() => openEditDrawer(book)}>编辑资料</Button>
+        <Button size="small" icon={<EditOutlined />} onClick={() => void openEditDrawer(book)}>编辑资料</Button>
         <Popconfirm
           title="确认删除教程书？"
           description="只有没有章节的教程书可以删除。"
@@ -280,7 +310,8 @@ export default function BlogBookManage() {
       <Drawer
         title={editingBook ? `编辑教程书 · ${editingBook.title}` : '编辑教程书'}
         open={drawerOpen}
-        width={720}
+        width={860}
+        destroyOnHidden
         onClose={() => setDrawerOpen(false)}
         extra={(
           <Space>
@@ -339,9 +370,22 @@ export default function BlogBookManage() {
                         <Radio.Button value={1}>会员专享</Radio.Button>
                       </Radio.Group>
                     </Form.Item>
-                    <Form.Item name="summary" label="简介">
-                      <Input.TextArea rows={6} maxLength={1000} showCount />
+                    <Form.Item
+                      label="课程介绍"
+                      extra="支持文字颜色、代码块、图片和视频；截图后可在光标位置按 Ctrl+V 插入。列表摘要会从介绍正文中自动提取。"
+                    >
+                      <BlogEditor
+                        key={`book-introduction-${editingBook?.id || 'empty'}`}
+                        variant="compact"
+                        initialContentHtml={editingBook?.introductionHtml || plainTextToHtml(editingBook?.summary)}
+                        onChange={(_, html) => bookForm.setFieldsValue({
+                          introductionHtml: html,
+                          summary: htmlToPlainText(html).slice(0, 1000),
+                        })}
+                      />
                     </Form.Item>
+                    <Form.Item name="introductionHtml" hidden><Input /></Form.Item>
+                    <Form.Item name="summary" hidden><Input /></Form.Item>
                   </>
                 ),
               },

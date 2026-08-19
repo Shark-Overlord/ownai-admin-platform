@@ -14,6 +14,7 @@ public class BlogBookVO implements Serializable {
     private String title;
     private String slug;
     private String summary;
+    private String introductionHtml;
     private String coverUrl;
     private String seoTitle;
     private String seoDescription;
