@@ -73,4 +73,6 @@ SELECT 2100000000000000003, 'blog_seo_generation', 'deepseek', '教程 SEO 生�
        1, 1, NOW(), NOW(), 0
 WHERE NOT EXISTS (SELECT 1 FROM ai_task_config WHERE taskCode = 'blog_seo_generation' AND isDelete = 0);
 
-DROP TABLE IF EXISTS prompt_asset_ai_tag_config;
+-- Keep the legacy table during the rollout window so the previous backend build
+-- remains usable if the application deployment must be rolled back. Remove it
+-- only in a later, separately verified cleanup migration.
