@@ -222,7 +222,7 @@ public class FileController {
                 || FileUploadBizEnum.VIDEO_BACKGROUND_COVER.equals(fileUploadBizEnum)
                 || FileUploadBizEnum.BLOG_IMAGE.equals(fileUploadBizEnum)) {
             List<String> allowedImageSuffixes = FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
-                    ? Arrays.asList("jpeg", "jpg", "png", "gif", "webp")
+                    ? Arrays.asList("jpeg", "jpg", "png", "gif", "webp", "svg")
                     : Arrays.asList("jpeg", "jpg", "png", "webp");
             validSuffix(fileSuffix, allowedImageSuffixes);
             long maxSize = FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum) ? FIFTY_M
