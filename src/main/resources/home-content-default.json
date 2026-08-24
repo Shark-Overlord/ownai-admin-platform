@@ -1,0 +1,149 @@
+{
+  "hero": {
+    "enabled": true,
+    "eyebrow": "制作 · 收集 · 整理",
+    "title": "500+ 精美前端提示词与源码",
+    "description": "覆盖页面、组件与交互场景，为界面复刻与产品开发提供可直接使用的创作起点",
+    "videoList": [
+      {
+        "id": "hero-video-1",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/zJgmZZw4-ownai-ecovolta-v2-hero.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/L3mHf2tM-ownai-ecovolta-v2-hero.png",
+        "alt": "前端界面演示 1",
+        "sort": 1,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-2",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/hEMk8maf-ownai-lumina-bloom.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/nxN8xBVQ-cover.png",
+        "alt": "前端界面演示 2",
+        "sort": 2,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-3",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/t3r8Whg4-ownai-commerce-pulse.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/FTVqI28w-cover.png",
+        "alt": "前端界面演示 3",
+        "sort": 3,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-4",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/3GDV3VYs-sea-serenade.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/Zb0Nzz2h-sea-serenade.jpg",
+        "alt": "前端界面演示 4",
+        "sort": 4,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-5",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/ZM8BhgQo-prompt-hero.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/j6yfwlCz-prompt-hero.jpg",
+        "alt": "前端界面演示 5",
+        "sort": 5,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-6",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/GWpxBRBO-mythic-vpn.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/tSV0snaj-mythic-vpn.jpg",
+        "alt": "前端界面演示 6",
+        "sort": 6,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-7",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/6a6UBNqi-ownai-qixi-romance-static.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/zaOsgkeD-ownai-qixi-romance-static.png",
+        "alt": "前端界面演示 7",
+        "sort": 7,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-8",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/9tRjOg39-PixPin_2026-08-07_19-35-53.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/R9EsuRSb-PixPin_2026-08-07_20-05-37.png",
+        "alt": "前端界面演示 8",
+        "sort": 8,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-9",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/w2pKJsKU-fun-404-page.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/vbWMSO2r-fun-404-page.jpg",
+        "alt": "前端界面演示 9",
+        "sort": 9,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-10",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/OSnIuGG6-performance-run.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/8loYy4o7-performance-run.jpg",
+        "alt": "前端界面演示 10",
+        "sort": 10,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-11",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/5tERukoI-pixel-muse.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/j9TUBvuJ-pixel-muse.jpg",
+        "alt": "前端界面演示 11",
+        "sort": 11,
+        "enabled": true
+      },
+      {
+        "id": "hero-video-12",
+        "videoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/GrCxqMq3-oyla.mp4",
+        "posterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/hKtw95OO-oyla.jpg",
+        "alt": "前端界面演示 12",
+        "sort": 12,
+        "enabled": true
+      }
+    ]
+  },
+  "design": {
+    "enabled": true,
+    "title": "一键复制，任意网站UI设计",
+    "description": "从完整页面到单个交互组件，通过真实演示了解 OwnAI Design 拆解为可复刻结构并还原细节的前端提示词。",
+    "ctaText": "了解 OwnAI Design",
+    "ctaPath": "/ownai-design",
+    "demoVideoUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_source/1/pRbkiu98-8%E6%9C%8822%E6%97%A5%20(2)(1).mp4",
+    "demoVideoPosterUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2091163718929403906-cover.jpg"
+  },
+  "course": {
+    "enabled": true,
+    "eyebrow": "SYSTEM COURSES",
+    "title": "从想法到应用，建立完整开发能力",
+    "description": "系统将持续开设面向真实项目的开发课程，帮助你理解方法、完成实践，并逐步构建自己的应用。",
+    "ctaText": "查看现有教程",
+    "ctaPath": "/tutorials",
+    "footerTitle": "课程将围绕真实项目持续更新",
+    "footerDescription": "学习路径、源码示例与实践过程会逐步补全",
+    "itemList": [
+      {
+        "id": "frontend-course",
+        "title": "前端开发",
+        "description": "掌握现代界面工程、组件设计、交互实现与工程化实践",
+        "coverUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/blog_image/1/PFcczSHL-frontend.png",
+        "coverAlt": "前端开发课程封面",
+        "statusText": "已上线",
+        "targetPath": "/tutorials",
+        "sort": 1,
+        "enabled": true
+      },
+      {
+        "id": "agent-course",
+        "title": "Agent 开发",
+        "description": "学习工具调用、上下文管理与智能体应用的落地方法",
+        "coverUrl": "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/blog_image/1/yFhRmHx0-agent.png",
+        "coverAlt": "Agent 开发课程封面",
+        "statusText": "已上线",
+        "targetPath": "/tutorials",
+        "sort": 2,
+        "enabled": true
+      }
+    ]
+  }
+}

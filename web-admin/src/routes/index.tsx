@@ -26,6 +26,7 @@ import BlogManage from '../pages/BlogManage';
 import BlogBookManage from '../pages/BlogBookManage';
 import BlogBookWorkspace from '../pages/BlogBookWorkspace';
 import AiConfigManage from '../pages/AiConfigManage';
+import HomeContentManage from '../pages/HomeContentManage';
 
 export const routes = [
   {
@@ -69,6 +70,11 @@ export const routes = [
       {
         path: 'prompt-asset',
         element: <PromptAssetManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'home-content',
+        element: <HomeContentManage />,
         meta: { requiresAdmin: true },
       },
       {
@@ -216,6 +222,11 @@ export const menuRoutes = [
     name: '内容资产',
     icon: 'DatabaseOutlined',
     routes: [
+      {
+        path: '/home-content',
+        name: '首页设置',
+        icon: 'HomeOutlined',
+      },
       {
         path: '/artwork',
         name: '作品管理',

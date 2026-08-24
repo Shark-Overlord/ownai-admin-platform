@@ -1,0 +1,38 @@
+.home-content-settings .settings-section {
+  padding: 4px 0 16px;
+}
+
+.home-content-settings .section-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.home-content-settings .repeat-item {
+  margin-bottom: 12px;
+  padding: 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.home-content-settings .repeat-item:last-child {
+  margin-bottom: 0;
+}
+
+.home-content-settings .repeat-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.home-content-settings .repeat-item-title {
+  min-width: 0;
+  font-weight: 600;
+}

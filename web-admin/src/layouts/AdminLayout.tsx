@@ -12,6 +12,7 @@ import {
   DatabaseOutlined,
   DollarOutlined,
   FileTextOutlined,
+  HomeOutlined,
   KeyOutlined,
   NotificationOutlined,
   PictureOutlined,
@@ -44,6 +45,7 @@ const iconMap: Record<string, React.ReactNode> = {
   VideoCameraOutlined: <VideoCameraOutlined />,
   BarChartOutlined: <BarChartOutlined />,
   ReadOutlined: <ReadOutlined />,
+  HomeOutlined: <HomeOutlined />,
 };
 
 type MenuRoute = {
