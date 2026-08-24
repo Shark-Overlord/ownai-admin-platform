@@ -223,11 +223,6 @@ export const menuRoutes = [
     icon: 'DatabaseOutlined',
     routes: [
       {
-        path: '/home-content',
-        name: '首页设置',
-        icon: 'HomeOutlined',
-      },
-      {
         path: '/artwork',
         name: '作品管理',
         icon: 'PictureOutlined',
@@ -350,6 +345,11 @@ export const menuRoutes = [
     name: '系统管理',
     icon: 'SettingOutlined',
     routes: [
+      {
+        path: '/home-content',
+        name: '首页设置',
+        icon: 'HomeOutlined',
+      },
       {
         path: '/user',
         name: '用户管理',
