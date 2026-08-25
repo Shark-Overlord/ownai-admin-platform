@@ -250,6 +250,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     public PromptAssetVO getPublishedPromptAssetVO(Long id, User loginUser) {
         PromptAsset asset = getPublishedPromptAsset(id);
         PromptAssetVO vo = sanitizePublicVO(toVO(asset, true));
+        vo.setPromptContent(asset.getPromptContent());
         fillFavoriteInfo(Collections.singletonList(vo), loginUser == null ? null : loginUser.getId());
         return vo;
     }
