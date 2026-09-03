@@ -45,4 +45,18 @@ class BlogHtmlSanitizerTest {
         assertFalse(sanitized.contains("background"));
         assertFalse(sanitized.contains("javascript"));
     }
+
+    @Test
+    void keepsTableStructureAndSafeCellSpans() {
+        String sanitized = BlogHtmlSanitizer.sanitize(
+                "<table onclick=\"alert(1)\"><thead><tr><th colspan=\"2\">标题</th></tr></thead>"
+                        + "<tbody><tr><td rowspan=\"2\">A</td><td>B</td></tr></tbody></table>");
+
+        assertTrue(sanitized.contains("<table>"), sanitized);
+        assertTrue(sanitized.contains("<thead>"), sanitized);
+        assertTrue(sanitized.contains("<tbody>"), sanitized);
+        assertTrue(sanitized.contains("colspan=\"2\""), sanitized);
+        assertTrue(sanitized.contains("rowspan=\"2\""), sanitized);
+        assertFalse(sanitized.contains("onclick"), sanitized);
+    }
 }

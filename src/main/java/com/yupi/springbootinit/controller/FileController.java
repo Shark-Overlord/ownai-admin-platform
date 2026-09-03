@@ -10,9 +10,12 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.manager.CosManager;
 import com.yupi.springbootinit.manager.VideoWatermarkManager;
 import com.yupi.springbootinit.model.dto.file.UploadFileRequest;
+import com.yupi.springbootinit.model.dto.file.RemoteImageImportRequest;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.FileUploadBizEnum;
+import com.yupi.springbootinit.model.vo.file.RemoteImageImportResultVO;
 import com.yupi.springbootinit.service.ContentApiKeyService;
+import com.yupi.springbootinit.service.RemoteImageImportService;
 import com.yupi.springbootinit.service.UserService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -25,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -53,6 +57,23 @@ public class FileController {
 
     @Resource
     private VideoWatermarkManager videoWatermarkManager;
+
+    @Resource
+    private RemoteImageImportService remoteImageImportService;
+
+    @PostMapping("/admin/import/remote-images")
+    @ApiOperation("批量迁移远程博客图片到对象存储")
+    public BaseResponse<RemoteImageImportResultVO> importRemoteBlogImages(
+            @RequestBody RemoteImageImportRequest importRequest, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (!userService.isAdmin(loginUser)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        if (importRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(remoteImageImportService.importImages(importRequest.getUrls(), loginUser.getId()));
+    }
 
     /**
      * 上传文件到对象存储 Upload file to object storage

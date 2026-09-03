@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Button, ColorPicker, Divider, Select, Space, Tooltip, Upload, message } from 'antd';
+import { Button, ColorPicker, Divider, Dropdown, Modal, Select, Space, Spin, Tooltip, Upload, message } from 'antd';
 import type { UploadProps } from 'antd';
 import {
   BoldOutlined,
@@ -10,19 +10,23 @@ import {
   ItalicOutlined,
   LinkOutlined,
   OrderedListOutlined,
+  TableOutlined,
   UploadOutlined,
   VideoCameraOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
-import { mergeAttributes, Node } from '@tiptap/core';
+import { Extension, mergeAttributes, Node } from '@tiptap/core';
+import type { Editor, JSONContent } from '@tiptap/core';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import FileHandler from '@tiptap/extension-file-handler';
 import Image from '@tiptap/extension-image';
+import { TableKit } from '@tiptap/extension-table';
 import { Color, TextStyle } from '@tiptap/extension-text-style';
+import { Markdown } from '@tiptap/markdown';
+import { Plugin } from '@tiptap/pm/state';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { common, createLowlight } from 'lowlight';
-import { uploadBlogMedia } from '../../api/blog';
+import { importRemoteBlogImages, uploadBlogMedia } from '../../api/blog';
 import './index.css';
 
 const lowlight = createLowlight(common);
@@ -79,6 +83,39 @@ function parseContent(value?: string, html?: string) {
   return html || JSON.parse(EMPTY_DOCUMENT);
 }
 
+function looksLikeMarkdown(text: string) {
+  if (!text.trim()) return false;
+  if (/!\[[^\]]*]\([^\s)]+(?:\s+["'][^"']*["'])?\)/.test(text)) return true;
+  if (/^\s*```[\w-]*\s*$/m.test(text)) return true;
+  if (/^#{1,6}\s+\S/m.test(text)) return true;
+  if (/^\s{0,3}>\s+\S/m.test(text)) return true;
+  if (/^\s{0,3}(?:[-+*]|\d+[.)])\s+\S/m.test(text) && text.includes('\n')) return true;
+  if (/^\s*\|?.+\|.+\s*$\n\s*\|?\s*:?-{3,}:?\s*\|/m.test(text)) return true;
+  if (/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/m.test(text)) return true;
+  return text.includes('\n') && (/\*\*[^*]+\*\*/.test(text) || /\[[^\]]+]\([^\s)]+\)/.test(text));
+}
+
+function collectImageSources(content: JSONContent) {
+  const sources: string[] = [];
+  const visit = (node: JSONContent) => {
+    if (node.type === 'image' && typeof node.attrs?.src === 'string') sources.push(node.attrs.src);
+    node.content?.forEach(visit);
+  };
+  visit(content);
+  return [...new Set(sources)];
+}
+
+function replaceImageSources(content: JSONContent, replacements: Map<string, string>) {
+  const visit = (node: JSONContent) => {
+    if (node.type === 'image' && typeof node.attrs?.src === 'string') {
+      const replacement = replacements.get(node.attrs.src);
+      if (replacement) node.attrs = { ...node.attrs, src: replacement };
+    }
+    node.content?.forEach(visit);
+  };
+  visit(content);
+}
+
 export interface BlogEditorProps {
   initialContentJson?: string;
   initialContentHtml?: string;
@@ -88,7 +125,133 @@ export interface BlogEditorProps {
 
 export default function BlogEditor({ initialContentJson, initialContentHtml, onChange, variant = 'default' }: BlogEditorProps) {
   const [uploading, setUploading] = useState(false);
+  const [importingMarkdown, setImportingMarkdown] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const showImageImportFailures = (failures: Array<{ sourceUrl: string; message: string }>) => {
+    if (!failures.length) return;
+    Modal.warning({
+      title: `${failures.length} 张图片未能迁移`,
+      width: 640,
+      content: (
+        <div>
+          <p>正文已正常导入；HTTPS 图片继续使用原地址，其他地址保留原始标记。</p>
+          <ul className="blog-editor__import-errors">
+            {failures.slice(0, 10).map((failure) => (
+              <li key={`${failure.sourceUrl}-${failure.message}`}>
+                <span>{failure.sourceUrl}</span>
+                <small>{failure.message}</small>
+              </li>
+            ))}
+          </ul>
+          {failures.length > 10 ? <p>另有 {failures.length - 10} 项未显示。</p> : null}
+        </div>
+      ),
+    });
+  };
+
+  const importMarkdownAtSelection = async (currentEditor: Editor, markdown: string, from: number, to: number) => {
+    setImportingMarkdown(true);
+    currentEditor.setEditable(false);
+    try {
+      const document = currentEditor.markdown?.parse(markdown);
+      if (!document) throw new Error('Markdown 解析器未就绪');
+
+      const imageSources = collectImageSources(document);
+      const httpsSources = imageSources.filter((source) => /^https:\/\//i.test(source));
+      const importableSources = httpsSources.slice(0, 50);
+      const failures = imageSources
+        .filter((source) => !/^https:\/\//i.test(source))
+        .map((sourceUrl) => ({ sourceUrl, message: '粘贴文本无法读取本地或非 HTTPS 图片' }));
+      httpsSources.slice(50).forEach((sourceUrl) => failures.push({ sourceUrl, message: '单次最多迁移 50 张图片' }));
+
+      const replacements = new Map<string, string>();
+      if (importableSources.length) {
+        const response = await importRemoteBlogImages(importableSources);
+        response.data.items.forEach((item) => {
+          if (item.success && item.storedUrl) replacements.set(item.sourceUrl, item.storedUrl);
+          else failures.push({ sourceUrl: item.sourceUrl, message: item.message || '图片迁移失败' });
+        });
+      }
+      replaceImageSources(document, replacements);
+      const insertedContent = document.type === 'doc' ? document.content || [] : document;
+      currentEditor.chain().insertContentAt({ from, to }, insertedContent).focus().run();
+      message.success(
+        replacements.size
+          ? `Markdown 已导入，${replacements.size} 张图片已迁移`
+          : 'Markdown 已按原格式导入',
+      );
+      showImageImportFailures(failures);
+    } catch (error) {
+      message.error(error instanceof Error ? `Markdown 导入失败：${error.message}` : 'Markdown 导入失败');
+    } finally {
+      currentEditor.setEditable(true);
+      currentEditor.commands.focus();
+      setImportingMarkdown(false);
+    }
+  };
+
+  const pasteImageFilesAtSelection = async (currentEditor: Editor, files: File[], from: number, to: number) => {
+    const validImages = files.filter((file) => {
+      if (!BLOG_IMAGE_MIME_TYPES.includes(file.type)) return false;
+      if (file.size <= BLOG_IMAGE_MAX_SIZE) return true;
+      message.error(`${file.name || '截图'} 超过 20MB，无法插入`);
+      return false;
+    });
+    if (!validImages.length) return;
+
+    setUploading(true);
+    currentEditor.setEditable(false);
+    try {
+      const results = await Promise.allSettled(validImages.map((file) => uploadBlogMedia(file, 'image')));
+      const images: JSONContent[] = [];
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          images.push({ type: 'image', attrs: { src: result.value.data, alt: validImages[index].name || '粘贴的截图' } });
+        }
+      });
+      if (images.length) currentEditor.chain().insertContentAt({ from, to }, images).focus().run();
+      const failedCount = results.length - images.length;
+      if (images.length) message.success(images.length > 1 ? `${images.length} 张截图已插入` : '截图已插入');
+      if (failedCount) message.warning(`${failedCount} 张截图上传失败，请重试`);
+    } finally {
+      currentEditor.setEditable(true);
+      currentEditor.commands.focus();
+      setUploading(false);
+    }
+  };
+
+  const UnifiedPasteHandler = Extension.create({
+    name: 'unifiedPasteHandler',
+    addProseMirrorPlugins() {
+      const currentEditor = this.editor;
+      return [
+        new Plugin({
+          props: {
+            handlePaste: (_view, event) => {
+              const markdown = event.clipboardData?.getData('text/plain') || '';
+              const files = Array.from(event.clipboardData?.files || []).filter((file) =>
+                BLOG_IMAGE_MIME_TYPES.includes(file.type),
+              );
+              const { from, to } = currentEditor.state.selection;
+              if (looksLikeMarkdown(markdown)) {
+                event.preventDefault();
+                void importMarkdownAtSelection(currentEditor, markdown, from, to);
+                return true;
+              }
+              if (files.length) {
+                event.preventDefault();
+                void pasteImageFilesAtSelection(currentEditor, files, from, to);
+                return true;
+              }
+              return false;
+            },
+          },
+        }),
+      ];
+    },
+  });
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -98,49 +261,11 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
       TextStyle,
       Color,
       Image.configure({ resize: { enabled: true }, allowBase64: false }),
+      TableKit.configure({ table: { resizable: false, renderWrapper: false } }),
+      Markdown.configure({ markedOptions: { gfm: true, breaks: false } }),
       CodeBlockLowlight.configure({ lowlight, defaultLanguage: 'plaintext', enableTabIndentation: true, tabSize: 2 }),
       Video,
-      FileHandler.configure({
-        allowedMimeTypes: BLOG_IMAGE_MIME_TYPES,
-        consumePasteEvent: true,
-        onPaste: (currentEditor, files) => {
-          const images = files.filter((file) => BLOG_IMAGE_MIME_TYPES.includes(file.type));
-          if (!images.length) return;
-
-          const validImages = images.filter((file) => {
-            if (file.size <= BLOG_IMAGE_MAX_SIZE) return true;
-            message.error(`${file.name || '截图'} 超过 20MB，无法插入`);
-            return false;
-          });
-          if (!validImages.length) return;
-
-          let insertPosition = currentEditor.state.selection.from;
-          setUploading(true);
-          void (async () => {
-            let insertedCount = 0;
-            try {
-              for (const file of validImages) {
-                const res = await uploadBlogMedia(file, 'image');
-                currentEditor
-                  .chain()
-                  .focus()
-                  .insertContentAt(insertPosition, {
-                    type: 'image',
-                    attrs: { src: res.data, alt: file.name || '粘贴的截图' },
-                  })
-                  .run();
-                insertPosition += 1;
-                insertedCount += 1;
-              }
-              message.success(insertedCount > 1 ? `${insertedCount} 张截图已插入` : '截图已插入');
-            } catch {
-              message.error('截图上传失败，请重试');
-            } finally {
-              setUploading(false);
-            }
-          })();
-        },
-      }),
+      UnifiedPasteHandler,
     ],
     content: parseContent(initialContentJson, initialContentHtml),
     editorProps: {
@@ -195,6 +320,22 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
+  const tableMenuItems = [
+    { key: 'add-column-before', label: '左侧增加列', onClick: () => editor.chain().focus().addColumnBefore().run() },
+    { key: 'add-column-after', label: '右侧增加列', onClick: () => editor.chain().focus().addColumnAfter().run() },
+    { key: 'delete-column', label: '删除当前列', onClick: () => editor.chain().focus().deleteColumn().run() },
+    { type: 'divider' as const },
+    { key: 'add-row-before', label: '上方增加行', onClick: () => editor.chain().focus().addRowBefore().run() },
+    { key: 'add-row-after', label: '下方增加行', onClick: () => editor.chain().focus().addRowAfter().run() },
+    { key: 'delete-row', label: '删除当前行', onClick: () => editor.chain().focus().deleteRow().run() },
+    { type: 'divider' as const },
+    { key: 'toggle-header-row', label: '切换表头行', onClick: () => editor.chain().focus().toggleHeaderRow().run() },
+    { key: 'merge-cells', label: '合并单元格', onClick: () => editor.chain().focus().mergeCells().run() },
+    { key: 'split-cell', label: '拆分单元格', onClick: () => editor.chain().focus().splitCell().run() },
+    { type: 'divider' as const },
+    { key: 'delete-table', danger: true, label: '删除表格', onClick: () => editor.chain().focus().deleteTable().run() },
+  ];
+
   return (
     <div className={`blog-editor${variant === 'workspace' ? ' blog-editor--workspace' : ''}${variant === 'compact' ? ' blog-editor--compact' : ''}`}>
       <div className="blog-editor__toolbar">
@@ -246,6 +387,14 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
           <Tooltip title="无序列表"><Button size="small" type={editor.isActive('bulletList') ? 'primary' : 'default'} icon={<UnorderedListOutlined />} onClick={() => editor.chain().focus().toggleBulletList().run()} /></Tooltip>
           <Tooltip title="有序列表"><Button size="small" type={editor.isActive('orderedList') ? 'primary' : 'default'} icon={<OrderedListOutlined />} onClick={() => editor.chain().focus().toggleOrderedList().run()} /></Tooltip>
           <Tooltip title="代码块"><Button size="small" type={editor.isActive('codeBlock') ? 'primary' : 'default'} icon={<CodeOutlined />} onClick={() => editor.chain().focus().toggleCodeBlock().run()} /></Tooltip>
+          <Tooltip title="插入 3 × 3 表格">
+            <Button size="small" icon={<TableOutlined />} onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>表格</Button>
+          </Tooltip>
+          {editor.isActive('table') ? (
+            <Dropdown menu={{ items: tableMenuItems }} trigger={['click']}>
+              <Button size="small" type="primary" ghost>表格操作</Button>
+            </Dropdown>
+          ) : null}
           <Divider type="vertical" />
           <Button size="small" icon={<FileImageOutlined />} loading={uploading} onClick={() => imageInputRef.current?.click()}>插入图片</Button>
           <Upload {...videoUploadProps}><Button size="small" icon={<VideoCameraOutlined />} loading={uploading}>插入视频</Button></Upload>
@@ -267,6 +416,12 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
         />
       </div>
       <EditorContent editor={editor} />
+      {importingMarkdown ? (
+        <div className="blog-editor__importing">
+          <Spin />
+          <span>正在解析 Markdown 并迁移图片，请稍候…</span>
+        </div>
+      ) : null}
     </div>
   );
 }

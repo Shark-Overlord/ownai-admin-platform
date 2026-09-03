@@ -1,8 +1,76 @@
 .blog-editor {
+  position: relative;
   border: 1px solid #d9d9d9;
   border-radius: 8px;
   background: #fff;
   overflow: hidden;
+}
+
+.blog-editor__content table {
+  width: 100%;
+  margin: 18px 0;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.blog-editor__content th,
+.blog-editor__content td {
+  min-width: 96px;
+  padding: 9px 12px;
+  border: 1px solid #d9d9d9;
+  vertical-align: top;
+}
+
+.blog-editor__content th {
+  background: #f5f7fa;
+  font-weight: 600;
+  text-align: left;
+}
+
+.blog-editor__content th p,
+.blog-editor__content td p {
+  margin: 0;
+}
+
+.blog-editor__content .selectedCell {
+  background: #e6f4ff;
+}
+
+.blog-editor__content .tableWrapper {
+  overflow-x: auto;
+}
+
+.blog-editor__importing {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgb(255 255 255 / 82%);
+  color: #595959;
+  backdrop-filter: blur(2px);
+}
+
+.blog-editor__import-errors {
+  max-height: 260px;
+  overflow: auto;
+  padding-left: 20px;
+}
+
+.blog-editor__import-errors li {
+  margin-bottom: 8px;
+}
+
+.blog-editor__import-errors span,
+.blog-editor__import-errors small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.blog-editor__import-errors small {
+  color: #8c8c8c;
 }
 
 .blog-editor__toolbar {
@@ -16,6 +84,7 @@
 
 .blog-editor__content {
   min-height: 440px;
+  overflow-x: auto;
   padding: 24px 28px;
   outline: none;
   line-height: 1.8;

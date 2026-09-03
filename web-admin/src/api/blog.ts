@@ -292,3 +292,22 @@ export async function uploadBlogMedia(file: File, type: 'image' | 'video') {
     timeout: 10 * 60 * 1000,
   }) as Promise<{ data: string }>;
 }
+
+export interface RemoteImageImportItem {
+  sourceUrl: string;
+  storedUrl?: string;
+  success: boolean;
+  message?: string;
+}
+
+export async function importRemoteBlogImages(urls: string[]) {
+  return request.post('/file/admin/import/remote-images', { urls }, {
+    timeout: 10 * 60 * 1000,
+  }) as Promise<{
+    data: {
+      items: RemoteImageImportItem[];
+      successCount: number;
+      failedCount: number;
+    };
+  }>;
+}
