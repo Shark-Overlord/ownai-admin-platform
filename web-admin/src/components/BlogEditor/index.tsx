@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Button, ColorPicker, Divider, Dropdown, Modal, Select, Space, Spin, Tooltip, Upload, message } from 'antd';
+import { Alert, Button, ColorPicker, Divider, Dropdown, Modal, Progress, Select, Space, Spin, Tooltip, Upload, message } from 'antd';
 import type { UploadProps } from 'antd';
 import {
   BoldOutlined,
@@ -124,6 +124,105 @@ function replaceEditorImageSources(editor: Editor, replacements: Map<string, str
   }
 }
 
+interface MarkdownImportProgress {
+  percent: number;
+  text: string;
+}
+
+const MARKDOWN_INSERT_BATCH_MAX_NODES = 40;
+const MARKDOWN_INSERT_BATCH_MAX_SIZE = 24_000;
+
+function splitMarkdownContentIntoBatches(content: JSONContent[]) {
+  const batches: JSONContent[][] = [];
+  let batch: JSONContent[] = [];
+  let batchSize = 0;
+
+  content.forEach((node) => {
+    const nodeSize = JSON.stringify(node).length;
+    if (batch.length && (batch.length >= MARKDOWN_INSERT_BATCH_MAX_NODES || batchSize + nodeSize > MARKDOWN_INSERT_BATCH_MAX_SIZE)) {
+      batches.push(batch);
+      batch = [];
+      batchSize = 0;
+    }
+    batch.push(node);
+    batchSize += nodeSize;
+  });
+
+  if (batch.length) batches.push(batch);
+  return batches;
+}
+
+function splitMarkdownIntoSafeParseChunks(markdown: string) {
+  const blocks: string[] = [];
+  let blockLines: string[] = [];
+  let fenceCharacter: '`' | '~' | null = null;
+
+  markdown.split(/\r?\n/).forEach((line) => {
+    const fence = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (fence) {
+      const character = fence[1][0] as '`' | '~';
+      if (!fenceCharacter) fenceCharacter = character;
+      else if (fenceCharacter === character) fenceCharacter = null;
+    }
+    blockLines.push(line);
+    if (!fenceCharacter && !line.trim()) {
+      blocks.push(blockLines.join('\n'));
+      blockLines = [];
+    }
+  });
+  if (blockLines.length) blocks.push(blockLines.join('\n'));
+
+  const chunks: string[] = [];
+  let chunk = '';
+  const flushChunk = () => {
+    if (chunk.trim()) chunks.push(chunk);
+    chunk = '';
+  };
+  blocks.forEach((block) => {
+    const isTable = /^\s*\|?.+\|.+\s*$\n\s*\|?\s*:?-{3,}:?\s*\|/m.test(block);
+    if (isTable) {
+      flushChunk();
+      chunks.push(block);
+      return;
+    }
+    const separator = chunk ? '\n' : '';
+    if (chunk && chunk.length + separator.length + block.length > 8_000) flushChunk();
+    chunk += `${chunk ? '\n' : ''}${block}`;
+  });
+  flushChunk();
+  return chunks;
+}
+
+function normalizeMarkdownForImport(markdown: string) {
+  // Some Yuque exports place an HTML OCR comment directly after a local image.
+  // When the same image is then included as HTTPS, discard the unavailable local duplicate.
+  return markdown
+    .replace(
+      /!\[[^\]]*]\((?:\.\.?\/)[^\r\n)]+\)\s*<!--\s*这是一张图片，ocr 内容为：\s*-->\s*(?=!\[[^\]]*]\(https:\/\/)/g,
+      '',
+    )
+    .replace(/(!\[[^\]]*]\([^\r\n)]+\))(?=<!--)/g, '$1\n');
+}
+
+function removeDuplicateLocalImages(content: JSONContent): JSONContent {
+  if (!content.content?.length) return content;
+  const normalizedChildren = content.content
+    .filter((node, index, siblings) => {
+      const source = typeof node.attrs?.src === 'string' ? node.attrs.src : '';
+      const nextNode = siblings[index + 1];
+      const nextSource = typeof nextNode?.attrs?.src === 'string' ? nextNode.attrs.src : '';
+      return !(node.type === 'image' && !/^https:\/\//i.test(source) && nextNode?.type === 'image' && /^https:\/\//i.test(nextSource));
+    })
+    .map(removeDuplicateLocalImages);
+  return { ...content, content: normalizedChildren };
+}
+
+function waitForUiPaint() {
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+  });
+}
+
 export interface BlogEditorProps {
   initialContentJson?: string;
   initialContentHtml?: string;
@@ -133,7 +232,8 @@ export interface BlogEditorProps {
 
 export default function BlogEditor({ initialContentJson, initialContentHtml, onChange, variant = 'default' }: BlogEditorProps) {
   const [uploading, setUploading] = useState(false);
-  const [importingMarkdown, setImportingMarkdown] = useState(false);
+  const [markdownImportProgress, setMarkdownImportProgress] = useState<MarkdownImportProgress | null>(null);
+  const [markdownImportError, setMarkdownImportError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const showImageImportFailures = (failures: Array<{ sourceUrl: string; message: string }>) => {
@@ -159,25 +259,64 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
   };
 
   const importMarkdownAtSelection = async (currentEditor: Editor, markdown: string, from: number, to: number) => {
-    setImportingMarkdown(true);
+    const contentBeforeImport = currentEditor.getJSON();
+    let contentChanged = false;
+    setMarkdownImportError(null);
+    setMarkdownImportProgress({ percent: 5, text: '正在加载 Markdown 文档…' });
     try {
-      const document = currentEditor.markdown?.parse(markdown);
-      if (!document) throw new Error('Markdown 解析器未就绪');
+      // Yield two animation frames before parsing. Large Markdown documents are parsed
+      // synchronously, so the loading layer must be painted before that work begins.
+      await waitForUiPaint();
+      if (!currentEditor.markdown) throw new Error('Markdown 解析器未就绪');
+      const parseChunks = splitMarkdownIntoSafeParseChunks(normalizeMarkdownForImport(markdown));
+      const parsedContent: JSONContent[] = [];
+      for (let index = 0; index < parseChunks.length; index += 1) {
+        setMarkdownImportProgress({
+          percent: 10 + Math.round(((index + 1) / parseChunks.length) * 15),
+          text: `正在解析 Markdown（${index + 1} / ${parseChunks.length}）…`,
+        });
+        await waitForUiPaint();
+        const parsedChunk = currentEditor.markdown.parse(parseChunks[index]);
+        if (parsedChunk.type === 'doc') parsedContent.push(...(parsedChunk.content || []));
+        else parsedContent.push(parsedChunk);
+      }
+      const document = removeDuplicateLocalImages({ type: 'doc', content: parsedContent });
 
       const insertedContent = document.type === 'doc' ? document.content || [] : document;
       if (Array.isArray(insertedContent) && !insertedContent.length) {
         throw new Error('Markdown 解析结果为空');
       }
-      const inserted = currentEditor.commands.insertContentAt(
-        { from, to },
-        insertedContent,
-        { errorOnInvalidContent: true },
-      );
-      if (!inserted) throw new Error('无法将 Markdown 插入当前位置');
+      currentEditor.setEditable(false, false);
+      const contentNodes = Array.isArray(insertedContent) ? insertedContent : [insertedContent];
+      const insertionBatches = splitMarkdownContentIntoBatches(contentNodes);
+      for (let index = 0; index < insertionBatches.length; index += 1) {
+        setMarkdownImportProgress({
+          percent: 30 + Math.round(((index + 1) / insertionBatches.length) * 30),
+          text: `正在插入正文（${index + 1} / ${insertionBatches.length}）…`,
+        });
+        await waitForUiPaint();
+        // Keep a paragraph insertion point between batches. Without this sentinel,
+        // ProseMirror places the cursor in the final cell when a batch ends in a table,
+        // causing every later block to be appended inside that table.
+        const batchContent = index < insertionBatches.length - 1
+          ? [...insertionBatches[index], { type: 'paragraph' }]
+          : insertionBatches[index];
+        const inserted = index === 0
+          ? currentEditor.commands.insertContentAt(
+            { from, to },
+            batchContent,
+            { errorOnInvalidContent: true, updateSelection: true },
+          )
+          : currentEditor.commands.insertContent(
+            batchContent,
+            { updateSelection: true },
+          );
+        if (!inserted) throw new Error(`正文第 ${index + 1} / ${insertionBatches.length} 段插入失败`);
+        contentChanged = true;
+      }
 
       // Insert the document before awaiting uploads. This keeps text and tables visible even if
       // remote image migration is slow or fails, and avoids applying an old selection afterward.
-      currentEditor.setEditable(false, false);
 
       const imageSources = collectImageSources(document);
       const httpsSources = imageSources.filter((source) => /^https:\/\//i.test(source));
@@ -189,18 +328,37 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
 
       const replacements = new Map<string, string>();
       if (importableSources.length) {
+        setMarkdownImportProgress({
+          percent: 70,
+          text: `正文已显示，正在迁移图片（0 / ${importableSources.length}）…`,
+        });
+        await waitForUiPaint();
         try {
           const response = await importRemoteBlogImages(importableSources);
           response.data.items.forEach((item) => {
             if (item.success && item.storedUrl) replacements.set(item.sourceUrl, item.storedUrl);
             else failures.push({ sourceUrl: item.sourceUrl, message: item.message || '图片迁移失败' });
           });
+          setMarkdownImportProgress({
+            percent: 90,
+            text: `图片迁移完成（${response.data.items.length} / ${importableSources.length}），正在更新正文…`,
+          });
+          await waitForUiPaint();
         } catch (error) {
           const reason = error instanceof Error ? error.message : '远程图片迁移请求失败';
           importableSources.forEach((sourceUrl) => failures.push({ sourceUrl, message: reason }));
+          setMarkdownImportProgress({ percent: 90, text: '图片迁移失败，正在保留原始图片链接…' });
+          await waitForUiPaint();
         }
+      } else {
+        setMarkdownImportProgress({ percent: 90, text: '正文已插入，正在完成导入…' });
+        await waitForUiPaint();
       }
       replaceEditorImageSources(currentEditor, replacements);
+      setMarkdownImportProgress({ percent: 100, text: 'Markdown 文档导入完成' });
+      await waitForUiPaint();
+      // Keep the completed state visible long enough for the large editor DOM to finish painting.
+      await new Promise((resolve) => window.setTimeout(resolve, 600));
       message.success(
         replacements.size
           ? `Markdown 已导入，${replacements.size} 张图片已迁移`
@@ -208,13 +366,17 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
       );
       showImageImportFailures(failures);
     } catch (error) {
-      message.error(error instanceof Error ? `Markdown 导入失败：${error.message}` : 'Markdown 导入失败');
+      console.error('[BlogEditor] Markdown import failed', error);
+      if (contentChanged && !currentEditor.isDestroyed) {
+        currentEditor.commands.setContent(contentBeforeImport, { emitUpdate: true });
+      }
+      setMarkdownImportError(error instanceof Error ? error.message : '未知错误，请检查文档格式后重试');
     } finally {
       if (!currentEditor.isDestroyed) {
         currentEditor.setEditable(true, false);
         currentEditor.commands.focus();
       }
-      setImportingMarkdown(false);
+      setMarkdownImportProgress(null);
     }
   };
 
@@ -442,11 +604,26 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
           }}
         />
       </div>
+      {markdownImportError ? (
+        <Alert
+          className="blog-editor__import-error"
+          type="error"
+          showIcon
+          closable
+          message="Markdown 导入失败"
+          description={markdownImportError}
+          onClose={() => setMarkdownImportError(null)}
+        />
+      ) : null}
       <EditorContent editor={editor} />
-      {importingMarkdown ? (
-        <div className="blog-editor__importing">
-          <Spin />
-          <span>正在解析 Markdown 并迁移图片，请稍候…</span>
+      {markdownImportProgress ? (
+        <div className="blog-editor__importing" role="status" aria-live="polite">
+          <div className="blog-editor__importing-card">
+            <Spin size="large" />
+            <strong>{markdownImportProgress.text}</strong>
+            <Progress percent={markdownImportProgress.percent} status="active" showInfo />
+            <span>大篇幅文档可能需要一些时间，请勿重复粘贴。</span>
+          </div>
         </div>
       ) : null}
     </div>
