@@ -105,15 +105,23 @@ function collectImageSources(content: JSONContent) {
   return [...new Set(sources)];
 }
 
-function replaceImageSources(content: JSONContent, replacements: Map<string, string>) {
-  const visit = (node: JSONContent) => {
-    if (node.type === 'image' && typeof node.attrs?.src === 'string') {
-      const replacement = replacements.get(node.attrs.src);
-      if (replacement) node.attrs = { ...node.attrs, src: replacement };
-    }
-    node.content?.forEach(visit);
-  };
-  visit(content);
+function replaceEditorImageSources(editor: Editor, replacements: Map<string, string>) {
+  if (!replacements.size || editor.isDestroyed) return;
+  const transaction = editor.state.tr;
+  let changed = false;
+
+  editor.state.doc.descendants((node, position) => {
+    if (node.type.name !== 'image' || typeof node.attrs.src !== 'string') return;
+    const replacement = replacements.get(node.attrs.src);
+    if (!replacement || replacement === node.attrs.src) return;
+    transaction.setNodeMarkup(position, undefined, { ...node.attrs, src: replacement }, node.marks);
+    changed = true;
+  });
+
+  if (changed) {
+    transaction.setMeta('addToHistory', false);
+    editor.view.dispatch(transaction);
+  }
 }
 
 export interface BlogEditorProps {
@@ -152,10 +160,24 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
 
   const importMarkdownAtSelection = async (currentEditor: Editor, markdown: string, from: number, to: number) => {
     setImportingMarkdown(true);
-    currentEditor.setEditable(false);
     try {
       const document = currentEditor.markdown?.parse(markdown);
       if (!document) throw new Error('Markdown 解析器未就绪');
+
+      const insertedContent = document.type === 'doc' ? document.content || [] : document;
+      if (Array.isArray(insertedContent) && !insertedContent.length) {
+        throw new Error('Markdown 解析结果为空');
+      }
+      const inserted = currentEditor.commands.insertContentAt(
+        { from, to },
+        insertedContent,
+        { errorOnInvalidContent: true },
+      );
+      if (!inserted) throw new Error('无法将 Markdown 插入当前位置');
+
+      // Insert the document before awaiting uploads. This keeps text and tables visible even if
+      // remote image migration is slow or fails, and avoids applying an old selection afterward.
+      currentEditor.setEditable(false, false);
 
       const imageSources = collectImageSources(document);
       const httpsSources = imageSources.filter((source) => /^https:\/\//i.test(source));
@@ -167,15 +189,18 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
 
       const replacements = new Map<string, string>();
       if (importableSources.length) {
-        const response = await importRemoteBlogImages(importableSources);
-        response.data.items.forEach((item) => {
-          if (item.success && item.storedUrl) replacements.set(item.sourceUrl, item.storedUrl);
-          else failures.push({ sourceUrl: item.sourceUrl, message: item.message || '图片迁移失败' });
-        });
+        try {
+          const response = await importRemoteBlogImages(importableSources);
+          response.data.items.forEach((item) => {
+            if (item.success && item.storedUrl) replacements.set(item.sourceUrl, item.storedUrl);
+            else failures.push({ sourceUrl: item.sourceUrl, message: item.message || '图片迁移失败' });
+          });
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : '远程图片迁移请求失败';
+          importableSources.forEach((sourceUrl) => failures.push({ sourceUrl, message: reason }));
+        }
       }
-      replaceImageSources(document, replacements);
-      const insertedContent = document.type === 'doc' ? document.content || [] : document;
-      currentEditor.chain().insertContentAt({ from, to }, insertedContent).focus().run();
+      replaceEditorImageSources(currentEditor, replacements);
       message.success(
         replacements.size
           ? `Markdown 已导入，${replacements.size} 张图片已迁移`
@@ -185,8 +210,10 @@ export default function BlogEditor({ initialContentJson, initialContentHtml, onC
     } catch (error) {
       message.error(error instanceof Error ? `Markdown 导入失败：${error.message}` : 'Markdown 导入失败');
     } finally {
-      currentEditor.setEditable(true);
-      currentEditor.commands.focus();
+      if (!currentEditor.isDestroyed) {
+        currentEditor.setEditable(true, false);
+        currentEditor.commands.focus();
+      }
       setImportingMarkdown(false);
     }
   };
