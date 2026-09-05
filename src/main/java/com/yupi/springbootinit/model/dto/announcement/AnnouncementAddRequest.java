@@ -8,6 +8,16 @@ import lombok.Data;
 @Data
 public class AnnouncementAddRequest implements Serializable {
 
+    private Boolean publicVisible;
+
+    private String summary;
+
+    private String actionLabel;
+
+    private String actionPath;
+
+    private Boolean popupEnabled;
+
     private String title;
 
     private String content;

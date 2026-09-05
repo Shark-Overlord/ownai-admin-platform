@@ -12,6 +12,7 @@ import com.yupi.springbootinit.mapper.UserMapper;
 import com.yupi.springbootinit.model.dto.user.UserQueryRequest;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.MemberLevelEnum;
+import com.yupi.springbootinit.model.enums.MemberPlanTypeEnum;
 import com.yupi.springbootinit.model.enums.UserRoleEnum;
 import java.util.Date;
 import com.yupi.springbootinit.model.vo.LoginUserVO;
@@ -289,6 +290,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 userQueryRequest.getMemberLevel());
         queryWrapper.eq(StringUtils.isNotBlank(userQueryRequest.getMemberPlanType()), "memberPlanType",
                 userQueryRequest.getMemberPlanType());
+        if (Boolean.TRUE.equals(userQueryRequest.getActiveMemberOnly())) {
+            // Capture once so pagination count and records share the same validity boundary.
+            Date now = new Date();
+            queryWrapper.eq("memberLevel", MemberLevelEnum.MEMBER.getValue())
+                    .and(active -> active.nested(finite -> finite
+                                    .in("memberPlanType", MemberPlanTypeEnum.MONTH.getValue(),
+                                            MemberPlanTypeEnum.YEAR.getValue())
+                                    .gt("memberExpireTime", now))
+                            .or(lifetime -> lifetime
+                                    .eq("memberPlanType", MemberPlanTypeEnum.LIFETIME.getValue())
+                                    .isNull("memberExpireTime")));
+        }
         queryWrapper.like(StringUtils.isNotBlank(userQueryRequest.getUserAccount()), "userAccount",
                 userQueryRequest.getUserAccount());
         queryWrapper.like(StringUtils.isNotBlank(userQueryRequest.getUserEmail()), "userEmail",

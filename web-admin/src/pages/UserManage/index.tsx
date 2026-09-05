@@ -37,6 +37,22 @@ export default function UserManage() {
       },
     },
     {
+      title: '套餐',
+      dataIndex: 'membershipFilter',
+      hideInTable: true,
+      valueType: 'select',
+      initialValue: 'all',
+      fieldProps: { allowClear: true, placeholder: '全部用户' },
+      valueEnum: {
+        all: { text: '全部用户' },
+        active: { text: '全部有效会员' },
+        month: { text: '月费会员' },
+        year: { text: '年费会员' },
+        lifetime: { text: '永久会员' },
+        normal: { text: '普通用户' },
+      },
+    },
+    {
       title: '会员等级',
       dataIndex: 'memberLevel',
       search: false,
@@ -124,13 +140,25 @@ export default function UserManage() {
         actionRef={actionRef}
         columns={columns}
         rowKey="id"
-        search={{ labelWidth: 'auto' }}
+        locale={{ emptyText: '暂无符合条件的用户（共 0 位用户）' }}
+        search={{ labelWidth: 'auto', defaultCollapsed: false }}
+        pagination={{
+          defaultPageSize: 10,
+          pageSizeOptions: [10, 20],
+          showSizeChanger: true,
+          showTotal: (total) => `共 ${total} 位用户`,
+        }}
         cardBordered
         request={async (params) => {
+          const { membershipFilter, ...queryParams } = params;
+          const activeMemberOnly = ['active', 'month', 'year', 'lifetime'].includes(membershipFilter);
           const res = await listUserByPage({
+            ...queryParams,
             current: params.current || 1,
             pageSize: params.pageSize || 10,
-            ...params,
+            memberLevel: membershipFilter === 'normal' ? 'normal' : activeMemberOnly ? 'member' : undefined,
+            memberPlanType: ['month', 'year', 'lifetime'].includes(membershipFilter) ? membershipFilter : undefined,
+            activeMemberOnly: activeMemberOnly || undefined,
           });
           return {
             data: res.data.records,

@@ -18,6 +18,8 @@ sql/*.sql
 !sql/image_generation_canvas.sql
 !sql/prompt_asset_favorite.sql
 !sql/point_check_in_and_announcement.sql
+!sql/news_public_popup.sql
+!sql/community.sql
 !sql/artwork_source_zip_migration.sql
 !sql/artwork_external_key_migration.sql
 !sql/artwork_app_category_seed.sql

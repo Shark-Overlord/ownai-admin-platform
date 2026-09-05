@@ -10,6 +10,16 @@ public class AnnouncementUpdateRequest implements Serializable {
 
     private Long id;
 
+    private Boolean publicVisible;
+
+    private String summary;
+
+    private String actionLabel;
+
+    private String actionPath;
+
+    private Boolean popupEnabled;
+
     private String title;
 
     private String content;

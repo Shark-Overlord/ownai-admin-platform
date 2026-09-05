@@ -29,5 +29,8 @@ public class UserQueryRequest extends PageRequest implements Serializable {
 
     private String memberPlanType;
 
+    /** 仅查询当前有效会员；未传或 false 时保持原查询行为。 */
+    private Boolean activeMemberOnly;
+
     private static final long serialVersionUID = 1L;
 }

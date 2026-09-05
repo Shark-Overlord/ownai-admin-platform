@@ -8,7 +8,21 @@ import lombok.Data;
 @Data
 public class AnnouncementVO implements Serializable {
 
+    private String targetType;
+
+    private Long targetId;
+
     private Long id;
+
+    private Boolean publicVisible;
+
+    private String summary;
+
+    private String actionLabel;
+
+    private String actionPath;
+
+    private Boolean popupEnabled;
 
     private String title;
 

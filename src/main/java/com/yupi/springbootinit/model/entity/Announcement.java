@@ -15,6 +15,20 @@ public class Announcement implements Serializable {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
+    private Boolean publicVisible;
+
+    private String summary;
+
+    private String actionLabel;
+
+    private String actionPath;
+
+    private Boolean popupEnabled;
+
+    private String targetType;
+
+    private Long targetId;
+
     private String title;
 
     private String content;

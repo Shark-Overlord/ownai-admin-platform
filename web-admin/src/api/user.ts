@@ -55,7 +55,18 @@ export async function getLoginUser() {
   return request.get('/user/get/login') as Promise<{ data: LoginUserVO }>;
 }
 
-export async function listUserByPage(params: any) {
+export interface UserQueryRequest {
+  current?: number;
+  pageSize?: number;
+  id?: number | string;
+  userAccount?: string;
+  userRole?: string;
+  memberLevel?: string;
+  memberPlanType?: string;
+  activeMemberOnly?: boolean;
+}
+
+export async function listUserByPage(params: UserQueryRequest) {
   return request.post('/user/list/page/vo', params) as Promise<any>;
 }
 
