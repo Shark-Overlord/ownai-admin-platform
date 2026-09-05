@@ -1,14 +1,22 @@
 import request from './request';
 
 export interface AnnouncementVO {
-  id: number;
+  targetType?: string;
+  targetId?: string;
+  publicVisible?: boolean;
+  popupEnabled?: boolean;
+  summary?: string;
+  actionLabel?: string;
+  actionPath?: string;
+
+  id: string;
   title: string;
   content: string;
   type: string;
   status: string;
   priority: number;
-  publishTime?: string;
-  expireTime?: string;
+  publishTime?: string | null;
+  expireTime?: string | null;
   createUserId?: number;
   createTime?: string;
   updateTime?: string;
@@ -17,14 +25,20 @@ export interface AnnouncementVO {
 }
 
 export interface AnnouncementRequest {
-  id?: number;
+  publicVisible?: boolean;
+  popupEnabled?: boolean;
+  summary?: string;
+  actionLabel?: string;
+  actionPath?: string;
+
+  id?: string;
   title?: string;
   content?: string;
   type?: string;
   status?: string;
   priority?: number;
-  publishTime?: string;
-  expireTime?: string;
+  publishTime?: string | null;
+  expireTime?: string | null;
 }
 
 export async function listAnnouncementByPage(params: any) {
@@ -32,21 +46,21 @@ export async function listAnnouncementByPage(params: any) {
 }
 
 export async function addAnnouncement(params: AnnouncementRequest) {
-  return request.post('/announcement/admin/add', params) as Promise<{ data: number }>;
+  return request.post('/announcement/admin/add', params) as Promise<{ data: string }>;
 }
 
 export async function updateAnnouncement(params: AnnouncementRequest) {
   return request.post('/announcement/admin/update', params) as Promise<{ data: boolean }>;
 }
 
-export async function deleteAnnouncement(id: number) {
+export async function deleteAnnouncement(id: string) {
   return request.post('/announcement/admin/delete', { id }) as Promise<{ data: boolean }>;
 }
 
-export async function publishAnnouncement(id: number) {
+export async function publishAnnouncement(id: string) {
   return request.post('/announcement/admin/publish', { id }) as Promise<{ data: boolean }>;
 }
 
-export async function offlineAnnouncement(id: number) {
+export async function offlineAnnouncement(id: string) {
   return request.post('/announcement/admin/offline', { id }) as Promise<{ data: boolean }>;
 }

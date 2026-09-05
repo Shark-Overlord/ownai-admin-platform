@@ -42,10 +42,10 @@ public class AnnouncementController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "announcement", action = "add_announcement")
     @ApiOperation("Admin add announcement")
-    public BaseResponse<Long> addAnnouncement(@RequestBody AnnouncementAddRequest addRequest,
+    public BaseResponse<String> addAnnouncement(@RequestBody AnnouncementAddRequest addRequest,
             HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
-        return ResultUtils.success(announcementService.addAnnouncement(addRequest, loginUser));
+        return ResultUtils.success(String.valueOf(announcementService.addAnnouncement(addRequest, loginUser)));
     }
 
     @PostMapping("/admin/update")

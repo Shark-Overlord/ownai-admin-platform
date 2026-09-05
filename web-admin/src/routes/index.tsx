@@ -15,6 +15,8 @@ import PointManage from '../pages/PointManage';
 import MemberPriceConfigManage from '../pages/MemberPriceConfigManage';
 import OperationLog from '../pages/OperationLog';
 import AnnouncementManage from '../pages/AnnouncementManage';
+import CommunityManage from '../pages/CommunityManage';
+import CommentManage from '../pages/CommunityManage/CommentManage';
 import ContentApiKeyManage from '../pages/ContentApiKeyManage';
 import PromptAssetManage from '../pages/PromptAssetManage';
 import PromptAssetAiTaggingManage from '../pages/PromptAssetAiTaggingManage';
@@ -38,6 +40,8 @@ export const routes = [
     element: <AdminLayout />,
     meta: { requiresAdmin: true },
     children: [
+      { path: 'community/posts', element: <CommunityManage />, meta: { requiresAdmin: true } },
+      { path: 'community/comments', element: <CommentManage />, meta: { requiresAdmin: true } },
       {
         index: true,
         element: <Navigate to="/dashboard" replace />,
@@ -201,6 +205,13 @@ export const routes = [
 
 export const menuRoutes = [
   {
+    path: '/community', name: '新闻与互动', icon: 'ReadOutlined',
+    routes: [
+      { path: '/community/posts', name: '新闻与帖子', icon: 'FileTextOutlined' },
+      { path: '/community/comments', name: '评论管理', icon: 'ReadOutlined' },
+    ],
+  },
+  {
     path: '/dashboard',
     name: '工作台',
     icon: 'DashboardOutlined',
@@ -357,7 +368,7 @@ export const menuRoutes = [
       },
       {
         path: '/announcement',
-        name: '公告管理',
+        name: '系统公告',
         icon: 'NotificationOutlined',
       },
       {

@@ -54,6 +54,7 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
         Announcement announcement = new Announcement();
         BeanUtils.copyProperties(request, announcement);
         normalizeAnnouncement(announcement);
+        normalizePublicNews(announcement);
         announcement.setCreateUserId(adminUser == null ? null : adminUser.getId());
         boolean result = this.save(announcement);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
@@ -61,6 +62,7 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean updateAnnouncement(AnnouncementUpdateRequest request) {
         if (request == null || request.getId() == null || request.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -70,10 +72,23 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
         Announcement existing = getValidAnnouncement(request.getId());
         Announcement announcement = new Announcement();
         BeanUtils.copyProperties(request, announcement);
+        // Old clients do not know the news fields: preserve them during edits.
+        if (request.getPublicVisible() == null) announcement.setPublicVisible(existing.getPublicVisible());
+        if (request.getPopupEnabled() == null) announcement.setPopupEnabled(existing.getPopupEnabled());
+        if (request.getSummary() == null) announcement.setSummary(existing.getSummary());
+        if (request.getActionLabel() == null) announcement.setActionLabel(existing.getActionLabel());
+        if (request.getActionPath() == null) announcement.setActionPath(existing.getActionPath());
         normalizeAnnouncement(announcement);
+        normalizePublicNews(announcement);
         announcement.setId(existing.getId());
         boolean result = this.updateById(announcement);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        if (request.getPublicVisible() != null) {
+            // Explicit null clears the expiry in the new editor; sparse publish/offline updates remain safe.
+            this.update(new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<Announcement>()
+                    .eq("id", existing.getId()).set("expireTime", request.getExpireTime())
+                    .set("publishTime", announcement.getPublishTime()));
+        }
         return true;
     }
 
@@ -95,7 +110,8 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
         Announcement update = new Announcement();
         update.setId(existing.getId());
         update.setStatus(STATUS_PUBLISHED);
-        update.setPublishTime(now);
+        update.setPublishTime(existing.getPublishTime() != null && existing.getPublishTime().after(now)
+                ? existing.getPublishTime() : now);
         boolean result = this.updateById(update);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return true;
@@ -213,6 +229,40 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
         }
         if (expireTime != null && publishTime != null && expireTime.before(publishTime)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "过期时间不能早于发布时间");
+        }
+    }
+
+    private void normalizePublicNews(Announcement announcement) {
+        announcement.setPublicVisible(Boolean.TRUE.equals(announcement.getPublicVisible()));
+        announcement.setPopupEnabled(Boolean.TRUE.equals(announcement.getPopupEnabled()));
+        announcement.setSummary(StringUtils.trimToEmpty(announcement.getSummary()));
+        announcement.setActionLabel(StringUtils.trimToEmpty(announcement.getActionLabel()));
+        announcement.setActionPath(StringUtils.trimToEmpty(announcement.getActionPath()));
+        if (announcement.getSummary().length() > 300 || announcement.getActionLabel().length() > 30
+                || announcement.getActionPath().length() > 500) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "摘要或按钮内容过长");
+        }
+        if (announcement.getPopupEnabled() && (!announcement.getPublicVisible()
+                || StringUtils.isBlank(announcement.getSummary()))) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "弹窗新闻必须公开并填写摘要");
+        }
+        boolean hasPath = StringUtils.isNotBlank(announcement.getActionPath());
+        if (hasPath != StringUtils.isNotBlank(announcement.getActionLabel())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "按钮文字和站内路径需要同时填写");
+        }
+        if (hasPath) {
+            try {
+                String path = announcement.getActionPath();
+                java.net.URI uri = new java.net.URI(path);
+                String decodedPath = uri.getPath();
+                if (!path.startsWith("/") || path.startsWith("//") || uri.getRawAuthority() != null
+                        || decodedPath == null || decodedPath.startsWith("//")
+                        || decodedPath.contains("\\") || decodedPath.chars().anyMatch(c -> c < 32)) {
+                    throw new IllegalArgumentException();
+                }
+            } catch (Exception e) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "按钮仅支持以 / 开头的站内路径");
+            }
         }
     }
 

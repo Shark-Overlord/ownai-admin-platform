@@ -1,0 +1,14 @@
+.community-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.community-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.community-editor > * { min-width: 0; }
+.community-source { font-family: ui-monospace, Consolas, monospace; }
+.community-preview { border: 1px solid rgba(128,128,128,.25); border-radius: 8px; padding: 20px; overflow-wrap: anywhere; min-height: 200px; }
+.community-preview pre { white-space: pre-wrap; }
+.community-comment { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 560px; }
+@media (max-width: 760px) {
+ .community-fields,.community-editor { grid-template-columns: 1fr; gap: 8px; }
+ .community-preview { padding: 14px; }
+ .community-drawer .ant-drawer-header { flex-wrap: wrap; gap: 12px; }
+ .community-drawer .ant-drawer-header-title { min-width: 100%; }
+ .community-drawer .ant-drawer-body { padding: 16px; }
+}
