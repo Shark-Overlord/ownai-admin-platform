@@ -22,7 +22,6 @@ public class CommunityPostService {
     public Map<String,Object> save(SavePost r,Long adminId) {
         require(r!=null,"请填写帖子");
         String title=text(r.getTitle(),150,true,"标题"), summary=text(r.getSummary(),300,false,"摘要");
-        String cover=mediaUrl(r.getCoverUrl());
         // Preserve Markdown exactly, including whitespace, rather than converting it to HTML.
         String markdown=r.getMarkdown()==null ? "" : r.getMarkdown();
         require(markdown.length()<=200000,"正文最多 200000 字符");
@@ -40,7 +39,7 @@ public class CommunityPostService {
         taxonomy.validateReferences(r.getCategoryId(),tags,previous);
         long revisionId=IdWorker.getId();
         db.jdbc().update("INSERT INTO community_revision(id,postId,title,summary,coverUrl,categoryId,markdown,commentsEnabled,createdBy,createTime) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                revisionId,id,title,summary,cover,r.getCategoryId(),markdown,!Boolean.FALSE.equals(r.getCommentsEnabled()),adminId,now);
+                revisionId,id,title,summary,"",r.getCategoryId(),markdown,!Boolean.FALSE.equals(r.getCommentsEnabled()),adminId,now);
         for(Long tagId:new LinkedHashSet<>(tags)) db.jdbc().update("INSERT INTO community_revision_tag(revisionId,tagId) VALUES (?,?)",revisionId,tagId);
         db.jdbc().update("UPDATE community_post SET draftRevisionId=?,version=version+1,updateTime=? WHERE id=?",revisionId,now,id);
         return getAdmin(id);
@@ -53,7 +52,7 @@ public class CommunityPostService {
         return p;
     }
     private Map<String,Object> revision(Object id) {
-        Map<String,Object> r=db.one("SELECT id,title,summary,coverUrl,categoryId,markdown,commentsEnabled,createTime FROM community_revision WHERE id=?",id);
+        Map<String,Object> r=db.one("SELECT id,title,summary,categoryId,markdown,commentsEnabled,createTime FROM community_revision WHERE id=?",id);
         r.put("tagIds",db.jdbc().queryForList("SELECT tagId FROM community_revision_tag WHERE revisionId=? ORDER BY tagId",Long.class,id));
         return r;
     }
@@ -71,33 +70,71 @@ public class CommunityPostService {
             db.jdbc().update("UPDATE community_post SET isDelete=1,version=version+1,updateTime=? WHERE id=?",new Date(),r.getId());
         } else require(false,"操作不合法");
     }
+    @Transactional(rollbackFor=Exception.class)
+    public Map<String,Object> pin(PostAction r,boolean pinned) {
+        require(r!=null,"缺少帖子编号");
+        Map<String,Object> post=db.post(r.getId(),true);
+        version(post,r.getVersion());
+        require("published".equals(post.get("status")),"只有已发布帖子可以置顶");
+        boolean current=flag(post.get("pinned"));
+        if(current==pinned) return getPublic(r.getId(),null);
+        Date now=new Date();
+        db.jdbc().update("UPDATE community_post SET pinned=?,pinnedAt=?,version=version+1,updateTime=? WHERE id=?",
+                pinned,pinned?now:null,now,r.getId());
+        return getPublic(r.getId(),null);
+    }
     @SuppressWarnings("unchecked")
     public Map<String,Object> list(Query q,boolean admin) {
+        return list(q,admin,null);
+    }
+    @SuppressWarnings("unchecked")
+    public Map<String,Object> list(Query q,boolean admin,Long userId) {
         page(q); List<Object> args=new ArrayList<>();
         String from="FROM community_post p JOIN community_revision r ON r.id=p."+(admin?"draftRevisionId":"publishedRevisionId")
-                +" LEFT JOIN community_category cat ON cat.id=r.categoryId WHERE "+(admin?"p.isDelete=0":PUBLIC_POST);
+                +" LEFT JOIN community_category cat ON cat.id=r.categoryId"
+                +" LEFT JOIN user u ON u.id=p.authorId AND u.isDelete=0 WHERE "+(admin?"p.isDelete=0":PUBLIC_POST);
         if(q.getCategoryId()!=null) { from+=" AND r.categoryId=?"; args.add(q.getCategoryId()); }
         if(q.getTagId()!=null) { from+=" AND EXISTS (SELECT 1 FROM community_revision_tag rt WHERE rt.revisionId=r.id AND rt.tagId=?)"; args.add(q.getTagId()); }
         if(q.getKeyword()!=null && !q.getKeyword().trim().isEmpty()) { from+=" AND r.title LIKE ?"; args.add("%"+q.getKeyword().trim()+"%"); }
         if(admin && q.getStatus()!=null && !q.getStatus().isEmpty()) { from+=" AND p.status=?"; args.add(q.getStatus()); }
-        String columns="p.id,r.id AS revisionId,r.title,r.summary,r.coverUrl,r.categoryId,cat.name AS categoryName,p.firstPublishedAt,"+COUNTS;
+        String columns="p.id,p.version,p.pinned,r.id AS revisionId,r.title,r.summary,r.markdown,r.categoryId,cat.name AS categoryName,p.firstPublishedAt,"
+                +"COALESCE(NULLIF(u.userName,''),NULLIF(u.userAccount,''),'用户') AS authorName,u.userAvatar AS authorAvatar,"
+                +"(u.userRole='admin') AS official,"+COUNTS;
         if(admin) columns+=",p.status,p.version,p.updateTime,(p.publishedRevisionId IS NULL OR p.draftRevisionId<>p.publishedRevisionId) AS hasUnpublishedChanges";
         // MySQL cannot use a select-list alias inside an ORDER BY expression on all supported versions.
         String score="(SELECT COUNT(*) FROM community_like l WHERE l.postId=p.id)+(SELECT COUNT(*) FROM community_comment c WHERE c.postId=p.id AND "+VISIBLE_COMMENT+")";
-        Map<String,Object> result=db.pageResult(from,columns,("popular".equals(q.getSort())?"("+score+") DESC,":"")+"p.firstPublishedAt DESC,p.id DESC",args,q);
-        for(Map<String,Object> row:(List<Map<String,Object>>)result.get("records")) {
+        Map<String,Object> result=db.pageResult(from,columns,"p.pinned DESC,p.pinnedAt DESC,"+("popular".equals(q.getSort())?"("+score+") DESC,":"")+"p.firstPublishedAt DESC,p.id DESC",args,q);
+        List<Map<String,Object>> records=(List<Map<String,Object>>)result.get("records");
+        Set<Long> likedPostIds=new HashSet<>();
+        if(!admin && userId!=null && !records.isEmpty()) {
+            List<Long> postIds=new ArrayList<>();
+            for(Map<String,Object> row:records) postIds.add(number(row,"id"));
+            String placeholders=String.join(",",Collections.nCopies(postIds.size(),"?"));
+            List<Object> likeArgs=new ArrayList<>(); likeArgs.add(userId); likeArgs.addAll(postIds);
+            likedPostIds.addAll(db.jdbc().queryForList("SELECT postId FROM community_like WHERE userId=? AND postId IN ("+placeholders+")",Long.class,likeArgs.toArray()));
+        }
+        for(Map<String,Object> row:records) {
+            row.put("pinned",flag(row.get("pinned")));
             row.put("tags",tags(row.remove("revisionId")));
             row.put("popularity",number(row,"likeCount")+number(row,"commentCount"));
+            if(!admin) row.put("liked",likedPostIds.contains(number(row,"id")));
+            CommunityContentPreview.enrich(row,false);
         }
         return result;
     }
     public Map<String,Object> getPublic(Long id,Long userId) {
         validId(id);
-        Map<String,Object> result=db.one("SELECT p.id,r.id AS revisionId,r.title,r.summary,r.coverUrl,r.markdown,r.commentsEnabled,r.categoryId,cat.name AS categoryName,p.firstPublishedAt,"+COUNTS
-                +" FROM community_post p JOIN community_revision r ON r.id=p.publishedRevisionId LEFT JOIN community_category cat ON cat.id=r.categoryId WHERE "+PUBLIC_POST+" AND p.id=?",id);
+        Map<String,Object> result=db.one("SELECT p.id,p.version,p.pinned,r.id AS revisionId,r.title,r.summary,r.markdown,r.commentsEnabled,r.categoryId,cat.name AS categoryName,p.firstPublishedAt,"
+                +"COALESCE(NULLIF(u.userName,''),NULLIF(u.userAccount,''),'用户') AS authorName,u.userAvatar AS authorAvatar,"
+                +"(u.userRole='admin') AS official,"+COUNTS
+                +" FROM community_post p JOIN community_revision r ON r.id=p.publishedRevisionId"
+                +" LEFT JOIN community_category cat ON cat.id=r.categoryId LEFT JOIN user u ON u.id=p.authorId AND u.isDelete=0"
+                +" WHERE "+PUBLIC_POST+" AND p.id=?",id);
+        result.put("pinned",flag(result.get("pinned")));
         result.put("tags",tags(result.remove("revisionId")));
         result.put("popularity",number(result,"likeCount")+number(result,"commentCount"));
         result.put("liked",userId!=null && db.jdbc().queryForObject("SELECT COUNT(*) FROM community_like WHERE postId=? AND userId=?",Long.class,id,userId)>0);
+        CommunityContentPreview.enrich(result,true);
         return result;
     }
     private List<Map<String,Object>> tags(Object revisionId) {

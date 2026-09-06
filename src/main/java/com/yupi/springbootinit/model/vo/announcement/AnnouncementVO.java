@@ -42,6 +42,12 @@ public class AnnouncementVO implements Serializable {
 
     private Long createUserId;
 
+    private String authorName;
+
+    private String authorAvatar;
+
+    private Boolean official;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Shanghai")
     private Date createTime;
 

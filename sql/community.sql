@@ -13,8 +13,10 @@ CREATE TABLE community_post (
  id BIGINT PRIMARY KEY, authorId BIGINT NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft',
  draftRevisionId BIGINT NULL, publishedRevisionId BIGINT NULL,
  version INT NOT NULL DEFAULT 0, firstPublishedAt DATETIME(3) NULL,
+ pinned TINYINT NOT NULL DEFAULT 0, pinnedAt DATETIME(3) NULL,
  createTime DATETIME(3) NOT NULL, updateTime DATETIME(3) NOT NULL, isDelete TINYINT NOT NULL DEFAULT 0,
- KEY idx_community_post_public(status,isDelete,firstPublishedAt,id)
+ KEY idx_community_post_public(status,isDelete,firstPublishedAt,id),
+ KEY idx_community_post_pinned(pinned,pinnedAt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE community_revision (
  id BIGINT PRIMARY KEY, postId BIGINT NOT NULL, title VARCHAR(150) NOT NULL,

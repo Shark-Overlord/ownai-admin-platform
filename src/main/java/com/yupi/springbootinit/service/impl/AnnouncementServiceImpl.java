@@ -16,6 +16,7 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.announcement.AnnouncementVO;
 import com.yupi.springbootinit.service.AnnouncementReadService;
 import com.yupi.springbootinit.service.AnnouncementService;
+import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,6 +46,9 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
 
     @Resource
     private AnnouncementReadService announcementReadService;
+
+    @Resource
+    private UserService userService;
 
     @Override
     public Long addAnnouncement(AnnouncementAddRequest request, User adminUser) {
@@ -342,17 +346,41 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
 
     private Page<AnnouncementVO> toVOPage(Page<Announcement> page, Map<Long, AnnouncementRead> readMap) {
         Page<AnnouncementVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        Map<Long, User> authorMap = getAuthorMap(page.getRecords());
         voPage.setRecords(page.getRecords().stream()
-                .map(announcement -> toVO(announcement, readMap.get(announcement.getId())))
+                .map(announcement -> toVO(announcement, readMap.get(announcement.getId()),
+                        authorMap.get(announcement.getCreateUserId())))
                 .collect(Collectors.toList()));
         return voPage;
     }
 
     private AnnouncementVO toVO(Announcement announcement, AnnouncementRead read) {
+        User author = announcement.getCreateUserId() == null ? null : userService.getById(announcement.getCreateUserId());
+        return toVO(announcement, read, author);
+    }
+
+    private AnnouncementVO toVO(Announcement announcement, AnnouncementRead read, User author) {
         AnnouncementVO vo = new AnnouncementVO();
         BeanUtils.copyProperties(announcement, vo);
+        if (author != null) {
+            vo.setAuthorName(StringUtils.defaultIfBlank(author.getUserName(), author.getUserAccount()));
+            vo.setAuthorAvatar(author.getUserAvatar());
+            vo.setOfficial("admin".equals(author.getUserRole()));
+        }
         vo.setReadStatus(read != null);
         vo.setReadTime(read == null ? null : read.getReadTime());
         return vo;
+    }
+
+    private Map<Long, User> getAuthorMap(List<Announcement> announcements) {
+        Set<Long> authorIds = announcements.stream()
+                .map(Announcement::getCreateUserId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (authorIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return userService.listByIds(authorIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity(), (a, b) -> a));
     }
 }

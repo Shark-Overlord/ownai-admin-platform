@@ -72,7 +72,8 @@ class CommunityServiceTest {
         String schema=new String(Files.readAllBytes(Paths.get("sql/community.sql")),StandardCharsets.UTF_8);
         schema=schema.replaceAll("(?m)^--.*$","");
         for(String sql:schema.split(";")) if(!sql.trim().isEmpty() && !sql.trim().startsWith("ALTER TABLE")) jdbc.execute(sql);
-        jdbc.execute("CREATE TABLE user(id BIGINT PRIMARY KEY,userName VARCHAR(50),isDelete INT DEFAULT 0)");
+        jdbc.execute("CREATE TABLE user(id BIGINT PRIMARY KEY,userAccount VARCHAR(256),userName VARCHAR(50),userAvatar VARCHAR(1024),userRole VARCHAR(20),isDelete INT DEFAULT 0)");
+        jdbc.update("INSERT INTO user(id,userAccount,userName,userAvatar,userRole,isDelete) VALUES (1,'admin','Ownai','dicebear:line-face:admin-real','admin',0),(2,'reader','林一',NULL,'user',0)");
         jdbc.execute("CREATE TABLE announcement(id BIGINT PRIMARY KEY,title VARCHAR(150),summary VARCHAR(300),status VARCHAR(20),popupEnabled INT,targetType VARCHAR(30),targetId BIGINT)");
         reset(users,announcements);
         when(users.getLoginUser(any())).thenAnswer(inv -> {
@@ -110,6 +111,21 @@ class CommunityServiceTest {
         mvc.perform(get("/community/taxonomy/tag")).andExpect(jsonPath("$.data[0].id").value(tag.toString()));
     }
 
+    @Test void commentContextLocatesReplyAndEnforcesPublicVisibility() throws Exception {
+        Long post=create("定位讨论"); publish(post);
+        Long root=Long.valueOf(interactions.comment(comment(post,"原始讨论",null),2L,false));
+        Long reply=Long.valueOf(interactions.comment(comment(post,"对应回复",root),1L,true));
+        mvc.perform(get("/community/comment/context").param("postId",post.toString()).param("id",reply.toString()))
+            .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.root.id").value(root.toString()))
+            .andExpect(jsonPath("$.data.target.id").value(reply.toString()));
+        Long other=create("其他帖子"); publish(other);
+        assertThrows(BusinessException.class,()->interactions.commentContext(other,reply));
+        hidden(reply,true); assertThrows(BusinessException.class,()->interactions.commentContext(post,reply));
+        hidden(reply,false); hidden(root,true); assertThrows(BusinessException.class,()->interactions.commentContext(post,reply));
+        hidden(root,false); posts.action(action(post),"offline");
+        assertThrows(BusinessException.class,()->interactions.commentContext(post,reply));
+    }
+
     @Test void draftAndPublishedTaxonomyAreIsolatedAndFirstPublicationIsStable() {
         Long id=create("旧标题");assertThrows(BusinessException.class,()->posts.getPublic(id,null)); publish(id);
         Object first=posts.getPublic(id,null).get("firstPublishedAt");
@@ -119,6 +135,7 @@ class CommunityServiceTest {
         assertEquals("旧标题",posts.getPublic(id,null).get("title"));
         q.setCategoryId(newCategory);assertEquals(0,rows(posts.list(q,false)).size());
         publish(id);Map<String,Object> live=posts.getPublic(id,null);assertEquals("新标题",live.get("title"));assertEquals("  原文\n\n",live.get("markdown"));assertEquals(first,live.get("firstPublishedAt"));
+        assertEquals("Ownai",live.get("authorName"));assertEquals("dicebear:line-face:admin-real",live.get("authorAvatar"));assertEquals(true,live.get("official"));
         assertFalse(live.containsKey("authorId"));assertFalse(live.containsKey("draftRevisionId"));
         posts.action(action(id),"offline");assertThrows(BusinessException.class,()->posts.getPublic(id,null));publish(id);assertEquals(first,posts.getPublic(id,null).get("firstPublishedAt"));
     }
@@ -145,6 +162,31 @@ class CommunityServiceTest {
         like(a,2L,false);like(a,2L,false);assertEquals(0L,posts.getPublic(a,null).get("likeCount"));
         hidden(root,true);assertEquals(b,rows(posts.list(q,false)).get(0).get("id"));
     }
+    @Test void markdownBuildsFeedMediaAndExcerptWithoutASeparateCover() {
+        Long id=create("标题");publish(id);
+        Map<String,Object> row=rows(posts.list(new Query(),false)).get(0);
+        assertEquals("video",row.get("previewMediaType"));
+        assertEquals("https://example.test/demo.mp4",row.get("previewMediaUrl"));
+        assertEquals("原文",row.get("excerpt"));
+        assertFalse(row.containsKey("markdown"));assertFalse(row.containsKey("coverUrl"));
+
+        Map<String,Object> detail=posts.getPublic(id,null);
+        assertTrue(detail.containsKey("markdown"));assertFalse(detail.containsKey("coverUrl"));
+
+        CommunityContentPreview.Preview image=CommunityContentPreview.inspect(
+                "# 图片帖子\n\n![预览](<https://example.test/cover.webp>)\n\n正文内容", "图片帖子");
+        assertEquals("image",image.mediaType);assertEquals("https://example.test/cover.webp",image.mediaUrl);assertEquals("正文内容",image.excerpt);
+    }
+    @Test void administratorsCanPinPublishedPostsAboveBothSortModes() throws Exception {
+        Long a=create("A");publish(a);Thread.sleep(5);Long b=create("B");publish(b);
+        Query q=new Query();assertEquals(b,rows(posts.list(q,false)).get(0).get("id"));
+        Map<String,Object> pinned=posts.pin(action(a),true);
+        assertEquals(true,pinned.get("pinned"));assertEquals(a,rows(posts.list(q,false)).get(0).get("id"));
+        like(b,2L,true);q.setSort("popular");assertEquals(a,rows(posts.list(q,false)).get(0).get("id"));
+        Map<String,Object> unpinned=posts.pin(action(a),false);
+        assertEquals(false,unpinned.get("pinned"));assertEquals(b,rows(posts.list(q,false)).get(0).get("id"));
+        posts.action(action(a),"offline");assertThrows(BusinessException.class,()->posts.pin(action(a),true));
+    }
     @Test void repliesRetryLimitsAndReports() {
         Long a=create("A");publish(a);Long b=create("B");publish(b);
         Comment r=comment(a,"hello <script>alert(1)</script>",null);Long root=Long.valueOf(interactions.comment(r,2L,false));
@@ -166,6 +208,17 @@ class CommunityServiceTest {
         assertEquals(1,rows(interactions.comments(query(id),false)).size());assertThrows(BusinessException.class,()->interactions.comment(comment(id,"新留言",null),3L,false));
         posts.action(action(id),"offline");assertThrows(BusinessException.class,()->interactions.comments(query(id),false));assertThrows(BusinessException.class,()->like(id,3L,true));
         posts.action(action(id),"delete");assertThrows(BusinessException.class,()->posts.getPublic(id,null));assertEquals(0,rows(posts.list(new Query(),false)).size());
+    }
+    @Test void myInteractionsContainOnlyTheCurrentUsersVisibleActivity() {
+        Long id=create("互动帖子");publish(id);
+        Long mine=Long.valueOf(interactions.comment(comment(id,"我的评论",null),2L,false));
+        interactions.comment(comment(id,"其他人的评论",mine),3L,false);
+        like(id,2L,true);
+        List<Map<String,Object>> comments=rows(interactions.myComments(new Query(),2L));
+        assertEquals(1,comments.size());assertEquals("我的评论",comments.get(0).get("content"));assertEquals("互动帖子",comments.get(0).get("postTitle"));
+        List<Map<String,Object>> likes=rows(interactions.myLikes(new Query(),2L));
+        assertEquals(1,likes.size());assertEquals(id,likes.get(0).get("postId"));assertEquals("互动帖子",likes.get(0).get("postTitle"));
+        assertEquals(0,rows(interactions.myComments(new Query(),1L)).size());assertEquals(0,rows(interactions.myLikes(new Query(),1L)).size());
     }
     @Test void concurrentLikesAndCommentRetriesAreIdempotent() throws Exception {
         Long id=create("并发");publish(id);Comment r=comment(id,"重试",null);
@@ -191,11 +244,17 @@ class CommunityServiceTest {
         mvc.perform(post("/community/admin/post/list/page").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(jsonPath("$.code").value(40100));
         mvc.perform(post("/community/admin/post/list/page").header("X-Test-Role","user").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(jsonPath("$.code").value(40101));
         mvc.perform(post("/community/admin/post/list/page").header("X-Test-Role","admin").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(jsonPath("$.code").value(0));
+        String pinBody="{\"id\":\""+id+"\",\"version\":"+action(id).getVersion()+"}";
+        mvc.perform(post("/community/admin/post/pin").header("X-Test-Role","user").contentType(MediaType.APPLICATION_JSON).content(pinBody)).andExpect(jsonPath("$.code").value(40101));
+        mvc.perform(post("/community/admin/post/pin").header("X-Test-Role","admin").contentType(MediaType.APPLICATION_JSON).content(pinBody)).andExpect(jsonPath("$.data.pinned").value(true));
         String likeBody="{\"postId\":\""+id+"\",\"liked\":true,\"userId\":\"999\"}";
         mvc.perform(post("/community/like").contentType(MediaType.APPLICATION_JSON).content(likeBody)).andExpect(jsonPath("$.code").value(40100));
         mvc.perform(post("/community/like").header("X-Test-Role","ban").contentType(MediaType.APPLICATION_JSON).content(likeBody)).andExpect(jsonPath("$.code").value(40101));
         mvc.perform(post("/community/like").header("X-Test-Role","user").contentType(MediaType.APPLICATION_JSON).content(likeBody)).andExpect(jsonPath("$.code").value(0));
         assertEquals(2L,jdbc.queryForObject("SELECT userId FROM community_like WHERE postId=?",Long.class,id));
+        mvc.perform(post("/community/me/comments/list/page").contentType(MediaType.APPLICATION_JSON).content("{}")) .andExpect(jsonPath("$.code").value(40100));
+        mvc.perform(post("/community/me/comments/list/page").header("X-Test-Role","user").contentType(MediaType.APPLICATION_JSON).content("{}")) .andExpect(jsonPath("$.data.total").value("0"));
+        mvc.perform(post("/community/me/likes/list/page").header("X-Test-Role","user").contentType(MediaType.APPLICATION_JSON).content("{}")) .andExpect(jsonPath("$.data.total").value("1"));
         mvc.perform(post("/community/post/list/page").contentType(MediaType.APPLICATION_JSON).content("{\"sort\":\"DROP TABLE\"}")).andExpect(jsonPath("$.code").value(40000));
     }
 }

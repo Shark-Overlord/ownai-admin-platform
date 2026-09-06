@@ -16,6 +16,7 @@ public final class CommunityRequests {
         private Long postId;
         private Long userId;
         private Long rootId;
+        private Long commentId;
         private String status;
         private String sort = "latest";
         private Boolean hidden;
@@ -25,7 +26,6 @@ public final class CommunityRequests {
         private Integer version;
         private String title;
         private String summary;
-        private String coverUrl;
         private Long categoryId;
         private List<Long> tagIds = new ArrayList<>();
         private String markdown;

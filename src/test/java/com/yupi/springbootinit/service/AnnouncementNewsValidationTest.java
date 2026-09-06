@@ -4,9 +4,12 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.dto.announcement.AnnouncementAddRequest;
 import com.yupi.springbootinit.model.dto.announcement.AnnouncementUpdateRequest;
 import com.yupi.springbootinit.model.entity.Announcement;
+import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.announcement.AnnouncementVO;
 import com.yupi.springbootinit.service.impl.AnnouncementServiceImpl;
+import java.util.Collections;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -61,6 +64,35 @@ class AnnouncementNewsValidationTest {
         assertEquals("9007199254740993", mapper.readTree(mapper.writeValueAsString(legacy)).get("id").asText());
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<AnnouncementVO> page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10, 0);
         assertEquals("0", mapper.readTree(mapper.writeValueAsString(page)).get("total").textValue());
+    }
+
+    @Test
+    void announcementVoUsesItsCreatorsCurrentIdentity() {
+        AnnouncementServiceImpl service = new AnnouncementServiceImpl();
+        UserService users = mock(UserService.class);
+        ReflectionTestUtils.setField(service, "userService", users);
+
+        Announcement announcement = new Announcement();
+        announcement.setId(12L);
+        announcement.setCreateUserId(7L);
+        User author = new User();
+        author.setId(7L);
+        author.setUserName("Ownai");
+        author.setUserAvatar("dicebear:line-face:creator");
+        author.setUserRole("admin");
+        when(users.listByIds(Collections.singleton(7L))).thenReturn(Collections.singletonList(author));
+
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Announcement> source =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10, 1);
+        source.setRecords(Collections.singletonList(announcement));
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<AnnouncementVO> result =
+                ReflectionTestUtils.invokeMethod(service, "toVOPage", source, Collections.emptyMap());
+
+        assertNotNull(result);
+        AnnouncementVO item = result.getRecords().get(0);
+        assertEquals("Ownai", item.getAuthorName());
+        assertEquals("dicebear:line-face:creator", item.getAuthorAvatar());
+        assertTrue(item.getOfficial());
     }
 
     @Test
