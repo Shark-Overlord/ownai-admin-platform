@@ -1,10 +1,15 @@
-# 作品积分永久解锁交付说明
+# 作品积分永久解锁说明
 
-## 实现与分支
+## 当前实现
 
-后端和管理后台：`E:\JAVA_project\springboot-init-master`。
-用户前台：`E:\DesginEverything\Design-Everything`。
-两个仓库均从已与远端同步的 `develop` 新建 `codex/artwork-points-unlock` 后开发。保留了原有未提交文件。开发验收完成后，经用户确认进入提交、合并 main 和生产发布阶段；部署结果以对应 release 记录为准。
+后端、管理后台和用户前台现在统一位于当前仓库：后端在 `src/`，管理后台
+在 `web-admin/`，用户前台在 `web-frontend/`。日常修改进入 `develop`，生产
+发布由 `main` 触发；完整流程见
+[`OWNAI_DEVELOPMENT_AND_DEPLOYMENT.md`](OWNAI_DEVELOPMENT_AND_DEPLOYMENT.md)。
+
+功能提交为 `c37dc9c`，后端发布提交为 `6c6280d`，迁移时对应的前台发布提交
+为 `f4ec264`。生产部署及回退证据保存在
+`artifacts/points-release-20260906/verification.json`。
 
 新作品默认 100 积分，管理员可以调整。免费作品不收费；有效会员直接访问；普通用户确认扣分后获得整条作品永久访问权，包括提示词、代码和源码 ZIP，以及同一作品 ID 的后续更新。下线或删除期间拒绝读取，重新上线不需要重复兑换。
 
@@ -30,9 +35,12 @@
 
 本功能只针对 `artwork`。独立的图片 Prompt 资产、视频背景、教程、插件、会员商品权限和签到奖励规则保持原状。
 
-## 线上只读核查与迁移
+## 生产基线与迁移记录
 
-2026-09-06 核查：606 条未删除作品，积分价格全部 0；真实积分订单 0 条；已完成现金作品订单 5 条，全部 `paymentChannel=mock` 且第三方订单号为 `MOCK-...`。数据库原积分价格默认值为 0。此为迁移前的只读基线。
+2026-09-06 迁移前核查：606 条未删除作品，积分价格全部为 0；真实积分订单
+0 条；已完成现金作品订单 5 条，全部 `paymentChannel=mock` 且第三方订单号
+为 `MOCK-...`。数据库原积分价格默认值为 0。该数字仅是当时的迁移基线，
+不能作为当前生产数量使用。
 
 准备了三个 SQL 文件：
 
@@ -40,7 +48,9 @@
 2. `sql/artwork_points_unlock.sql`：创建原价格备份表和迁移标记，在事务中备份未删除作品的 ID/原价后统一设置为 100；数据库默认值改为 100，并补齐真实积分订单缺失的授权。重跑不会重新覆盖后续人工调整的作品价格。
 3. `sql/artwork_points_unlock_rollback.sql`：仅恢复仍为迁移价格 100 的作品原价，避免覆盖后续人工调价；恢复原数据库默认值。保留订单、授权、积分流水和备份标记。
 
-发布前再运行只读核查，以当时数量为准。备份部署 JAR、后台/前台构建目录和数据库，再从功能分支整理本次文件，合并到 develop/main 发布。部署顺序为兼容后端、执行价格迁移、管理后台、用户前台。先确认 `/artwork/detail` 可用、旧提示词接口兼容，再切换前台。
+该迁移已于 2026-09-06 发布，默认价格为 100 积分。后续修改价格或权限逻辑
+前仍需重新运行只读核查，以执行时数据为准；不得重跑初始化迁移覆盖管理员的
+后续调价。
 
 紧急回滚优先恢复前台和价格，同时保留兼容后端的授权判断及关闭模拟支付修复；恢复旧后端会暂时失去新授权识别能力，不应删除用户已获得的权益。
 
@@ -58,12 +68,15 @@ mvn -q '-Dtest=ArtworkPointsIntegrationTest,ArtworkAccessTest,ArtworkControllerT
 
 后端集成测试使用隔离 H2 MySQL 模式，运行真实 MyBatis SQL、Spring 事务和数据库行锁；不连接生产数据库。包括 99/100/300 积分边界、8 路同作品并发、不同作品并发防透支、授权失败回滚、免费/会员免扣、过期/重新发布、单次批量查授权、历史流水校验和默认价格/编辑保留。
 
-管理后台在 `web-admin` 运行 `npm run build`。用户前台运行 `npm run build`，浏览器验收：
+管理后台在 `web-admin/` 运行 `npm run build`。用户前台在 `web-frontend/`
+运行 `npm run build`，浏览器验收：
 
 ```powershell
-npm run dev -- --host 127.0.0.1 --port 5181 --strictPort
-# 另一个终端，需要 Python Playwright 与 Chromium
+.\start-public-frontend.ps1
+Set-Location web-frontend
 python scripts/prompt_unlock_qa.py
 ```
 
-浏览器测试拦截全部 API，使用假账号和隔离订单状态；截图与结果位于用户前台 `design-qa-assets/points-unlock/`。没有向生产接口提交兑换或修改积分。生产 MySQL 迁移和部署后的真实账号验证留到发布阶段。
+浏览器测试拦截全部 API，使用假账号和隔离订单状态；截图与结果位于用户前台
+`design-qa-assets/points-unlock/`。生产迁移和部署已完成；任何会扣除真实账号
+积分的复验仍必须使用专用测试账号并明确授权。
