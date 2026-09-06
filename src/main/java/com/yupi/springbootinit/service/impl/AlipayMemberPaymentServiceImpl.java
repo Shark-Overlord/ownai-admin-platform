@@ -11,6 +11,7 @@ import com.yupi.springbootinit.model.dto.member.MemberPaymentCreateRequest;
 import com.yupi.springbootinit.model.dto.member.MemberPaymentResumeRequest;
 import com.yupi.springbootinit.model.entity.MemberOrder;
 import com.yupi.springbootinit.model.entity.MemberPriceConfig;
+import com.yupi.springbootinit.model.entity.PointRechargeConfig;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.model.enums.MemberOrderTypeEnum;
@@ -21,6 +22,7 @@ import com.yupi.springbootinit.model.vo.member.MemberPaymentStatusVO;
 import com.yupi.springbootinit.service.AlipayMemberPaymentService;
 import com.yupi.springbootinit.service.MemberPriceConfigService;
 import com.yupi.springbootinit.service.MemberService;
+import com.yupi.springbootinit.service.PointRechargeConfigService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.service.alipay.AlipayPagePaymentCommand;
 import com.yupi.springbootinit.service.alipay.AlipayPaymentCloseResult;
@@ -68,6 +70,9 @@ public class AlipayMemberPaymentServiceImpl implements AlipayMemberPaymentServic
     @Resource
     private AlipayPaymentResultTokenManager paymentResultTokenManager;
 
+    @Resource
+    private PointRechargeConfigService pointRechargeConfigService;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MemberPaymentCreateVO createPayment(MemberPaymentCreateRequest request, User loginUser) {
@@ -75,11 +80,20 @@ public class AlipayMemberPaymentServiceImpl implements AlipayMemberPaymentServic
         ThrowUtils.throwIf(StringUtils.isBlank(request.getRequestId()) || request.getRequestId().length() > 64,
                 ErrorCode.PARAMS_ERROR, "requestId is required and must be within 64 characters");
         MemberPlanTypeEnum planType = MemberPlanTypeEnum.getEnumByValue(request.getPlanType());
-        ThrowUtils.throwIf(planType == null, ErrorCode.PARAMS_ERROR, "Invalid membership plan");
+        boolean recharge = "points".equals(request.getPlanType());
+        ThrowUtils.throwIf(!recharge && planType == null, ErrorCode.PARAMS_ERROR, "Invalid membership plan");
+        ThrowUtils.throwIf(recharge && (request.getQuantity() == null || request.getQuantity() < 1
+                || request.getQuantity() > 1000 || request.getExpectedUnitPrice() == null
+                || request.getExpectedPointsPerUnit() == null), ErrorCode.PARAMS_ERROR, "充值份数和报价无效");
         ensureAlipayEnabled();
 
         MemberOrder existing = memberOrderMapper.selectByPaymentRequestIdForUpdate(loginUser.getId(), request.getRequestId());
         if (existing != null) {
+            ThrowUtils.throwIf(!StringUtils.equals(existing.getPlanType(), request.getPlanType())
+                    || recharge && (!request.getQuantity().equals(existing.getRechargeQuantity())
+                    || existing.getOrderAmount().compareTo(request.getExpectedUnitPrice().multiply(BigDecimal.valueOf(request.getQuantity()))) != 0
+                    || (long) existing.getPointsAmount() != (long) request.getExpectedPointsPerUnit() * request.getQuantity()),
+                    ErrorCode.PARAMS_ERROR, "支付请求已用于其他商品或份数，请刷新后重试");
             ThrowUtils.throwIf(!PAYMENT_CHANNEL.equals(existing.getPaymentChannel()), ErrorCode.OPERATION_ERROR,
                     "Payment request id is already in use");
             ThrowUtils.throwIf(!OrderStatusEnum.PENDING.getValue().equals(existing.getOrderStatus()),
@@ -99,25 +113,38 @@ public class AlipayMemberPaymentServiceImpl implements AlipayMemberPaymentServic
                             + ". Complete or cancel it before creating a new order.");
         }
 
-        validatePlanChange(loginUser, planType);
-        MemberPriceConfig config = memberPriceConfigService.getValidConfig(MemberLevelEnum.MEMBER.getValue(),
-                planType.getValue());
-        ThrowUtils.throwIf(config == null || config.getCashPrice() == null || config.getCashPrice().compareTo(BigDecimal.ZERO) <= 0,
-                ErrorCode.OPERATION_ERROR, "Membership plan is unavailable");
+        MemberPriceConfig config = null;
+        PointRechargeConfig rechargeConfig = null;
+        if (recharge) {
+            rechargeConfig = pointRechargeConfigService.getConfig();
+            pointRechargeConfigService.validate(rechargeConfig);
+            ThrowUtils.throwIf(rechargeConfig.getStatus() != 1, ErrorCode.OPERATION_ERROR, "积分充值暂未开放");
+            ThrowUtils.throwIf(request.getQuantity() > rechargeConfig.getMaxQuantity(), ErrorCode.PARAMS_ERROR, "购买份数超过单笔上限");
+            ThrowUtils.throwIf(rechargeConfig.getUnitPrice().compareTo(request.getExpectedUnitPrice()) != 0
+                    || !rechargeConfig.getPointsPerUnit().equals(request.getExpectedPointsPerUnit()),
+                    ErrorCode.OPERATION_ERROR, "积分充值价格已更新，请刷新后重新确认");
+        } else {
+            validatePlanChange(loginUser, planType);
+            config = memberPriceConfigService.getValidConfig(MemberLevelEnum.MEMBER.getValue(), planType.getValue());
+            ThrowUtils.throwIf(config == null || config.getCashPrice() == null || config.getCashPrice().compareTo(BigDecimal.ZERO) <= 0,
+                    ErrorCode.OPERATION_ERROR, "Membership plan is unavailable");
+        }
 
         Date now = new Date();
         MemberOrder order = new MemberOrder();
         order.setOrderNo("MEM" + IdUtil.getSnowflakeNextIdStr());
         order.setUserId(loginUser.getId());
-        order.setMemberLevel(MemberLevelEnum.MEMBER.getValue());
-        order.setPlanType(planType.getValue());
-        order.setDurationDays(planType.isLifetime() ? 0 : config.getDurationDays());
-        order.setOrderType(MemberOrderTypeEnum.CASH.getValue());
+        order.setMemberLevel(recharge ? "normal" : MemberLevelEnum.MEMBER.getValue());
+        order.setPlanType(recharge ? "points" : planType.getValue());
+        order.setDurationDays(recharge || planType.isLifetime() ? 0 : config.getDurationDays());
+        order.setOrderType(recharge ? MemberOrderTypeEnum.POINT_RECHARGE.getValue() : MemberOrderTypeEnum.CASH.getValue());
         order.setOrderStatus(OrderStatusEnum.PENDING.getValue());
-        order.setOrderAmount(config.getCashPrice().setScale(2, RoundingMode.HALF_UP));
+        order.setOrderAmount((recharge ? rechargeConfig.getUnitPrice().multiply(BigDecimal.valueOf(request.getQuantity()))
+                : config.getCashPrice()).setScale(2, RoundingMode.HALF_UP));
         order.setAmountMinor(order.getOrderAmount().movePointRight(2).longValueExact());
-        order.setCurrency(StringUtils.defaultIfBlank(config.getCurrency(), "CNY"));
-        order.setPointsAmount(0);
+        order.setCurrency(recharge ? "CNY" : StringUtils.defaultIfBlank(config.getCurrency(), "CNY"));
+        order.setPointsAmount(recharge ? Math.multiplyExact(rechargeConfig.getPointsPerUnit(), request.getQuantity()) : 0);
+        order.setRechargeQuantity(recharge ? request.getQuantity() : null);
         order.setPaymentChannel(PAYMENT_CHANNEL);
         order.setPaymentRequestId(request.getRequestId());
         order.setCreateTime(now);
@@ -187,6 +214,8 @@ public class AlipayMemberPaymentServiceImpl implements AlipayMemberPaymentServic
         MemberPaymentStatusVO response = new MemberPaymentStatusVO();
         response.setOrderNo(order.getOrderNo());
         response.setOrderStatus(order.getOrderStatus());
+        response.setOrderType(order.getOrderType());
+        response.setPointsAmount(order.getPointsAmount());
         response.setPaymentChannel(order.getPaymentChannel());
         response.setFailureReason(order.getFailureReason());
         if (OrderStatusEnum.PENDING.getValue().equals(order.getOrderStatus()) && queryResult != null
@@ -195,6 +224,7 @@ public class AlipayMemberPaymentServiceImpl implements AlipayMemberPaymentServic
         }
         response.setExpiresAt(resolveExpiresAt(order));
         User currentUser = userService.getById(order.getUserId());
+        response.setPointBalance(currentUser.getPointBalance());
         response.setMemberPlanType(currentUser.getMemberPlanType());
         response.setMemberExpireTime(currentUser.getMemberExpireTime());
         response.setMemberActive(MemberLevelEnum.MEMBER.getValue().equals(currentUser.getMemberLevel())
@@ -302,7 +332,8 @@ public class AlipayMemberPaymentServiceImpl implements AlipayMemberPaymentServic
         AlipayPagePaymentCommand command = new AlipayPagePaymentCommand();
         command.setOutTradeNo(order.getOrderNo());
         command.setTotalAmount(order.getOrderAmount());
-        command.setSubject("OwnAI membership - " + order.getPlanType());
+        command.setSubject(MemberOrderTypeEnum.POINT_RECHARGE.getValue().equals(order.getOrderType())
+                ? "OwnAI 积分充值 - " + order.getPointsAmount() + " 积分" : "OwnAI membership - " + order.getPlanType());
         command.setExpiresAt(resolveExpiresAt(order));
         MemberPaymentCreateVO response = new MemberPaymentCreateVO();
         response.setOrderNo(order.getOrderNo());

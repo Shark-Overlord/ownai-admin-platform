@@ -144,6 +144,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .ge("createTime", todayStart)
                 .lt("createTime", tomorrowStart);
         QueryWrapper<MemberOrder> todayMemberOrderQuery = new QueryWrapper<MemberOrder>()
+                .ne("orderType", "point_recharge")
                 .ge("createTime", todayStart)
                 .lt("createTime", tomorrowStart);
         stats.setTodayArtworkOrders(artworkOrderMapper.selectCount(todayArtworkOrderQuery));

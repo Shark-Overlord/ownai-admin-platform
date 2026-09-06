@@ -46,6 +46,8 @@ class AlipayMemberPaymentServiceImplTest {
     private UserService userService;
     @Mock
     private AlipayPaymentResultTokenManager paymentResultTokenManager;
+    @Mock
+    private PointRechargeConfigService pointRechargeConfigService;
 
     @InjectMocks
     private AlipayMemberPaymentServiceImpl paymentService;
@@ -115,6 +117,86 @@ class AlipayMemberPaymentServiceImplTest {
         user.setMemberPlanType(planType);
         user.setMemberExpireTime(expiresAt);
         return user;
+    }
+
+    @Test
+    void rechargeUsesConfiguredPriceAndRecordsQuantityEvenForLifetimeMember() {
+        MemberPaymentCreateRequest request = rechargeRequest(3);
+        com.yupi.springbootinit.model.entity.PointRechargeConfig config = rechargeConfig();
+        when(alipayProperties.isEnabled()).thenReturn(true);
+        when(pointRechargeConfigService.getConfig()).thenReturn(config);
+        when(memberService.save(any(MemberOrder.class))).thenReturn(true);
+        paymentService.createPayment(request, user(100L, "member", "lifetime", null));
+        org.mockito.ArgumentCaptor<MemberOrder> captor = org.mockito.ArgumentCaptor.forClass(MemberOrder.class);
+        verify(memberService).save(captor.capture());
+        MemberOrder saved = captor.getValue();
+        assertEquals(new java.math.BigDecimal("7.50"), saved.getOrderAmount());
+        assertEquals(750L, saved.getAmountMinor());
+        assertEquals(600, saved.getPointsAmount());
+        assertEquals(3, saved.getRechargeQuantity());
+        assertEquals("point_recharge", saved.getOrderType());
+        assertEquals("pending", saved.getOrderStatus());
+        verify(memberService, never()).activateMember(any(), any(), any());
+    }
+
+    @Test
+    void rechargeRejectsChangedQuoteDisabledConfigAndExcessQuantity() {
+        when(alipayProperties.isEnabled()).thenReturn(true);
+        com.yupi.springbootinit.model.entity.PointRechargeConfig config = rechargeConfig();
+        when(pointRechargeConfigService.getConfig()).thenReturn(config);
+        MemberPaymentCreateRequest request = rechargeRequest(3);
+        config.setUnitPrice(new java.math.BigDecimal("3.00"));
+        assertThrows(BusinessException.class, () -> paymentService.createPayment(request, user(100L,"normal",null,null)));
+        config.setUnitPrice(new java.math.BigDecimal("2.50")); config.setStatus(0);
+        assertThrows(BusinessException.class, () -> paymentService.createPayment(request, user(100L,"normal",null,null)));
+        config.setStatus(1); config.setMaxQuantity(2);
+        assertThrows(BusinessException.class, () -> paymentService.createPayment(request, user(100L,"normal",null,null)));
+        verify(memberService, never()).save(any(MemberOrder.class));
+    }
+
+    @Test
+    void rechargeRejectsZeroNegativeAndMissingQuantity() {
+        for (Integer value : new Integer[] {null, 0, -1, 1001}) {
+            assertThrows(BusinessException.class, () -> paymentService.createPayment(rechargeRequest(value), user(100L,"normal",null,null)));
+        }
+        verify(memberService, never()).save(any(MemberOrder.class));
+    }
+
+    @Test
+    void rechargeRejectsFractionalJsonQuantity() {
+        assertThrows(com.fasterxml.jackson.core.JsonProcessingException.class, () -> new com.fasterxml.jackson.databind.ObjectMapper()
+                .readValue("{\"planType\":\"points\",\"quantity\":1.5}", MemberPaymentCreateRequest.class));
+    }
+
+    @Test
+    void retryReusesSnapshotAndRejectsDifferentQuantity() {
+        MemberPaymentCreateRequest request = rechargeRequest(3);
+        MemberOrder existing = pendingOrder(100L, new Date());
+        existing.setPlanType("points"); existing.setOrderType("point_recharge");
+        existing.setRechargeQuantity(3); existing.setPointsAmount(600);
+        existing.setOrderAmount(new java.math.BigDecimal("7.50"));
+        when(alipayProperties.isEnabled()).thenReturn(true);
+        when(alipayProperties.getPendingOrderTimeoutMinutes()).thenReturn(15);
+        when(memberOrderMapper.selectByPaymentRequestIdForUpdate(100L, request.getRequestId())).thenReturn(existing);
+        assertEquals(existing.getOrderNo(), paymentService.createPayment(request, user(100L,"normal",null,null)).getOrderNo());
+        request.setQuantity(4);
+        assertThrows(BusinessException.class, () -> paymentService.createPayment(request, user(100L,"normal",null,null)));
+        verify(memberService, never()).save(any(MemberOrder.class));
+        verify(pointRechargeConfigService, never()).getConfig();
+    }
+
+    private MemberPaymentCreateRequest rechargeRequest(Integer quantity) {
+        MemberPaymentCreateRequest request = new MemberPaymentCreateRequest();
+        request.setPlanType("points"); request.setRequestId("recharge-request"); request.setQuantity(quantity);
+        request.setExpectedUnitPrice(new java.math.BigDecimal("2.50")); request.setExpectedPointsPerUnit(200);
+        return request;
+    }
+
+    private com.yupi.springbootinit.model.entity.PointRechargeConfig rechargeConfig() {
+        com.yupi.springbootinit.model.entity.PointRechargeConfig config = new com.yupi.springbootinit.model.entity.PointRechargeConfig();
+        config.setUnitPrice(new java.math.BigDecimal("2.50")); config.setPointsPerUnit(200);
+        config.setMaxQuantity(100); config.setStatus(1);
+        return config;
     }
 
     private MemberOrder pendingOrder(long userId, Date createdAt) {

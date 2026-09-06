@@ -6,6 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 public enum PointChangeTypeEnum {
 
     PURCHASE_REWARD("购买返积分", "purchase_reward"),
+    POINT_RECHARGE("积分充值", "point_recharge"),
     REDEEM_CONSUME("积分兑换消耗", "redeem_consume"),
     IMAGE_GENERATE_FREEZE("图片生成冻结", "image_generate_freeze"),
     IMAGE_GENERATE_REFUND("图片生成退款", "image_generate_refund"),

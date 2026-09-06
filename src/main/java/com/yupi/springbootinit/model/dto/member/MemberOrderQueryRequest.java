@@ -16,6 +16,7 @@ public class MemberOrderQueryRequest extends PageRequest implements Serializable
     private String orderStatus;
 
     private String orderType;
+    private String planType;
 
     private Long userId;
 

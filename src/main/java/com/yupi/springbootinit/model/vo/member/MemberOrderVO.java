@@ -33,6 +33,7 @@ public class MemberOrderVO implements Serializable {
     private String currency;
 
     private Integer pointsAmount;
+    private Integer rechargeQuantity;
 
     private String paymentChannel;
 

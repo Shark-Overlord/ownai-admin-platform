@@ -10,6 +10,9 @@ public class MemberPaymentStatusVO implements Serializable {
     private String orderNo;
 
     private String orderStatus;
+    private String orderType;
+    private Integer pointsAmount;
+    private Integer pointBalance;
 
     private String paymentChannel;
 

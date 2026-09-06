@@ -147,6 +147,7 @@ public class MemberServiceImpl extends ServiceImpl<MemberOrderMapper, MemberOrde
         query.eq(StringUtils.isNotBlank(safeRequest.getOrderNo()), "orderNo", safeRequest.getOrderNo());
         query.eq(StringUtils.isNotBlank(safeRequest.getMemberLevel()), "memberLevel", safeRequest.getMemberLevel());
         query.eq(StringUtils.isNotBlank(safeRequest.getOrderType()), "orderType", safeRequest.getOrderType());
+        query.eq(StringUtils.isNotBlank(safeRequest.getPlanType()), "planType", safeRequest.getPlanType());
         query.eq(StringUtils.isNotBlank(safeRequest.getOrderStatus()), "orderStatus", safeRequest.getOrderStatus());
         query.orderByDesc("id");
         Page<MemberOrder> page = this.page(new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize()), query);
