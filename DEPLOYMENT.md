@@ -1,50 +1,24 @@
-# Deployment
+# OwnAI deployment
 
-This project deploys two parts:
+This repository contains all three production applications:
 
-- Backend: Spring Boot jar, running as `springboot-init.service`
-- Admin frontend: static files from `web-admin/dist`, served by Nginx
+- Spring Boot API in the repository root.
+- Public React frontend in `web-frontend/`.
+- Admin React frontend in `web-admin/`.
 
-## Server paths
+Production runs on `101.200.91.81`. A push to `main` triggers
+`.github/workflows/deploy.yml`, which builds and deploys all three applications.
 
-- Backend app: `/opt/springboot-init/app.jar`
-- Backend env: `/etc/springboot-init/springboot-init.env`
-- Frontend root: `/www/wwwroot/springboot-init-admin`
-- Nginx config: `/www/server/panel/vhost/nginx/springboot-init-admin.conf`
-- Public domain: `http://admin.ownai.icu`
-- Backend local port: `8011`
+| Application | Public address | Production path |
+| --- | --- | --- |
+| Public frontend | `https://ownai.icu` | `/www/wwwroot/ownai` |
+| Admin frontend | `https://admin.ownai.icu` | `/www/wwwroot/springboot-init-admin` |
+| API | `/api` on both sites | `/opt/springboot-init/app.jar` |
 
-## GitHub secret
+The backend listens on `127.0.0.1:8011` through `springboot-init.service`.
+Runtime secrets remain in `/etc/springboot-init/springboot-init.env` and must not
+be committed.
 
-Create one repository secret:
-
-- `DEPLOY_SSH_KEY`: private key content from `C:\Users\xue\.ssh\springboot_init_github_actions`
-
-## Runtime config
-
-Copy `deploy/springboot-init.env.example` to the server env file and fill real values:
-
-```bash
-/etc/springboot-init/springboot-init.env
-```
-
-Database SQL is not stored in this repo. Import the exported SQL separately before starting the backend.
-
-## Deploy flow
-
-Push to `main`, or run the `Deploy Spring Boot app` workflow manually.
-
-The workflow builds:
-
-```bash
-./mvnw -B -DskipTests package
-cd web-admin && npm ci && npm run build
-```
-
-Then it uploads the backend jar and admin frontend to the server, and restarts `springboot-init`.
-
-For the full safe deployment runbook, including backup and recovery rules, see:
-
-```text
-E:\DesginEverything\OWNAI_DEPLOYMENT_RUNBOOK.md
-```
+The canonical development, release, verification, and rollback process is
+documented in
+[`docs/OWNAI_DEVELOPMENT_AND_DEPLOYMENT.md`](docs/OWNAI_DEVELOPMENT_AND_DEPLOYMENT.md).

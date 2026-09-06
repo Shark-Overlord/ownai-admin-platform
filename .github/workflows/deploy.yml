@@ -18,7 +18,8 @@ jobs:
       DEPLOY_HOST: 101.200.91.81
       DEPLOY_USER: deploy
       BACKEND_PATH: /opt/springboot-init
-      FRONTEND_PATH: /www/wwwroot/springboot-init-admin
+      ADMIN_FRONTEND_PATH: /www/wwwroot/springboot-init-admin
+      PUBLIC_FRONTEND_PATH: /www/wwwroot/ownai
 
     steps:
       - name: Checkout
@@ -41,10 +42,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: web-admin/package-lock.json
+          cache-dependency-path: |
+            web-admin/package-lock.json
+            web-frontend/package-lock.json
 
       - name: Build admin frontend
         working-directory: web-admin
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build public frontend
+        working-directory: web-frontend
         run: |
           npm ci
           npm run build
@@ -75,6 +84,28 @@ jobs:
 
       - name: Deploy admin frontend
         run: |
-          rsync -az --delete --no-times --omit-dir-times --no-perms --no-owner --no-group \
+          rsync -r --exclude=index.html --no-times --omit-dir-times --no-perms --no-owner --no-group \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
-            web-admin/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$FRONTEND_PATH/"
+            web-admin/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$ADMIN_FRONTEND_PATH/"
+          rsync -r --no-times --no-perms --no-owner --no-group \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            web-admin/dist/index.html "$DEPLOY_USER@$DEPLOY_HOST:$ADMIN_FRONTEND_PATH/index.html.next"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 644 '$ADMIN_FRONTEND_PATH/index.html.next' && mv '$ADMIN_FRONTEND_PATH/index.html.next' '$ADMIN_FRONTEND_PATH/index.html'"
+          rsync -r --delete --exclude=index.html --no-times --omit-dir-times --no-perms --no-owner --no-group \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            web-admin/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$ADMIN_FRONTEND_PATH/"
+
+      - name: Deploy public frontend
+        run: |
+          rsync -r --exclude=index.html --no-times --omit-dir-times --no-perms --no-owner --no-group \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            web-frontend/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$PUBLIC_FRONTEND_PATH/"
+          rsync -r --no-times --no-perms --no-owner --no-group \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            web-frontend/dist/index.html "$DEPLOY_USER@$DEPLOY_HOST:$PUBLIC_FRONTEND_PATH/index.html.next"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 644 '$PUBLIC_FRONTEND_PATH/index.html.next' && mv '$PUBLIC_FRONTEND_PATH/index.html.next' '$PUBLIC_FRONTEND_PATH/index.html'"
+          rsync -r --delete --exclude=index.html --no-times --omit-dir-times --no-perms --no-owner --no-group \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            web-frontend/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$PUBLIC_FRONTEND_PATH/"
