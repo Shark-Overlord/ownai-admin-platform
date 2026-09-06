@@ -4,7 +4,7 @@ import { Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Tag, messa
 import { CrownOutlined } from '@ant-design/icons';
 import { adminCancelMemberOrder, adminGrantMember, listAllMemberOrders, type MemberOrderVO } from '../../api/member';
 
-const planLabels: Record<string, string> = { month: '月费', year: '年费', lifetime: '永久' };
+const planLabels: Record<string, string> = { month: '月费', year: '年费', lifetime: '永久', points: '积分充值' };
 const statusLabels: Record<string, { text: string; color: string }> = {
   pending: { text: '待支付', color: 'orange' },
   completed: { text: '已完成', color: 'green' },
@@ -26,14 +26,16 @@ export default function MemberOrderManage() {
     },
     {
       title: '套餐', dataIndex: 'planType', width: 100, valueType: 'select',
-      valueEnum: { month: { text: '月费' }, year: { text: '年费' }, lifetime: { text: '永久' } },
+      valueEnum: { month: { text: '月费' }, year: { text: '年费' }, lifetime: { text: '永久' }, points: { text: '积分充值' } },
       render: (_: any, row: MemberOrderVO) => <Tag color="blue">{planLabels[row.planType] || row.planType}</Tag>,
     },
     {
-      title: '开通方式', dataIndex: 'orderType', width: 130, valueType: 'select',
-      valueEnum: { cash: { text: '在线支付' }, admin_grant: { text: '管理员发放' } },
-      render: (_: any, row: MemberOrderVO) => row.orderType === 'admin_grant' ? '管理员发放' : '在线支付',
+      title: '订单类型', dataIndex: 'orderType', width: 130, valueType: 'select',
+      valueEnum: { cash: { text: '会员购买' }, admin_grant: { text: '管理员发放' }, point_recharge: { text: '积分充值' } },
+      render: (_: any, row: MemberOrderVO) => row.orderType === 'point_recharge' ? '积分充值' : row.orderType === 'admin_grant' ? '管理员发放' : '会员购买',
     },
+    { title: '充值份数', dataIndex: 'rechargeQuantity', width: 100, search: false },
+    { title: '充值积分', dataIndex: 'pointsAmount', width: 110, search: false, render: (_: any, row: MemberOrderVO) => row.orderType === 'point_recharge' ? row.pointsAmount : '-' },
     {
       title: '金额', dataIndex: 'orderAmount', width: 120, search: false,
       render: (_: any, row: MemberOrderVO) => `${row.currency || 'CNY'} ${Number(row.orderAmount || 0).toFixed(2)}`,
@@ -78,7 +80,7 @@ export default function MemberOrderManage() {
   };
 
   return (
-    <PageContainer title="会员订单" subTitle="会员开通与管理员人工发放记录">
+    <PageContainer title="交易订单" subTitle="会员购买、积分充值与管理员人工发放记录">
       <ProTable
         actionRef={actionRef}
         columns={columns}

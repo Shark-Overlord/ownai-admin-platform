@@ -6,10 +6,12 @@ export interface MemberOrderVO {
   orderNo: string;
   userId: number;
   userName?: string;
-  memberLevel: 'member';
-  planType: MemberPlanType;
+  memberLevel: 'member' | 'normal';
+  planType: MemberPlanType | 'points';
   durationDays?: number;
-  orderType: 'cash' | 'admin_grant';
+  orderType: 'cash' | 'admin_grant' | 'point_recharge';
+  rechargeQuantity?: number;
+  pointsAmount?: number;
   orderStatus: 'pending' | 'completed' | 'cancelled' | 'expired' | 'failed';
   orderAmount?: number;
   amountMinor?: number;

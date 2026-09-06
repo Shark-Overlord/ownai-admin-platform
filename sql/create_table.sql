@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS member_order
     amountMinor             BIGINT                                  NULL,
     currency                VARCHAR(3)     DEFAULT 'CNY'            NOT NULL,
     pointsAmount            INT            DEFAULT 0                NOT NULL,
+    rechargeQuantity        INT                                     NULL,
     paymentChannel          VARCHAR(64)                             NULL,
     thirdPartyOrderNo       VARCHAR(128)                            NULL,
     paymentRequestId        VARCHAR(64)                             NULL,

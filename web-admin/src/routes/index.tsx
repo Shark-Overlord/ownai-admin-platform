@@ -336,7 +336,7 @@ export const menuRoutes = [
       },
       {
         path: '/member-order',
-        name: '会员订单',
+        name: '交易订单',
         icon: 'CrownOutlined',
       },
       {
