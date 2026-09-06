@@ -69,18 +69,57 @@ public class CommunityInteractionService {
                 +"LEFT JOIN community_comment parent ON parent.id=c.replyToId LEFT JOIN user ru ON ru.id=parent.userId AND ru.isDelete=0 WHERE c.isDelete=0"
                 +(admin?"":" AND "+PUBLIC_POST+" AND "+VISIBLE_COMMENT);
         if(q.getPostId()!=null) { from+=" AND c.postId=?"; args.add(q.getPostId()); }
-        if(!admin || q.getRootId()!=null) {
+        if(q.getCommentId()!=null) { from+=" AND c.id=?"; args.add(q.getCommentId()); }
+        else if(!admin || q.getRootId()!=null) {
             if(q.getRootId()==null) from+=" AND c.rootId IS NULL";
             else { from+=" AND c.rootId=?"; args.add(q.getRootId()); }
         }
         if(admin && q.getHidden()!=null) { from+=" AND c.hidden=?"; args.add(q.getHidden()); }
         if(admin && q.getUserId()!=null) { from+=" AND c.userId=?"; args.add(q.getUserId()); }
         if(q.getKeyword()!=null && !q.getKeyword().trim().isEmpty()) { from+=" AND c.content LIKE ?"; args.add("%"+q.getKeyword().trim()+"%"); }
-        String columns="c.id,c.postId,c.rootId,c.replyToId,c.content,c.official,c.createTime,COALESCE(u.userName,'用户') AS authorName,COALESCE(ru.userName,'用户') AS replyToName,"
+        String columns="c.id,c.postId,c.rootId,c.replyToId,c.content,c.official,c.createTime,COALESCE(u.userName,'用户') AS authorName,u.userAvatar AS authorAvatar,COALESCE(ru.userName,'用户') AS replyToName,"
                 +"(SELECT COUNT(*) FROM community_comment reply WHERE reply.rootId=c.id AND reply.hidden=0 AND reply.isDelete=0) AS replyCount";
         if(admin) columns+=",c.userId,c.hidden,r.title AS postTitle,p.status AS postStatus,p.isDelete AS postDeleted,"
                 +"(SELECT root.hidden FROM community_comment root WHERE root.id=c.rootId) AS rootHidden";
         return db.pageResult(from,columns,admin || q.getRootId()==null ? "c.createTime DESC,c.id DESC":"c.createTime ASC,c.id ASC",args,q);
+    }
+    public Map<String,Object> myComments(Query q,Long userId) {
+        page(q); List<Object> args=new ArrayList<>(); args.add(userId);
+        String from="FROM community_comment c JOIN community_post p ON p.id=c.postId"
+                +" JOIN community_revision r ON r.id=p.publishedRevisionId"
+                +" LEFT JOIN community_comment parent ON parent.id=c.replyToId"
+                +" LEFT JOIN user ru ON ru.id=parent.userId AND ru.isDelete=0"
+                +" WHERE c.userId=? AND c.isDelete=0 AND "+PUBLIC_POST+" AND "+VISIBLE_COMMENT;
+        String columns="c.id,c.postId,c.rootId,c.replyToId,c.content,c.createTime,r.title AS postTitle,"
+                +"CASE WHEN c.replyToId IS NULL THEN NULL ELSE COALESCE(NULLIF(ru.userName,''),NULLIF(ru.userAccount,''),'用户') END AS replyToName,"
+                +"(SELECT COUNT(*) FROM community_comment reply WHERE reply.rootId=c.id AND reply.hidden=0 AND reply.isDelete=0) AS replyCount";
+        return db.pageResult(from,columns,"c.createTime DESC,c.id DESC",args,q);
+    }
+    @SuppressWarnings("unchecked")
+    public Map<String,Object> commentContext(Long postId,Long id) {
+        db.publicPost(postId,false);
+        Map<String,Object> target=visibleComment(id);
+        require(number(target,"postId")==postId,"评论不属于该帖子");
+        Query q=new Query(); q.setPostId(postId); q.setCommentId(id); q.setPageSize(1);
+        List<Map<String,Object>> targetRows=(List<Map<String,Object>>)comments(q,false).get("records");
+        require(!targetRows.isEmpty(),"该讨论已不可用");
+        Map<String,Object> result=new LinkedHashMap<>(); result.put("target",targetRows.get(0));
+        q.setCommentId(target.get("rootId")==null?id:number(target,"rootId"));
+        List<Map<String,Object>> roots=(List<Map<String,Object>>)comments(q,false).get("records");
+        require(!roots.isEmpty(),"该讨论已不可用");
+        result.put("root",roots.get(0));
+        return result;
+    }
+    public Map<String,Object> myLikes(Query q,Long userId) {
+        page(q); List<Object> args=new ArrayList<>(); args.add(userId);
+        String from="FROM community_like l JOIN community_post p ON p.id=l.postId"
+                +" JOIN community_revision r ON r.id=p.publishedRevisionId"
+                +" LEFT JOIN community_category cat ON cat.id=r.categoryId"
+                +" WHERE l.userId=? AND "+PUBLIC_POST;
+        String columns="p.id AS postId,r.title AS postTitle,r.summary,r.markdown,cat.name AS categoryName,l.createTime,"+COUNTS;
+        Map<String,Object> result=db.pageResult(from,columns,"l.createTime DESC,p.id DESC",args,q);
+        CommunityContentPreview.enrichPage(result);
+        return result;
     }
     @Transactional(rollbackFor=Exception.class)
     public void moderate(Moderate r) {

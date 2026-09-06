@@ -24,7 +24,10 @@ public class CommunityController {
         this.posts=posts;this.taxonomy=taxonomy;this.interactions=interactions;this.users=users;
     }
     @PostMapping("/post/list/page")
-    public BaseResponse<Map<String,Object>> list(@RequestBody Query q) { return ResultUtils.success(posts.list(q,false)); }
+    public BaseResponse<Map<String,Object>> list(@RequestBody Query q,HttpServletRequest request) {
+        User user=users.getLoginUserPermitNull(request);
+        return ResultUtils.success(posts.list(q,false,user==null?null:user.getId()));
+    }
     @GetMapping("/post/get")
     public BaseResponse<Map<String,Object>> get(@RequestParam Long id,HttpServletRequest request) {
         User user=users.getLoginUserPermitNull(request);
@@ -34,6 +37,10 @@ public class CommunityController {
     public BaseResponse<List<Map<String,Object>>> taxonomy(@PathVariable String kind) { return ResultUtils.success(taxonomy.list(kind,false)); }
     @PostMapping("/comment/list/page")
     public BaseResponse<Map<String,Object>> comments(@RequestBody Query q) { return ResultUtils.success(interactions.comments(q,false)); }
+    @GetMapping("/comment/context")
+    public BaseResponse<Map<String,Object>> commentContext(@RequestParam Long postId,@RequestParam Long id) {
+        return ResultUtils.success(interactions.commentContext(postId,id));
+    }
     @PostMapping("/comment/add")
     public BaseResponse<String> comment(@RequestBody Comment r,HttpServletRequest request) {
         User user=actor(request);
@@ -43,6 +50,14 @@ public class CommunityController {
     public BaseResponse<Map<String,Object>> like(@RequestBody Like r,HttpServletRequest request) { return ResultUtils.success(interactions.like(r,actor(request).getId())); }
     @PostMapping("/report")
     public BaseResponse<String> report(@RequestBody Report r,HttpServletRequest request) { return ResultUtils.success(interactions.report(r,actor(request).getId())); }
+    @PostMapping("/me/comments/list/page")
+    public BaseResponse<Map<String,Object>> myComments(@RequestBody Query q,HttpServletRequest request) {
+        return ResultUtils.success(interactions.myComments(q,actor(request).getId()));
+    }
+    @PostMapping("/me/likes/list/page")
+    public BaseResponse<Map<String,Object>> myLikes(@RequestBody Query q,HttpServletRequest request) {
+        return ResultUtils.success(interactions.myLikes(q,actor(request).getId()));
+    }
 
     private User actor(HttpServletRequest request) {
         User user=users.getLoginUser(request);
@@ -61,6 +76,11 @@ public class CommunityController {
     @AuthCheck(mustRole=UserConstant.ADMIN_ROLE) @PostMapping("/admin/post/{action:publish|offline|delete}")
     @OperationLog(module="community",action="change_post_status")
     public BaseResponse<Boolean> action(@PathVariable String action,@RequestBody PostAction r) { posts.action(r,action); return ResultUtils.success(true); }
+    @AuthCheck(mustRole=UserConstant.ADMIN_ROLE) @PostMapping("/admin/post/{action:pin|unpin}")
+    @OperationLog(module="community",action="change_post_pin")
+    public BaseResponse<Map<String,Object>> pin(@PathVariable String action,@RequestBody PostAction r) {
+        return ResultUtils.success(posts.pin(r,"pin".equals(action)));
+    }
     @AuthCheck(mustRole=UserConstant.ADMIN_ROLE) @PostMapping("/admin/post/announcement")
     @OperationLog(module="community",action="generate_announcement_draft")
     public BaseResponse<String> announcement(@RequestBody PostAction r,HttpServletRequest request) { return ResultUtils.success(posts.announcement(r,users.getLoginUser(request))); }
