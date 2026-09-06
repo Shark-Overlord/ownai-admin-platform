@@ -5,6 +5,7 @@
 .community-preview { border: 1px solid rgba(128,128,128,.25); border-radius: 8px; padding: 20px; overflow-wrap: anywhere; min-height: 200px; }
 .community-preview pre { white-space: pre-wrap; }
 .community-comment { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 560px; }
+.community-preview-kind { color: rgba(0,0,0,.45); font-size: 12px; }
 @media (max-width: 760px) {
  .community-fields,.community-editor { grid-template-columns: 1fr; gap: 8px; }
  .community-preview { padding: 14px; }

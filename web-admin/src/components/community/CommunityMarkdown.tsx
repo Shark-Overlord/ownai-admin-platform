@@ -12,7 +12,7 @@ function MediaImage({ src, alt }: { src?: string; alt?: string }) {
 function MediaVideo({ src }: { src: string }) {
   const [failed, setFailed] = useState(false);
   return failed ? <a href={src} target="_blank" rel="noopener noreferrer">视频暂时无法播放，打开原视频</a>
-    : <video aria-label="帖子视频" src={src} controls preload="metadata" onError={() => setFailed(true)} style={{ maxWidth: '100%', maxHeight: 500 }} />;
+    : <video aria-label="帖子视频" src={src} controls playsInline preload="metadata" onError={() => setFailed(true)} style={{ maxWidth: '100%', maxHeight: 500 }} />;
 }
 export function CommunityMarkdown({ content }: { content: string }) {
   return <div className="news-markdown"><ReactMarkdown skipHtml urlTransform={(value) => {
