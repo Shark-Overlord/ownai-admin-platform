@@ -15,6 +15,7 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkListVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.UserService;
 import java.util.Collections;
@@ -43,6 +44,9 @@ class ArtworkControllerTest {
         org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "publicContentAntiCrawlerManager",
                 new PublicContentAntiCrawlerManager());
         mockMvc = MockMvcBuilders.standaloneSetup(artworkController)
+                .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(
+                        new com.fasterxml.jackson.databind.ObjectMapper().registerModule(
+                                new com.yupi.springbootinit.config.JsonConfig().longToStringModule())))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -59,6 +63,32 @@ class ArtworkControllerTest {
     }
 
     @Test
+    void publicDetailHasPreciseStringIdAndPrivateCachePolicy() throws Exception {
+        long id = 9007199254740993L;
+        ArtworkDetailVO detail = new ArtworkDetailVO();
+        detail.setId(id);detail.setCanAccessPrompt(false);detail.setPermanentlyUnlocked(false);detail.setPointsPrice(100);
+        when(artworkService.getArtworkDetail(eq(id),eq(null),eq(false))).thenReturn(detail);
+        mockMvc.perform(get("/artwork/detail").param("id",String.valueOf(id)))
+                .andExpect(jsonPath("$.data.id").value("9007199254740993"))
+                .andExpect(jsonPath("$.data.pointsPrice").value(100))
+                .andExpect(jsonPath("$.data.canAccessPrompt").value(false))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","private, no-store"));
+    }
+
+    @Test
+    void orderIdsRoundTripWithoutJavascriptPrecisionLoss() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper()
+                .registerModule(new com.yupi.springbootinit.config.JsonConfig().longToStringModule());
+        com.yupi.springbootinit.model.dto.order.OrderCreateRequest request = json.readValue(
+                "{\"artworkId\":\"9007199254740993\",\"orderType\":\"points\",\"expectedPointsPrice\":100}",
+                com.yupi.springbootinit.model.dto.order.OrderCreateRequest.class);
+        org.junit.jupiter.api.Assertions.assertEquals(9007199254740993L,request.getArtworkId());
+        com.yupi.springbootinit.model.entity.ArtworkOrder order = new com.yupi.springbootinit.model.entity.ArtworkOrder();
+        order.setId(9007199254740995L);order.setArtworkId(request.getArtworkId());
+        org.junit.jupiter.api.Assertions.assertEquals("9007199254740995",json.readTree(json.writeValueAsString(order)).get("id").textValue());
+    }
+
+    @Test
     void listArtworkShouldReturnPagedResult() throws Exception {
         Page<ArtworkVO> artworkVOPage = new Page<>(1, 10, 1);
         ArtworkVO artworkVO = new ArtworkVO();
@@ -70,6 +100,8 @@ class ArtworkControllerTest {
         artworkVO.setFavorited(true);
         artworkVO.setFavoriteCount(3);
         artworkVO.setHasSourceCode(true);
+        artworkVO.setPermanentlyUnlocked(true);
+        artworkVO.setPointsPrice(100);
         artworkVOPage.setRecords(Collections.singletonList(artworkVO));
         when(userService.getLoginUserPermitNull(any())).thenReturn(null);
         when(artworkService.listArtworkVOByPage(any(), eq(null), eq(false))).thenReturn(artworkVOPage);
@@ -85,7 +117,9 @@ class ArtworkControllerTest {
                 .andExpect(jsonPath("$.data.records[0].imageAspectRatio").value(1.5))
                 .andExpect(jsonPath("$.data.records[0].favorited").value(true))
                 .andExpect(jsonPath("$.data.records[0].favoriteCount").value(3))
-                .andExpect(jsonPath("$.data.records[0].hasSourceCode").value(true));
+                .andExpect(jsonPath("$.data.records[0].hasSourceCode").value(true))
+                .andExpect(jsonPath("$.data.records[0].permanentlyUnlocked").value(true))
+                .andExpect(jsonPath("$.data.records[0].pointsPrice").value(100));
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.exception.ThrowUtils;
+import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.mapper.ArtworkMapper;
 import com.yupi.springbootinit.mapper.ArtworkOrderMapper;
 import com.yupi.springbootinit.mapper.UserMapper;
@@ -16,7 +17,6 @@ import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.ArtworkOrder;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ArtworkStatusEnum;
-import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.model.enums.OrderStatusEnum;
 import com.yupi.springbootinit.model.enums.OrderTypeEnum;
 import com.yupi.springbootinit.model.enums.PointChangeTypeEnum;
@@ -39,8 +39,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class OrderServiceImpl extends ServiceImpl<ArtworkOrderMapper, ArtworkOrder> implements OrderService {
 
-    private static final int CASH_REWARD_BASE_RATE = 10;
-
     @Resource
     private ArtworkMapper artworkMapper;
 
@@ -59,12 +57,31 @@ public class OrderServiceImpl extends ServiceImpl<ArtworkOrderMapper, ArtworkOrd
         ThrowUtils.throwIf(orderCreateRequest == null || orderCreateRequest.getArtworkId() == null, ErrorCode.PARAMS_ERROR);
         OrderTypeEnum orderTypeEnum = OrderTypeEnum.getEnumByValue(orderCreateRequest.getOrderType());
         ThrowUtils.throwIf(orderTypeEnum == null, ErrorCode.PARAMS_ERROR, "订单类型错误");
+        ThrowUtils.throwIf(loginUser == null || loginUser.getId() == null, ErrorCode.NOT_LOGIN_ERROR);
+        ThrowUtils.throwIf(!OrderTypeEnum.POINTS.equals(orderTypeEnum), ErrorCode.OPERATION_ERROR,
+                "作品现金支付暂未开放，请使用积分兑换");
+        // Acquire the account lock before any snapshot reads, and use fresh membership/balance.
+        User lockedUser = userMapper.selectByIdForUpdate(loginUser.getId());
+        ThrowUtils.throwIf(lockedUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        loginUser = lockedUser;
         Artwork artwork = artworkMapper.selectById(orderCreateRequest.getArtworkId());
         ThrowUtils.throwIf(artwork == null, ErrorCode.NOT_FOUND_ERROR, "作品不存在");
         ThrowUtils.throwIf(!ArtworkStatusEnum.PUBLISHED.getValue().equals(artwork.getStatus()), ErrorCode.OPERATION_ERROR,
                 "仅支持购买已发布作品");
-        ThrowUtils.throwIf(artworkService.hasArtworkAccess(artwork.getId(), loginUser), ErrorCode.OPERATION_ERROR,
-                "你已经拥有该作品的访问权限");
+        ArtworkOrder existing = this.getOne(new QueryWrapper<ArtworkOrder>()
+                .eq("userId", loginUser.getId()).eq("artworkId", artwork.getId())
+                .eq("orderType", "points").eq("orderStatus", "completed").gt("pointsAmount", 0)
+                .exists("SELECT 1 FROM point_record p WHERE p.userId = artwork_order.userId "
+                        + "AND p.relatedType = 'order' AND p.relatedId = artwork_order.id "
+                        + "AND p.changeType = 'redeem_consume' AND p.changeAmount = -artwork_order.pointsAmount")
+                .orderByAsc("id").last("LIMIT 1"));
+        if (existing != null) {
+            artworkService.grantArtworkAccess(artwork.getId(), loginUser.getId(), existing.getId(), "points_exchange");
+            return existing;
+        }
+        if (artworkService.hasArtworkAccess(artwork.getId(), loginUser)) {
+            return null; // Already free/member-accessible: success, without an order or debit.
+        }
         ArtworkOrder artworkOrder = new ArtworkOrder();
         artworkOrder.setOrderNo(generateOrderNo());
         artworkOrder.setUserId(loginUser.getId());
@@ -72,18 +89,12 @@ public class OrderServiceImpl extends ServiceImpl<ArtworkOrderMapper, ArtworkOrd
         artworkOrder.setOrderType(orderTypeEnum.getValue());
         artworkOrder.setPaymentChannel(orderCreateRequest.getPaymentChannel());
         artworkOrder.setOrderStatus(OrderStatusEnum.PENDING.getValue());
-        if (OrderTypeEnum.CASH.equals(orderTypeEnum)) {
-            BigDecimal orderAmount = artwork.getCashPrice();
-            ThrowUtils.throwIf(orderAmount == null || orderAmount.compareTo(BigDecimal.ZERO) <= 0, ErrorCode.OPERATION_ERROR,
-                    "该作品不支持现金购买");
-            artworkOrder.setOrderAmount(orderAmount);
-            artworkOrder.setPointsAmount(0);
-            boolean result = this.save(artworkOrder);
-            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "订单创建失败");
-            return artworkOrder;
-        }
         Integer pointsAmount = artwork.getPointsPrice();
         ThrowUtils.throwIf(pointsAmount == null || pointsAmount <= 0, ErrorCode.OPERATION_ERROR, "该作品不支持积分兑换");
+        ThrowUtils.throwIf(orderCreateRequest.getExpectedPointsPrice() != null
+                        && !pointsAmount.equals(orderCreateRequest.getExpectedPointsPrice()),
+                ErrorCode.OPERATION_ERROR, "积分价格已变化，请重新确认");
+        artworkOrder.setPaymentChannel("points");
         artworkOrder.setOrderAmount(BigDecimal.ZERO);
         artworkOrder.setPointsAmount(pointsAmount);
         artworkOrder.setOrderStatus(OrderStatusEnum.COMPLETED.getValue());
@@ -100,36 +111,9 @@ public class OrderServiceImpl extends ServiceImpl<ArtworkOrderMapper, ArtworkOrd
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean handlePaymentCallback(OrderCallbackRequest orderCallbackRequest) {
-        ThrowUtils.throwIf(orderCallbackRequest == null || StringUtils.isBlank(orderCallbackRequest.getOrderNo()),
-                ErrorCode.PARAMS_ERROR);
-        ArtworkOrder artworkOrder = this.getOne(new QueryWrapper<ArtworkOrder>().eq("orderNo", orderCallbackRequest.getOrderNo()));
-        ThrowUtils.throwIf(artworkOrder == null, ErrorCode.NOT_FOUND_ERROR, "订单不存在");
-        if (OrderStatusEnum.COMPLETED.getValue().equals(artworkOrder.getOrderStatus())) {
-            return true;
-        }
-        ThrowUtils.throwIf(!OrderStatusEnum.PENDING.getValue().equals(artworkOrder.getOrderStatus()), ErrorCode.OPERATION_ERROR,
-                "订单状态不可回调");
-        if (orderCallbackRequest.getPaidAmount() != null && artworkOrder.getOrderAmount() != null) {
-            ThrowUtils.throwIf(orderCallbackRequest.getPaidAmount().compareTo(artworkOrder.getOrderAmount()) != 0,
-                    ErrorCode.PARAMS_ERROR, "支付金额不匹配");
-        }
-        artworkOrder.setOrderStatus(OrderStatusEnum.COMPLETED.getValue());
-        artworkOrder.setPayTime(new Date());
-        artworkOrder.setFinishTime(new Date());
-        artworkOrder.setThirdPartyOrderNo(orderCallbackRequest.getThirdPartyOrderNo());
-        if (StringUtils.isNotBlank(orderCallbackRequest.getPaymentChannel())) {
-            artworkOrder.setPaymentChannel(orderCallbackRequest.getPaymentChannel());
-        }
-        boolean result = this.updateById(artworkOrder);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "支付回调处理失败");
-        artworkService.grantArtworkAccess(artworkOrder.getArtworkId(), artworkOrder.getUserId(), artworkOrder.getId(),
-                "cash_purchase");
-        int rewardPoints = calculateRewardPoints(artworkOrder);
-        if (rewardPoints > 0) {
-            pointService.addPoints(artworkOrder.getUserId(), rewardPoints, PointChangeTypeEnum.PURCHASE_REWARD, "order",
-                    artworkOrder.getId(), "现金购买返积分");
-        }
-        return true;
+        // No verified cash payment integration exists for artwork orders. Membership
+        // payments have their own signed provider callbacks and are not changed here.
+        throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "作品支付回调未开放");
     }
 
     @Override
@@ -188,21 +172,6 @@ public class OrderServiceImpl extends ServiceImpl<ArtworkOrderMapper, ArtworkOrd
             }
             return orderVO;
         }).collect(Collectors.toList());
-    }
-
-    private int calculateRewardPoints(ArtworkOrder artworkOrder) {
-        BigDecimal orderAmount = artworkOrder.getOrderAmount();
-        if (orderAmount == null || orderAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            return 0;
-        }
-        User user = userMapper.selectById(artworkOrder.getUserId());
-        MemberLevelEnum memberLevelEnum = MemberLevelEnum.getEnumByValue(user == null ? null : user.getMemberLevel());
-        double multiplier = 1.0D;
-        if (memberLevelEnum != null && user != null
-                && (user.getMemberExpireTime() == null || user.getMemberExpireTime().after(new Date()))) {
-            multiplier = memberLevelEnum.getPointMultiplier();
-        }
-        return (int) Math.floor(orderAmount.doubleValue() * CASH_REWARD_BASE_RATE * multiplier);
     }
 
     private String generateOrderNo() {

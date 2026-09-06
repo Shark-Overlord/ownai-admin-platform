@@ -1,6 +1,5 @@
 package com.yupi.springbootinit.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.springbootinit.annotation.AuthCheck;
 import com.yupi.springbootinit.annotation.OperationLog;
@@ -59,7 +58,7 @@ public class OrderController {
      */
     @PostMapping("/pay/callback")
     @OperationLog(module = "order", action = "artwork_pay_callback")
-    @ApiOperation("艺术作品订单支付回调 Artwork order payment callback")
+    @ApiOperation("已停用：作品未验签支付回调")
     public BaseResponse<Boolean> payCallback(@RequestBody OrderCallbackRequest orderCallbackRequest) {
         return ResultUtils.success(orderService.handlePaymentCallback(orderCallbackRequest));
     }
@@ -69,22 +68,9 @@ public class OrderController {
      */
     @PostMapping("/pay/mock")
     @OperationLog(module = "order", action = "mock_artwork_pay")
-    @ApiOperation("模拟艺术作品订单支付成功 Mock artwork order payment success")
+    @ApiOperation("已停用：作品模拟支付")
     public BaseResponse<Boolean> mockPay(@RequestBody OrderMockPayRequest orderMockPayRequest) {
-        if (orderMockPayRequest == null || orderMockPayRequest.getOrderNo() == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        ArtworkOrder artworkOrder = orderService.getOne(new QueryWrapper<ArtworkOrder>()
-                .eq("orderNo", orderMockPayRequest.getOrderNo()));
-        if (artworkOrder == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "Order not found");
-        }
-        OrderCallbackRequest orderCallbackRequest = new OrderCallbackRequest();
-        orderCallbackRequest.setOrderNo(artworkOrder.getOrderNo());
-        orderCallbackRequest.setPaidAmount(artworkOrder.getOrderAmount());
-        orderCallbackRequest.setPaymentChannel(orderMockPayRequest.getPaymentChannel());
-        orderCallbackRequest.setThirdPartyOrderNo("MOCK-" + artworkOrder.getOrderNo());
-        return ResultUtils.success(orderService.handlePaymentCallback(orderCallbackRequest));
+        throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "作品模拟支付已关闭");
     }
 
     /**

@@ -54,7 +54,7 @@ public class PointServiceImpl extends ServiceImpl<PointRecordMapper, PointRecord
     @Override
     public PointOverviewVO getPointOverview(User loginUser) {
         PointOverviewVO pointOverviewVO = new PointOverviewVO();
-        BeanUtils.copyProperties(loginUser, pointOverviewVO);
+        BeanUtils.copyProperties(getUserById(loginUser.getId()), pointOverviewVO);
         return pointOverviewVO;
     }
 

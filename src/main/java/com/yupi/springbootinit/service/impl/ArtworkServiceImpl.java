@@ -100,6 +100,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         }
         Artwork artwork = new Artwork();
         BeanUtils.copyProperties(artworkAddRequest, artwork);
+        artwork.setPointsPrice(artwork.getPointsPrice() == null ? 100 : artwork.getPointsPrice());
         fillArtworkImageDimensions(artwork);
         validateArtwork(artwork, artworkAddRequest.getTagIdList());
         artwork.setUserId(loginUser.getId());
@@ -240,6 +241,12 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         Page<ArtworkVO> artworkVOPage = new Page<>(safeRequest.getCurrent(), safeRequest.getPageSize(),
                 artworkPage.getTotal());
         artworkVOPage.setRecords(buildArtworkVOList(artworkPage.getRecords(), loginUser));
+        if (!adminView) {
+            artworkVOPage.getRecords().forEach(item -> {
+                item.setSourceZipUrl(null);
+                if (!Boolean.TRUE.equals(item.getCanAccessPrompt())) item.setPromptContent(null);
+            });
+        }
         return artworkVOPage;
     }
 
@@ -408,7 +415,9 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         artworkDetailVO.setDescription(artwork.getDescription());
         boolean canAccess = Boolean.TRUE.equals(artworkDetailVO.getCanAccessPrompt());
         artworkDetailVO.setPromptContent(canAccess ? artwork.getPromptContent() : null);
-        artworkDetailVO.setAccessReason(resolveAccessReason(artwork, loginUser, canAccess));
+        if (!adminView) artworkDetailVO.setSourceZipUrl(null);
+        artworkDetailVO.setAccessReason(Boolean.TRUE.equals(artworkDetailVO.getPermanentlyUnlocked())
+                ? "permanent_unlock" : resolveAccessReason(artwork, loginUser, canAccess));
         this.lambdaUpdate().eq(Artwork::getId, artworkId)
                 .setSql("viewCount = IFNULL(viewCount, 0) + 1")
                 .update();
@@ -423,7 +432,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         ThrowUtils.throwIf(!ArtworkStatusEnum.PUBLISHED.getValue().equals(artwork.getStatus()),
                 ErrorCode.NO_AUTH_ERROR, "作品未发布");
         ThrowUtils.throwIf(!hasArtworkAccess(artworkId, loginUser), ErrorCode.NO_AUTH_ERROR,
-                "当前作品仅会员可查看");
+                "请开通会员或使用积分永久解锁该作品");
         this.lambdaUpdate().eq(Artwork::getId, artworkId)
                 .setSql("viewCount = IFNULL(viewCount, 0) + 1")
                 .update();
@@ -440,7 +449,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         ThrowUtils.throwIf(StringUtils.isBlank(artwork.getSourceZipUrl()), ErrorCode.NOT_FOUND_ERROR,
                 "该作品暂未提供源码");
         ThrowUtils.throwIf(!hasArtworkAccess(artworkId, loginUser), ErrorCode.NO_AUTH_ERROR,
-                "当前作品仅会员可下载源码");
+                "请开通会员或使用积分永久解锁该作品");
         return artwork.getSourceZipUrl();
     }
 
@@ -450,7 +459,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             return false;
         }
         Artwork artwork = this.getById(artworkId);
-        if (artwork == null) {
+        if (artwork == null || !ArtworkStatusEnum.PUBLISHED.getValue().equals(artwork.getStatus())
+                || Integer.valueOf(1).equals(artwork.getIsDelete())) {
             return false;
         }
         if (artwork.getMemberOnly() == null || artwork.getMemberOnly() == 0) {
@@ -459,7 +469,9 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         if (loginUser == null) {
             return false;
         }
-        return hasMemberAccess(artwork, loginUser);
+        return hasMemberAccess(artwork, loginUser)
+                || !artworkAccessMapper.selectPermanentArtworkIds(loginUser.getId(),
+                        Collections.singletonList(artworkId)).isEmpty();
     }
 
     @Override
@@ -476,7 +488,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         artworkAccess.setUserId(userId);
         artworkAccess.setOrderId(orderId);
         artworkAccess.setAccessType(accessType);
-        artworkAccessMapper.insert(artworkAccess);
+        ThrowUtils.throwIf(artworkAccessMapper.insert(artworkAccess) != 1,
+                ErrorCode.OPERATION_ERROR, "作品授权失败");
     }
 
     private void validateArtwork(Artwork artwork, List<Long> tagIdList) {
@@ -528,14 +541,20 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         List<Long> artworkIds = artworkList.stream().map(Artwork::getId).collect(Collectors.toList());
         Map<Long, CategoryVO> categoryMap = buildCategoryMap(categoryIds);
         Map<Long, List<TagVO>> artworkTagMap = buildArtworkTagMap(artworkIds);
-        Map<Long, Boolean> accessMap = buildAccessMap(artworkList, loginUser);
+        Set<Long> unlockedIds = loginUser == null ? Collections.emptySet()
+                : new LinkedHashSet<>(artworkAccessMapper.selectPermanentArtworkIds(loginUser.getId(), artworkIds));
         List<ArtworkVO> artworkVOList = artworkList.stream().map(artwork -> {
             ArtworkVO artworkVO = new ArtworkVO();
             BeanUtils.copyProperties(artwork, artworkVO);
             fillArtworkAspectRatio(artworkVO);
             artworkVO.setCategory(categoryMap.get(artwork.getCategoryId()));
             artworkVO.setTagList(artworkTagMap.getOrDefault(artwork.getId(), Collections.emptyList()));
-            artworkVO.setCanAccessPrompt(accessMap.getOrDefault(artwork.getId(), false));
+            boolean canAccess = ArtworkStatusEnum.PUBLISHED.getValue().equals(artwork.getStatus())
+                    && !Integer.valueOf(1).equals(artwork.getIsDelete())
+                    && (artwork.getMemberOnly() == null || artwork.getMemberOnly() == 0
+                    || hasMemberAccess(artwork, loginUser) || unlockedIds.contains(artwork.getId()));
+            artworkVO.setCanAccessPrompt(canAccess);
+            artworkVO.setPermanentlyUnlocked(unlockedIds.contains(artwork.getId()));
             artworkVO.setHasSourceCode(StringUtils.isNotBlank(artwork.getSourceZipUrl()));
             return artworkVO;
         }).collect(Collectors.toList());
@@ -560,6 +579,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             item.setImageAspectRatio(artworkVO.getImageAspectRatio());
             item.setMemberOnly(artworkVO.getMemberOnly());
             item.setCanAccess(artworkVO.getCanAccessPrompt());
+            item.setPermanentlyUnlocked(artworkVO.getPermanentlyUnlocked());
+            item.setPointsPrice(artworkVO.getPointsPrice());
             item.setFavorited(artworkVO.getFavorited());
             item.setFavoriteCount(artworkVO.getFavoriteCount());
             item.setHasSourceCode(artworkVO.getHasSourceCode());
@@ -711,19 +732,6 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "Artwork not found");
         }
         return artwork;
-    }
-
-    private Map<Long, Boolean> buildAccessMap(List<Artwork> artworkList, User loginUser) {
-        Map<Long, Boolean> resultMap = new HashMap<>();
-        if (CollUtil.isEmpty(artworkList)) {
-            return resultMap;
-        }
-        for (Artwork artwork : artworkList) {
-            boolean canAccess = artwork.getMemberOnly() == null || artwork.getMemberOnly() == 0
-                    || (loginUser != null && hasMemberAccess(artwork, loginUser));
-            resultMap.put(artwork.getId(), canAccess);
-        }
-        return resultMap;
     }
 
     private boolean hasMemberAccess(Artwork artwork, User loginUser) {

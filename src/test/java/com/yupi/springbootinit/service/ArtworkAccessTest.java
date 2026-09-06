@@ -19,6 +19,7 @@ class ArtworkAccessTest {
         ArtworkServiceImpl artworkService = Mockito.spy(new ArtworkServiceImpl());
         Artwork artwork = new Artwork();
         artwork.setId(1L);
+        artwork.setStatus(1);
         artwork.setMemberOnly(1);
         doReturn(artwork).when(artworkService).getById(1L);
 
@@ -27,6 +28,8 @@ class ArtworkAccessTest {
         adminNormalUser.setUserRole(UserConstant.ADMIN_ROLE);
         adminNormalUser.setMemberLevel(MemberLevelEnum.NORMAL.getValue());
 
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkService, "artworkAccessMapper",
+                Mockito.mock(com.yupi.springbootinit.mapper.ArtworkAccessMapper.class));
         assertFalse(artworkService.hasArtworkAccess(1L, adminNormalUser));
     }
 
@@ -35,6 +38,7 @@ class ArtworkAccessTest {
         ArtworkServiceImpl artworkService = Mockito.spy(new ArtworkServiceImpl());
         Artwork artwork = new Artwork();
         artwork.setId(1L);
+        artwork.setStatus(1);
         artwork.setMemberOnly(1);
         doReturn(artwork).when(artworkService).getById(1L);
 
@@ -51,6 +55,7 @@ class ArtworkAccessTest {
         ArtworkServiceImpl artworkService = Mockito.spy(new ArtworkServiceImpl());
         Artwork artwork = new Artwork();
         artwork.setId(1L);
+        artwork.setStatus(1);
         artwork.setMemberOnly(0);
         doReturn(artwork).when(artworkService).getById(1L);
 

@@ -56,18 +56,20 @@ class OrderControllerTest {
     }
 
     @Test
-    void mockPayShouldInvokeCallbackFlow() throws Exception {
-        ArtworkOrder artworkOrder = new ArtworkOrder();
-        artworkOrder.setOrderNo("ORD123");
-        artworkOrder.setOrderAmount(new BigDecimal("29.90"));
-        when(orderService.getOne(any())).thenReturn(artworkOrder);
-        when(orderService.handlePaymentCallback(any())).thenReturn(true);
+    void mockPayCannotCreateAnAuthorization() throws Exception {
+        mockMvc.perform(post("/order/pay/mock").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"orderNo\":\"ORD123\"}"))
+                .andExpect(jsonPath("$.code").value(40101));
+        Mockito.verifyNoInteractions(orderService);
+    }
 
-        mockMvc.perform(post("/order/pay/mock")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"orderNo\":\"ORD123\",\"paymentChannel\":\"mock\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data").value(true));
+    @Test
+    void callbackCannotCreateAnAuthorization() throws Exception {
+        when(orderService.handlePaymentCallback(any())).thenThrow(
+                new com.yupi.springbootinit.exception.BusinessException(
+                        com.yupi.springbootinit.common.ErrorCode.NO_AUTH_ERROR));
+        mockMvc.perform(post("/order/pay/callback").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"orderNo\":\"ORD123\"}"))
+                .andExpect(jsonPath("$.code").value(40101));
     }
 }
