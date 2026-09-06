@@ -3,6 +3,7 @@ import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Statistic, Switch, Tag, message } from 'antd';
 import { CalendarOutlined, DollarOutlined, MinusCircleOutlined, PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import RechargeConfig from './RechargeConfig';
 import { listUserByPage, type UserVO } from '../../api/user';
 import {
   adminAdjustPoints,
@@ -14,6 +15,7 @@ import {
 } from '../../api/point';
 
 const changeTypeText: Record<string, string> = {
+  point_recharge: '积分充值',
   check_in_reward: '每日签到奖励',
   purchase_reward: '购买返积分',
   redeem_consume: '积分兑换消费',
@@ -156,6 +158,7 @@ export default function PointManage() {
       valueType: 'select',
       width: 150,
       valueEnum: {
+        point_recharge: { text: '积分充值' },
         check_in_reward: { text: '每日签到奖励' },
         purchase_reward: { text: '购买返积分' },
         redeem_consume: { text: '积分兑换消费' },
@@ -213,6 +216,7 @@ export default function PointManage() {
 
   return (
     <PageContainer title="积分管理">
+      <RechargeConfig />
       <Alert
         style={{ marginBottom: 16 }}
         type="info"
