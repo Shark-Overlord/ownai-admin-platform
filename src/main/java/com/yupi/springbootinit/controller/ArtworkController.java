@@ -20,6 +20,7 @@ import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkListVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.config.CosClientConfig;
@@ -298,8 +299,17 @@ public class ArtworkController {
         return ResultUtils.success(artworkService.getArtworkPromptContent(id, loginUser));
     }
 
+    @GetMapping("/detail")
+    @ApiOperation("作品详情和当前账号解锁状态")
+    public BaseResponse<ArtworkDetailVO> getArtworkDetail(@RequestParam("id") long id,
+            HttpServletRequest request, HttpServletResponse response) {
+        response.setHeader("Cache-Control", "private, no-store");
+        return ResultUtils.success(artworkService.getArtworkDetail(id,
+                userService.getLoginUserPermitNull(request), false));
+    }
+
     /**
-     * Download an artwork source package after checking login and membership access.
+     * Download a source package after checking login and member/permanent/free access.
      */
     @GetMapping("/source/download")
     @ApiOperation("下载作品源码 ZIP Download artwork source ZIP")
@@ -401,6 +411,8 @@ public class ArtworkController {
             artworkListVO.setImageAspectRatio(artworkVO.getImageAspectRatio());
             artworkListVO.setMemberOnly(artworkVO.getMemberOnly());
             artworkListVO.setCanAccess(artworkVO.getCanAccessPrompt());
+            artworkListVO.setPermanentlyUnlocked(artworkVO.getPermanentlyUnlocked());
+            artworkListVO.setPointsPrice(artworkVO.getPointsPrice());
             artworkListVO.setFavorited(artworkVO.getFavorited());
             artworkListVO.setFavoriteCount(artworkVO.getFavoriteCount());
             artworkListVO.setHasSourceCode(artworkVO.getHasSourceCode());

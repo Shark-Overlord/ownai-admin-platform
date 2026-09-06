@@ -51,6 +51,8 @@ public class ArtworkVO implements Serializable {
 
     private Boolean canAccessPrompt;
 
+    private Boolean permanentlyUnlocked;
+
     private Boolean favorited;
 
     private Integer favoriteCount;

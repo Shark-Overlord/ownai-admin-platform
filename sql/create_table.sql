@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS artwork
     promptContent LONGTEXT                              NULL,
     categoryId    BIGINT                                 NOT NULL,
     cashPrice     DECIMAL(10, 2) DEFAULT 0.00          NOT NULL,
-    pointsPrice   INT           DEFAULT 0              NOT NULL,
+    pointsPrice   INT           DEFAULT 100              NOT NULL,
     memberOnly    TINYINT       DEFAULT 0              NOT NULL,
     status        TINYINT       DEFAULT 0              NOT NULL,
     htmlUrl       VARCHAR(1024)                         NULL,

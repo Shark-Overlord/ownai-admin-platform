@@ -20,6 +20,9 @@ sql/*.sql
 !sql/point_check_in_and_announcement.sql
 !sql/news_public_popup.sql
 !sql/community.sql
+!sql/artwork_points_unlock.sql
+!sql/artwork_points_unlock_rollback.sql
+!sql/artwork_points_unlock_audit.sql
 !sql/artwork_source_zip_migration.sql
 !sql/artwork_external_key_migration.sql
 !sql/artwork_app_category_seed.sql

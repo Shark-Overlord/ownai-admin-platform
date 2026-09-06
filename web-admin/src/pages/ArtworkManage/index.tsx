@@ -442,7 +442,7 @@ export default function ArtworkManage() {
           </div>
         }
       >
-        <Form form={form} layout="vertical" onFinish={handleSave}>
+        <Form form={form} layout="vertical" onFinish={handleSave} initialValues={{ pointsPrice: 100 }}>
           <Tabs
             defaultActiveKey="1"
             items={[
@@ -542,7 +542,7 @@ export default function ArtworkManage() {
                         <Button icon={<UploadOutlined />}>上传 ZIP 压缩包</Button>
                       </Upload>
                     </Form.Item>
-                    <Form.Item label="源码压缩包" extra="仅支持 ZIP，最大 50MB；用户下载前会校验登录和会员权限">
+                    <Form.Item label="源码压缩包" extra="仅支持 ZIP，最大 50MB；用户下载前会校验登录及会员或永久解锁权限">
                       <Upload
                         name="file"
                         action="/api/file/upload?biz=artwork_source"
@@ -771,7 +771,7 @@ export default function ArtworkManage() {
                     <Form.Item label="现金价" name="cashPrice">
                       <InputNumber style={{ width: '100%' }} min={0} precision={2} />
                     </Form.Item>
-                    <Form.Item label="积分价" name="pointsPrice">
+                    <Form.Item label="永久解锁积分" name="pointsPrice" extra="默认 100 积分，解锁包含提示词、代码和源码包；0 表示不开放积分兑换">
                       <InputNumber style={{ width: '100%' }} min={0} precision={0} />
                     </Form.Item>
                   </>

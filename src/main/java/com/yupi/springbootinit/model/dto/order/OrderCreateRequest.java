@@ -12,5 +12,8 @@ public class OrderCreateRequest implements Serializable {
 
     private String paymentChannel;
 
+    /** Price displayed in the confirmation dialog; reject a changed price. */
+    private Integer expectedPointsPrice;
+
     private static final long serialVersionUID = 1L;
 }

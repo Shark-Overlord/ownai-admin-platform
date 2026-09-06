@@ -40,6 +40,10 @@ public class ArtworkListVO implements Serializable {
      */
     private Boolean canAccess;
 
+    private Boolean permanentlyUnlocked;
+
+    private Integer pointsPrice;
+
     private Boolean favorited;
 
     private Integer favoriteCount;
