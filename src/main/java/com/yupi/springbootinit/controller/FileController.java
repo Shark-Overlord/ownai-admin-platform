@@ -244,7 +244,9 @@ public class FileController {
                 || FileUploadBizEnum.BLOG_IMAGE.equals(fileUploadBizEnum)) {
             List<String> allowedImageSuffixes = FileUploadBizEnum.ARTWORK_COVER.equals(fileUploadBizEnum)
                     ? Arrays.asList("jpeg", "jpg", "png", "gif", "webp", "svg")
-                    : Arrays.asList("jpeg", "jpg", "png", "webp");
+                    : FileUploadBizEnum.BLOG_IMAGE.equals(fileUploadBizEnum)
+                            ? Arrays.asList("jpeg", "jpg", "png", "gif", "webp")
+                            : Arrays.asList("jpeg", "jpg", "png", "webp");
             validSuffix(fileSuffix, allowedImageSuffixes);
             long maxSize = FileUploadBizEnum.IMAGE_GENERATION_RESULT.equals(fileUploadBizEnum) ? FIFTY_M
                     : FileUploadBizEnum.BLOG_IMAGE.equals(fileUploadBizEnum) ? 20 * ONE_M : TEN_M;
