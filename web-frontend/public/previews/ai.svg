@@ -1,0 +1,16 @@
+<svg width="720" height="540" viewBox="0 0 720 540" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="540" rx="34" fill="#F1F4F8"/>
+  <rect x="42" y="42" width="636" height="456" rx="28" fill="#FBFCFE" stroke="#181818" stroke-opacity="0.1"/>
+  <rect x="66" y="70" width="588" height="164" rx="24" fill="#EEF2F7" stroke="#181818" stroke-opacity="0.08"/>
+  <text x="88" y="146" fill="#121212" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700">SIGNAL ENGINE</text>
+  <text x="88" y="178" fill="#7A7A7A" font-family="Arial, Helvetica, sans-serif" font-size="13">AI / CALM HIGH-DENSITY INTERFACE</text>
+  <rect x="88" y="198" width="136" height="10" rx="5" fill="#5C9DFF" fill-opacity="0.75"/>
+  <rect x="66" y="258" width="278" height="184" rx="24" fill="#F6F8FB" stroke="#181818" stroke-opacity="0.08"/>
+  <rect x="376" y="258" width="278" height="184" rx="24" fill="#EEF2F7" stroke="#181818" stroke-opacity="0.08"/>
+  <circle cx="205" cy="350" r="54" fill="#E8EDF4" stroke="#181818" stroke-opacity="0.08"/>
+  <path d="M170 350H240" stroke="#4D6CFF" stroke-opacity="0.6" stroke-width="10" stroke-linecap="round"/>
+  <rect x="400" y="290" width="130" height="14" rx="7" fill="#181818" fill-opacity="0.12"/>
+  <rect x="400" y="320" width="166" height="10" rx="5" fill="#181818" fill-opacity="0.08"/>
+  <rect x="400" y="344" width="142" height="10" rx="5" fill="#181818" fill-opacity="0.08"/>
+  <rect x="400" y="390" width="108" height="32" rx="16" fill="#181818"/>
+</svg>

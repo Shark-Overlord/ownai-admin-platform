@@ -1,0 +1,17 @@
+.announcement-popup { position: fixed; inset: 0; margin: auto; width: min(460px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 28px; border: 1px solid color-mix(in srgb, var(--hero-ink) 10%, transparent); border-radius: 14px; background: var(--hero-surface); color: var(--hero-ink); box-shadow: 0 16px 48px rgba(0,0,0,.22); }
+.announcement-popup[open] { display: block; animation: announcement-popup-in .18s ease-out both; }
+.announcement-popup::backdrop { background: rgba(0,0,0,.58); }
+.announcement-popup-icon { display: flex; width: 34px; height: 34px; margin-bottom: 18px; align-items: center; justify-content: center; border-radius: 9px; background: color-mix(in srgb, var(--hero-ink) 7%, transparent); color: var(--hero-ink); }
+.announcement-popup-copy { min-width: 0; }
+.announcement-popup-copy > span { color: var(--hero-muted); font-size: 12px; }
+.announcement-popup-copy h2 { margin-top: 8px; font-size: 20px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.announcement-popup-copy p { margin-top: 12px; color: var(--hero-muted); font-size: 14px; line-height: 1.8; white-space: pre-line; overflow-wrap: anywhere; }
+.announcement-popup-copy > div { display: flex; align-items: center; gap: 10px; margin-top: 26px; }
+.announcement-popup-copy button { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 7px 14px; border: 1px solid color-mix(in srgb, var(--hero-ink) 12%, transparent); border-radius: 7px; color: var(--hero-muted); font-size: 13px; }
+.announcement-popup-copy .announcement-popup-primary { gap: 6px; border-color: transparent; background: var(--hero-ink); color: var(--hero-bg); font-weight: 500; }
+.announcement-popup-close { position: absolute; top: 18px; right: 18px; display: flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 7px; color: var(--hero-muted); }
+.announcement-popup-close:hover { background: color-mix(in srgb, var(--hero-ink) 6%, transparent); color: var(--hero-ink); }
+.announcement-popup button:focus-visible { outline: 2px solid var(--hero-muted); outline-offset: 3px; }
+@keyframes announcement-popup-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 640px) { .announcement-popup { padding: 24px; } .announcement-popup-copy h2 { font-size: 18px; } }
+@media (prefers-reduced-motion: reduce) { .announcement-popup[open] { animation: none; } }

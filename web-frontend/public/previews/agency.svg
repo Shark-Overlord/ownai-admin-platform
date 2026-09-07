@@ -1,0 +1,17 @@
+<svg width="720" height="540" viewBox="0 0 720 540" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="540" rx="34" fill="#F1F4F8"/>
+  <rect x="42" y="42" width="636" height="456" rx="28" fill="#FBFCFE" stroke="#181818" stroke-opacity="0.1"/>
+  <rect x="68" y="72" width="584" height="180" rx="24" fill="#EEF2F7" stroke="#181818" stroke-opacity="0.08"/>
+  <text x="86" y="150" fill="#121212" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="700">MATTER STUDIO</text>
+  <text x="86" y="184" fill="#7A7A7A" font-family="Arial, Helvetica, sans-serif" font-size="13">AGENCY / PRESENTATION RHYTHM</text>
+  <rect x="86" y="208" width="122" height="34" rx="17" fill="#181818"/>
+  <rect x="228" y="208" width="108" height="34" rx="17" fill="#181818" fill-opacity="0.08"/>
+  <rect x="68" y="278" width="184" height="160" rx="22" fill="#F6F8FB" stroke="#181818" stroke-opacity="0.08"/>
+  <rect x="270" y="278" width="382" height="160" rx="22" fill="#EEF2F7" stroke="#181818" stroke-opacity="0.08"/>
+  <rect x="94" y="306" width="132" height="12" rx="6" fill="#181818" fill-opacity="0.12"/>
+  <rect x="94" y="334" width="112" height="10" rx="5" fill="#181818" fill-opacity="0.08"/>
+  <rect x="296" y="306" width="176" height="12" rx="6" fill="#6F88FF" fill-opacity="0.62"/>
+  <rect x="296" y="334" width="152" height="10" rx="5" fill="#181818" fill-opacity="0.08"/>
+  <rect x="296" y="358" width="126" height="10" rx="5" fill="#181818" fill-opacity="0.08"/>
+  <circle cx="582" cy="358" r="42" fill="#E7ECF3" stroke="#181818" stroke-opacity="0.08"/>
+</svg>

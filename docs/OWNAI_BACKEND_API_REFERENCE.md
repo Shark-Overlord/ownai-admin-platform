@@ -1,12 +1,19 @@
 # OwnAI 后端功能接口文档
 
-更新时间：2026-07-16
+更新时间：2026-09-06
+
+本文档是常用业务接口的人工维护索引，不保证覆盖每个管理或内部接口。
+接口实现、权限注解和 DTO 以 `src/main/java/.../controller` 及当前代码为准。
+社区、内容上传和教程的详细契约分别见
+[`COMMUNITY_BACKEND_ADMIN_GUIDE.md`](COMMUNITY_BACKEND_ADMIN_GUIDE.md)、
+[`CONTENT_UPLOAD_BOUNDARY.md`](CONTENT_UPLOAD_BOUNDARY.md) 和
+[`BLOG_FRONTEND_API_GUIDE.md`](BLOG_FRONTEND_API_GUIDE.md)。
 
 ## 通用约定
 
 | 项目 | 说明 |
 |---|---|
-| 接口前缀 | 生产环境通常经 Nginx 转发到 `/api`，文档路径均省略域名，实际调用示例：`https://de.ownai.icu/api/user/login` |
+| 接口前缀 | 生产环境经 Nginx 转发到 `/api`，文档路径通常省略域名，实际调用示例：`https://ownai.icu/api/user/login` |
 | 返回格式 | 统一返回 `BaseResponse<T>`：`{"code":0,"data":...,"message":"ok"}` |
 | 分页返回 | `Page<T>`：`records` 数据列表，`total` 总数，`current` 当前页，`size` 每页数量，`pages` 总页数 |
 | 登录凭证 | 登录后从 `LoginUserVO.token` 读取 JWT，前端后续请求放入请求头，通常为 `Authorization: Bearer <token>` |
@@ -63,10 +70,11 @@
 
 | 接口 | 登录 | 功能描述 | 入参 | 出参 |
 |---|---|---|---|---|
-| `POST /artwork/list/page/vo` | 否 | 前台作品分页列表，支持一级分类、二级标签、会员专享筛选；非登录可看列表但无法解锁会员内容 | `ArtworkQueryRequest`：`{ current, pageSize, searchText, categoryId, tagIdList, tagName, memberOnly, sortField, sortOrder }` | `Page<ArtworkListVO>`：`{ id, title, coverUrl, videoUrl, category, tagList, imageWidth, imageHeight, memberOnly, canAccess, favorited, favoriteCount, hasSourceCode }` |
+| `POST /artwork/list/page/vo` | 否 | 前台作品分页列表，支持分类、标签和权限筛选 | `ArtworkQueryRequest` | `Page<ArtworkListVO>`，包含 `pointsPrice`、`permanentlyUnlocked`、`canAccess` |
 | `GET /artwork/home/overview` | 是 | 前台作品首页概览，返回已发布作品总数、近 3 天新增数及近 3 天新增作品；按 `createTime DESC, id DESC` 排序 | 无 | `{ totalCount, recentThreeDaysCount, recentItems: ArtworkListVO[] }` |
-| `GET /artwork/get/vo` | 否 | 获取作品提示词内容；会员专享作品要求登录且 `memberLevel=plus/pro` | `id` query | `String`：作品提示词 |
-| `GET /artwork/source/download` | 是 | 下载作品源码 ZIP；会员专享作品要求会员 | `id` query | 文件流 `application/zip` |
+| `GET /artwork/detail` | 否 | 获取公开详情及当前账号权限；未授权时不返回完整提示词和源码地址 | `id` query | `ArtworkVO`，含 `pointsPrice`、`canAccessPrompt`、`permanentlyUnlocked`、`accessReason` |
+| `GET /artwork/get/vo` | 否 | 兼容旧调用的提示词接口；无权限时返回业务码 `40101` | `id` query | `String`：作品提示词 |
+| `GET /artwork/source/download` | 是 | 代理下载源码 ZIP，重新校验会员、免费或永久积分解锁权限 | `id` query | 文件流 `application/zip` |
 | `GET /artwork/preview/{id}` | 否 | 预览 HTML 原型作品 | path：`id` | HTML 文本 |
 | `GET /artwork/stats` | 否 | 获取作品数量统计 | 无 | `{ total }` |
 | `POST /artwork/favorite/add` | 是 | 收藏作品 | `{ artworkId }` | `true` |
@@ -153,20 +161,22 @@
 | `POST /point/admin/check-in-config/update` | 管理员 | 更新签到配置 | `{ rewardPoints, status, description }` | `true` |
 | `POST /point/admin/adjust` | 管理员 | 人工加减用户积分 | `{ userId, operation:"grant|deduct", amount, description }` | `{ userId, pointBalance }` |
 | `POST /point/admin/record/list/page` | 管理员 | 后台积分流水分页 | `{ current, pageSize, userId, changeType, startTime, endTime }` | `Page<PointRecordVO>` |
+| `GET /point/recharge-config` | 否 | 获取当前积分充值单价、每份积分、单笔上限和启用状态 | 无 | `PointRechargeConfig` |
+| `POST /point/recharge-config/update` | 管理员 | 更新积分充值配置 | `{ unitPrice, pointsPerUnit, maxQuantity, status }` | 更新后的配置 |
 
 ## 会员与会员价格
 
 | 接口 | 登录 | 功能描述 | 入参 | 出参 |
 |---|---|---|---|---|
 | `GET /member-price-config/plans` | 否 | 前台可购买会员套餐 | 无 | `List<MemberPriceConfigVO>` |
-| `POST /member/order/create` | 是 | 创建会员订单 | `{ memberLevel, durationType, payType }` | `MemberOrderVO` |
+| `POST /member/payment/create` | 是 | 创建会员或积分充值支付宝订单；客户端使用固定 `requestId` 保证重试幂等 | 会员 `{ planType:"month|year|lifetime", requestId }`；充值 `{ planType:"points", quantity, expectedUnitPrice, expectedPointsPerUnit, requestId }` | `MemberPaymentCreateVO` |
+| `POST /member/payment/resume` | 是 | 继续当前用户已有待支付订单 | `{ orderNo }` | `MemberPaymentCreateVO` |
+| `GET /member/payment/status` | 是 | 查询当前用户支付宝订单状态 | `orderNo` query | `MemberPaymentStatusVO` |
 | `POST /member/order/my/list/page` | 是 | 我的会员订单分页 | `PageRequest` | `Page<MemberOrderVO>` |
-| `POST /member/cancel` | 是 | 用户取消自己的会员订单 | `{ id }` | `true` |
-| `POST /member/pay/mock` | 是 | 模拟支付会员订单 | `{ orderNo }` | `true` |
-| `POST /member/pay/callback` | 否 | 会员支付回调 | 回调参数 | `true` |
+| `POST /member/cancel` | 是 | 用户取消自己的待支付订单 | `{ orderNo }` | `true` |
 | `POST /member/order/list/page` | 管理员 | 后台会员订单分页 | `MemberOrderQueryRequest` | `Page<MemberOrderVO>` |
-| `POST /member/admin/cancel` | 管理员 | 管理员取消会员订单 | `{ id }` | `true` |
-| `POST /member/grant` | 管理员 | 后台赠送会员 | `{ userId, memberLevel, expireTime }` | `true` |
+| `POST /member/admin/cancel` | 管理员 | 管理员取消待支付订单 | `{ orderNo }` | `true` |
+| `POST /member/grant` | 管理员 | 后台赠送会员 | `{ userId, planType, durationDays, description }` | `MemberOrder` |
 | `GET /member-price-config/list` | 管理员 | 查询所有会员价格配置 | 无 | `List<MemberPriceConfigVO>` |
 | `POST /member-price-config/add` | 管理员 | 新增会员价格配置 | `{ memberLevel, durationType, price, points, status, sort }` | 新配置 ID |
 | `POST /member-price-config/update` | 管理员 | 更新会员价格配置 | `{ id, memberLevel, durationType, price, points, status, sort }` | `true` |
@@ -175,13 +185,41 @@
 
 | 接口 | 登录 | 功能描述 | 入参 | 出参 |
 |---|---|---|---|---|
-| `POST /order/create` | 是 | 创建作品订单 | `{ artworkId, payType }` | `ArtworkOrderVO` |
-| `POST /order/my/list/page` | 是 | 我的作品订单分页 | `PageRequest` | `Page<ArtworkOrderVO>` |
-| `POST /order/cancel` | 是 | 用户取消自己的作品订单 | `{ id }` | `true` |
-| `POST /order/pay/mock` | 是 | 模拟支付作品订单 | `{ orderNo }` | `true` |
-| `POST /order/pay/callback` | 否 | 作品订单支付回调 | 回调参数 | `true` |
-| `POST /order/list/page` | 管理员 | 后台作品订单分页 | `ArtworkOrderQueryRequest` | `Page<ArtworkOrderVO>` |
-| `POST /order/admin/cancel` | 管理员 | 管理员取消作品订单 | `{ id }` | `true` |
+| `POST /order/create` | 是 | 创建作品积分永久解锁订单；价格由服务端校验 | `{ artworkId, orderType:"points", expectedPointsPrice }` | `ArtworkOrder`；免费或已有权限时可能为 `null` |
+| `POST /order/my/list/page` | 是 | 我的作品订单分页 | `OrderQueryRequest` | `Page<OrderVO>` |
+| `POST /order/cancel` | 是 | 用户取消自己的待处理作品订单 | `{ orderNo }` | `true` |
+| `POST /order/pay/mock` | 是 | 已停用的作品模拟支付入口 | `{ orderNo }` | 返回无权限错误 |
+| `POST /order/pay/callback` | 否 | 已停用的未验签作品支付回调 | 回调参数 | 不产生新授权 |
+| `POST /order/list/page` | 管理员 | 后台作品订单分页 | `OrderQueryRequest` | `Page<OrderVO>` |
+| `POST /order/admin/cancel` | 管理员 | 管理员取消作品订单 | `{ orderNo }` | `true` |
+
+## 社区帖子与互动
+
+| 接口 | 登录 | 功能描述 | 入参 | 出参 |
+|---|---|---|---|---|
+| `POST /community/post/list/page` | 否 | 公开帖子分页，支持分类、标签、关键词、最新和热门排序 | `CommunityRequests.Query` | 分页 Map，包含作者、置顶、摘要、预览媒体和互动数 |
+| `GET /community/post/get` | 否 | 获取已发布帖子详情 | `id` query | 帖子详情 Map |
+| `GET /community/taxonomy/{kind}` | 否 | 获取公开分类或标签 | `kind=category|tag` | 分类或标签列表 |
+| `POST /community/comment/list/page` | 否 | 查询主评论或指定主楼回复 | `CommunityRequests.Query` | 评论分页 |
+| `GET /community/comment/context` | 否 | 定位一条可见评论及主楼 | `postId,id` query | 评论上下文 |
+| `POST /community/comment/add` | 是 | 发表评论或回复 | `{ postId, replyToId?, content, requestKey }` | 评论 ID |
+| `POST /community/like` | 是 | 幂等设置帖子点赞状态 | `{ postId, liked }` | 当前点赞状态与数量 |
+| `POST /community/report` | 是 | 举报评论 | `{ commentId, reason }` | 举报 ID |
+| `POST /community/me/comments/list/page` | 是 | 我的评论和回复 | 分页条件 | 分页结果 |
+| `POST /community/me/likes/list/page` | 是 | 我赞过的公开帖子 | 分页条件 | 分页结果 |
+| `POST /community/admin/post/{action}` | 管理员 | `publish`、`offline`、`delete`、`pin` 或 `unpin` | `{ id, version }` | 状态结果或最新帖子信息 |
+
+完整的草稿版本、分类标签、评论治理和举报接口见
+[`COMMUNITY_BACKEND_ADMIN_GUIDE.md`](COMMUNITY_BACKEND_ADMIN_GUIDE.md)。
+
+## 公开新闻与弹窗
+
+| 接口 | 登录 | 功能描述 | 入参 | 出参 |
+|---|---|---|---|---|
+| `POST /news/list/page` | 否 | 公开新闻分页，不返回完整正文 | `AnnouncementQueryRequest` | `Page<PublicNewsVO>` |
+| `GET /news/get` | 否 | 获取公开新闻详情 | `id` query | `PublicNewsVO` |
+| `POST /news/popup/candidate` | 否 | 查询当前最优先的弹窗公告 | `{ ids:[] }` | `PublicNewsVO` 或 `null` |
+| `POST /news/popup/dismiss` | 是 | 幂等同步当前账号关闭过的公告 | `{ ids:[] }` | `true` |
 
 ## 公告
 
@@ -189,11 +227,11 @@
 |---|---|---|---|---|
 | `POST /announcement/list/page` | 是 | 前台公告分页，只返回已发布且未过期公告 | `{ current, pageSize, type }` | `Page<AnnouncementVO>`，含 `readStatus` |
 | `GET /announcement/get` | 是 | 公告详情 | `id` query | `AnnouncementVO` |
-| `POST /announcement/read` | 是 | 标记单条公告已读 | `{ announcementId }` | `true` |
+| `POST /announcement/read` | 是 | 标记单条公告已读 | `{ id }` | `true` |
 | `POST /announcement/read/all` | 是 | 标记全部公告已读 | 无 | `true` |
 | `GET /announcement/unread/count` | 是 | 获取未读公告数量 | 无 | `number` |
-| `POST /announcement/admin/add` | 管理员 | 新增公告 | `{ title, content, type, status, priority, publishTime, expireTime }` | 新公告 ID |
-| `POST /announcement/admin/update` | 管理员 | 更新公告 | `{ id, title, content, type, status, priority, publishTime, expireTime }` | `true` |
+| `POST /announcement/admin/add` | 管理员 | 新增公告 | `{ title, summary, content, type, status, publicVisible, popupEnabled, priority, publishTime, expireTime }` | 新公告 ID |
+| `POST /announcement/admin/update` | 管理员 | 更新公告 | `{ id, title, summary, content, type, status, publicVisible, popupEnabled, priority, publishTime, expireTime }` | `true` |
 | `POST /announcement/admin/delete` | 管理员 | 删除公告 | `{ id }` | `true` |
 | `POST /announcement/admin/list/page` | 管理员 | 后台公告分页 | `AnnouncementQueryRequest` | `Page<AnnouncementVO>` |
 | `POST /announcement/admin/publish` | 管理员 | 发布公告 | `{ id }` | `true` |
@@ -243,7 +281,7 @@
 | VO | 关键字段 |
 |---|---|
 | `PromptAssetVO` | `id, title, summary, promptCn, coverUrl, previewMediaUrl, imageWidth, imageHeight, imageAspectRatio, category, sceneTagList, assetTagList, tagList, memberOnly, status, isFeatured, favorited, favoriteCount` |
-| `ArtworkListVO` | `id, title, coverUrl, videoUrl, category, tagList, imageWidth, imageHeight, imageAspectRatio, memberOnly, canAccess, favorited, favoriteCount, hasSourceCode` |
+| `ArtworkListVO` | `id, title, coverUrl, videoUrl, category, tagList, imageWidth, imageHeight, imageAspectRatio, memberOnly, canAccess, permanentlyUnlocked, pointsPrice, favorited, favoriteCount, hasSourceCode` |
 | `TagVO` | `id, name, description, sort, createTime` |
 | `CategoryVO` | `id, parentId, name, description, sort, children, tags` |
 | `LoginUserVO` | `id, userAccount, userName, userAvatar, userRole, memberLevel, token, pointBalance` |

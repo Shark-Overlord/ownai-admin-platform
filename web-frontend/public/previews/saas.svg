@@ -1,0 +1,21 @@
+<svg width="720" height="540" viewBox="0 0 720 540" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="540" rx="34" fill="#F2F5F9"/>
+  <rect x="42" y="42" width="636" height="456" rx="28" fill="#FBFCFE" stroke="#181818" stroke-opacity="0.1"/>
+  <rect x="70" y="70" width="580" height="40" rx="14" fill="#EEF2F7" stroke="#181818" stroke-opacity="0.06"/>
+  <rect x="92" y="84" width="84" height="12" rx="6" fill="#181818" fill-opacity="0.12"/>
+  <rect x="540" y="82" width="86" height="14" rx="7" fill="#181818" fill-opacity="0.08"/>
+  <text x="68" y="176" fill="#121212" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700">SYSTEM GRID</text>
+  <text x="70" y="208" fill="#7A7A7A" font-family="Arial, Helvetica, sans-serif" font-size="13">SAAS / STRUCTURED PRODUCT STORY</text>
+  <line x1="68" y1="236" x2="650" y2="236" stroke="#181818" stroke-opacity="0.08"/>
+  <rect x="68" y="266" width="378" height="156" rx="20" fill="#EEF2F7" stroke="#181818" stroke-opacity="0.08"/>
+  <rect x="94" y="292" width="140" height="102" rx="16" fill="#E4EAF2"/>
+  <rect x="256" y="292" width="140" height="14" rx="7" fill="#181818" fill-opacity="0.12"/>
+  <rect x="256" y="322" width="122" height="10" rx="5" fill="#181818" fill-opacity="0.08"/>
+  <rect x="256" y="344" width="106" height="10" rx="5" fill="#181818" fill-opacity="0.08"/>
+  <rect x="256" y="378" width="110" height="32" rx="16" fill="#181818"/>
+  <rect x="474" y="266" width="176" height="72" rx="999" fill="#FBFCFE" stroke="#181818" stroke-opacity="0.08"/>
+  <circle cx="562" cy="302" r="24" fill="#E8EDF4" stroke="#181818" stroke-opacity="0.08"/>
+  <path d="M520 302H604" stroke="#4D6CFF" stroke-opacity="0.44" stroke-width="8" stroke-linecap="round"/>
+  <rect x="474" y="354" width="176" height="68" rx="18" fill="#F5F8FC" stroke="#181818" stroke-opacity="0.08"/>
+  <rect x="500" y="382" width="124" height="10" rx="5" fill="#8BA0FF" fill-opacity="0.7"/>
+</svg>

@@ -1,4 +1,15 @@
-# SpringBoot 项目初始模板
+# OwnAI 统一工程
+
+当前仓库统一维护用户前台、业务后端和后台管理端：
+
+- `web-frontend/`：用户访问的 OwnAI 前台。
+- `src/`：Spring Boot 业务后端。
+- `web-admin/`：运营与管理后台前端。
+
+开始开发或发布前，请先阅读
+[`docs/OWNAI_DEVELOPMENT_AND_DEPLOYMENT.md`](docs/OWNAI_DEVELOPMENT_AND_DEPLOYMENT.md)。
+
+## 项目基础
 
 > 作者：[程序员鱼皮](https://github.com/liyupi)
 > 仅分享于 [编程导航知识星球](https://yupi.icu)
