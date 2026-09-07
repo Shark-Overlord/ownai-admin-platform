@@ -37,6 +37,10 @@
   --hero-ink: #111111;
   --hero-muted: #7d828a;
   --hero-muted-2: #b7bcc5;
+  --reading-title: #18181b;
+  --reading-heading: #18181b;
+  --reading-body: #3f3f46;
+  --reading-description: #71717a;
   --hero-border: rgba(23, 23, 28, 0.1);
   --hero-border-strong: rgba(23, 23, 28, 0.16);
   --hero-echo-1: #c2c8d0;
@@ -74,6 +78,10 @@ html.dark {
   --hero-ink: #ededed;
   --hero-muted: #a0a0a0;
   --hero-muted-2: #878787;
+  --reading-title: #fafafa;
+  --reading-heading: #f4f4f5;
+  --reading-body: #a8a8b0;
+  --reading-description: #8b8b94;
   --hero-border: rgba(255, 255, 255, 0.09);
   --hero-border-strong: rgba(255, 255, 255, 0.13);
   --hero-echo-1: #2e2e2e;
@@ -2278,20 +2286,20 @@ html.dark .image-studio-chat-select-content {
 }
 
 .tutorial-reading-page {
-  --tutorial-title: #18181b;
-  --tutorial-heading: #18181b;
-  --tutorial-body: #3f3f46;
-  --tutorial-description: #71717a;
+  --tutorial-title: var(--reading-title);
+  --tutorial-heading: var(--reading-heading);
+  --tutorial-body: var(--reading-body);
+  --tutorial-description: var(--reading-description);
   --tutorial-navigation: #52525b;
   --tutorial-weak: #a1a1aa;
   --tutorial-toc-active: #18181b;
 }
 
 html.dark .tutorial-reading-page {
-  --tutorial-title: #fafafa;
-  --tutorial-heading: #f4f4f5;
-  --tutorial-body: #a8a8b0;
-  --tutorial-description: #8b8b94;
+  --tutorial-title: var(--reading-title);
+  --tutorial-heading: var(--reading-heading);
+  --tutorial-body: var(--reading-body);
+  --tutorial-description: var(--reading-description);
   --tutorial-navigation: #85858e;
   --tutorial-weak: #5f5f68;
   --tutorial-toc-active: #e4e4e7;

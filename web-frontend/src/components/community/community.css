@@ -1,6 +1,5 @@
 /* Opt-in personal-center surface. The tutorial workspace keeps its original layout. */
 .profile-community-shell.image-studio-chat-page {
-  --community-link: #2563eb;
   --community-action: #454545;
   --community-official: #666a82;
   --community-like: #d94f87;
@@ -9,7 +8,6 @@
   --community-row-selected: #f2f2f2;
 }
 html.dark .profile-community-shell {
-  --community-link: #93b4ff;
   --community-action: #c7c7c7;
   --community-official: #a7a9bd;
   --community-like: #e46a9c;
@@ -66,9 +64,9 @@ html.dark .profile-community-shell {
 .community-pinned { display: inline-flex; align-items: center; gap: 3px; border-radius: 4px; padding: 0 5px; line-height: 17px; font-size: 10px; color: var(--chat-ink); background: var(--chat-control-soft); box-shadow: inset 0 0 0 1px var(--chat-border); }
 .community-post-body { margin-left: 46px; min-width: 0; }
 .community-post-link { width: 100%; text-align: left; display: block; margin-top: 9px; }
-.community-post-link h2 { font-size: 15px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.community-post-link h2 { color: var(--reading-heading); font-size: 15px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
 .community-post-link:hover h2 { color: var(--chat-ink); text-decoration: underline; text-decoration-color: var(--chat-border-strong); text-underline-offset: 4px; }
-.community-post-link p { display: -webkit-box; margin-top: 6px; color: var(--chat-muted); font-size: 14px; line-height: 1.8; overflow: hidden; overflow-wrap: anywhere; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
+.community-post-link p { display: -webkit-box; margin-top: 6px; color: var(--reading-body); font-size: 14px; line-height: 1.8; overflow: hidden; overflow-wrap: anywhere; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
 .community-post-cover { width: 100%; display: block; margin-top: 13px; border-radius: 9px; overflow: hidden; border: 1px solid var(--chat-border); background: var(--chat-control-bg); text-align: left; }
 .community-post-cover img { width: 100%; max-height: 360px; object-fit: cover; aspect-ratio: 16 / 9; display: block; }
 .community-post-cover video { width: 100%; max-height: 420px; aspect-ratio: 16 / 9; display: block; object-fit: contain; background: #000; }
@@ -140,17 +138,19 @@ html.dark .profile-community-shell {
 .community-back { display: inline-flex; align-items: center; gap: 8px; margin: 12px 28px; padding: 5px 0; color: var(--chat-muted); font-size: 13px; }
 .community-detail, .community-detail-content, .announcement-page-list { min-width: 0; max-width: 100%; }
 .community-detail-content { padding: 12px 28px 18px; }
-.community-detail-title { margin: 22px 0 10px; font-size: 24px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.community-detail-title { margin: 22px 0 10px; color: var(--reading-title); font-size: 24px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
 .community-detail-cover { margin: 20px 0; border-radius: 9px; overflow: hidden; }
 .community-detail-cover img { display: block; max-width: 100%; max-height: 500px; margin: auto; object-fit: contain; }
-.community-markdown { min-width: 0; max-width: 100%; margin: 22px 0; overflow-wrap: anywhere; line-height: 1.9; font-size: 15px; }
+.community-markdown { min-width: 0; max-width: 100%; margin: 22px 0; color: var(--reading-body); overflow-wrap: anywhere; line-height: 1.9; font-size: 15px; font-weight: 400; }
 .community-markdown > * + * { margin-top: 18px; }
-.community-markdown h1, .community-markdown h2, .community-markdown h3 { font-weight: 600; line-height: 1.5; margin: 24px 0 12px; }
+.community-markdown h1, .community-markdown h2, .community-markdown h3 { color: var(--reading-heading); font-weight: 700; letter-spacing: -.025em; line-height: 1.5; margin: 24px 0 12px; }
 .community-markdown h1 { font-size: 24px; }.community-markdown h2 { font-size: 20px; }.community-markdown h3 { font-size: 17px; }
-.community-markdown a { color: var(--community-link); text-decoration: underline; text-underline-offset: 3px; }
+.community-markdown strong { font-weight: 700; }
+html.dark .profile-community-shell .community-markdown :is(strong, b):not([style*="color"]) { color: #fff; }
+.community-markdown a { color: var(--reading-heading); font-weight: 600; text-decoration: underline; text-decoration-color: var(--chat-border-strong); text-underline-offset: 3px; }
 .community-markdown img, .community-markdown video { display: block; width: auto; height: auto; max-width: 100%; max-height: 560px; object-fit: contain; border-radius: 8px; }
 .community-markdown ul, .community-markdown ol { padding-left: 24px; }.community-markdown ul { list-style: disc; }.community-markdown ol { list-style: decimal; }
-.community-markdown blockquote { padding: 4px 16px; border-left: 2px solid var(--chat-border-strong); color: var(--chat-muted); }
+.community-markdown blockquote { padding: 4px 16px; border-left: 2px solid var(--chat-border-strong); color: var(--reading-description); }
 .community-markdown pre { overflow-x: auto; max-width: 100%; padding: 16px; border-radius: 7px; background: var(--chat-control-bg); font-size: 13px; }
 .community-markdown :not(pre) > code { background: var(--chat-control-bg); padding: 2px 5px; border-radius: 3px; font-size: 13px; }
 .community-comments { border-top: 1px solid var(--chat-border); padding: 24px 28px 32px; scroll-margin-top: 80px; }
