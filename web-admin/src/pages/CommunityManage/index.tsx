@@ -12,6 +12,8 @@ import './community.css';
 
 const statuses: Record<string, string> = { draft: '草稿', published: '已发布', offline: '已下线' };
 const enabled = (value: boolean | number | string | undefined) => value === true || value === 1 || value === '1';
+const communityImageAccept = '.jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif';
+const communityImageSuffixes = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif']);
 export default function CommunityManage() {
   const navigate = useNavigate();
   const table = useRef<ActionType>(undefined);
@@ -65,6 +67,17 @@ export default function CommunityManage() {
   }
   function append(source: string) { form.setFieldValue('markdown', `${form.getFieldValue('markdown') || ''}\n\n${source}\n`); setDirty(true); }
   async function upload(file: File, kind: 'image' | 'video') {
+    if (kind === 'image') {
+      const suffix = file.name.split('.').pop()?.toLowerCase() || '';
+      if (!communityImageSuffixes.has(suffix)) {
+        message.error('帖子图片仅支持 JPG、PNG、WebP 和 GIF');
+        return false;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        message.error('帖子图片不能超过 20MB');
+        return false;
+      }
+    }
     setUploading(true);
     try {
       const res = await uploadBlogMedia(file, kind === 'video' ? 'video' : 'image');
@@ -120,8 +133,8 @@ export default function CommunityManage() {
         <Form.Item label="摘要（可选）" name="summary" extra="用于公告等场景；帖子列表会直接从 Markdown 正文自动截取预览文字。"><Input.TextArea maxLength={300} rows={2} showCount /></Form.Item>
         <div className="community-fields"><Form.Item label="主分类（发布时必选）" name="categoryId"><Select allowClear options={options(categories, values?.categoryId ? [values.categoryId] : [])} placeholder="选择主分类" /></Form.Item>
           <Form.Item label={<Space>标签 <Button type="link" size="small" onClick={() => setTagOpen(true)}>新增标签</Button></Space>} name="tagIds"><Select mode="multiple" maxCount={20} options={options(tags, values?.tagIds)} placeholder="选择多个标签" /></Form.Item></div>
-        <Alert type="info" showIcon message="列表预览自动取 Markdown 中的第一个视频；没有视频时使用第一张图片；没有媒体时展示截断后的正文。" style={{ marginBottom: 16 }} />
-        <Space wrap style={{ marginBottom: 16 }}><Upload showUploadList={false} accept="image/*" beforeUpload={file => upload(file, 'image')} disabled={uploading || busy}><Button loading={uploading}>插入图片</Button></Upload>
+        <Alert type="info" showIcon message="列表预览自动取 Markdown 中的第一个视频；没有视频时使用第一张图片或 GIF；GIF 会保留动画效果，单个图片文件不能超过 20MB。" style={{ marginBottom: 16 }} />
+        <Space wrap style={{ marginBottom: 16 }}><Upload showUploadList={false} accept={communityImageAccept} beforeUpload={file => upload(file, 'image')} disabled={uploading || busy}><Button loading={uploading}>插入图片 / GIF</Button></Upload>
           <Upload showUploadList={false} accept="video/mp4,video/webm,.m4v" beforeUpload={file => upload(file, 'video')} disabled={uploading || busy}><Button>插入视频</Button></Upload>
           <Upload showUploadList={false} accept=".md,.markdown,text/markdown" beforeUpload={async file => { if (file.size > 800000) { message.error('文件过大'); return false; } const text = await file.text(); if (text.length > 200000) { message.error('正文最多 200000 字符'); return false; } Modal.confirm({ title: '用导入内容替换当前正文？', onOk: () => { form.setFieldValue('markdown', text); setDirty(true); } }); return false; }}><Button>导入 Markdown</Button></Upload>
         </Space>
