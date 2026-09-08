@@ -28,6 +28,7 @@ sql/*.sql
 !sql/artwork_app_category_seed.sql
 !sql/security_access_logging.sql
 !sql/video_background.sql
+!sql/content_module_draft_bridge.sql
 !sql/video_background_favorite.sql
 !sql/site_analytics.sql
 !sql/blog_schema.sql

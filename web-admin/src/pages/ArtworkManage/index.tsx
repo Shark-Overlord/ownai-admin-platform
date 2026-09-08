@@ -142,6 +142,13 @@ export default function ArtworkManage() {
         0: { text: '下架', status: 'Error' },
         1: { text: '上架', status: 'Success' },
       },
+      render: (_: unknown, record: ArtworkVO) => (
+        <>
+          <Tag color={record.status === 1 ? 'green' : 'default'}>{record.status === 1 ? '上架' : '下架'}</Tag>
+          {record.replacesResourceId && <Tag color="orange">待更新已发布内容</Tag>}
+          {record.hasUnpublishedChanges && <Tag color="orange">有未发布修改</Tag>}
+        </>
+      ),
     },
     {
       title: '分类',

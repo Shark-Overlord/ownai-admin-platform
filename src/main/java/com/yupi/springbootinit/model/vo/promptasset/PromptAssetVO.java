@@ -2,13 +2,14 @@ package com.yupi.springbootinit.model.vo.promptasset;
 
 import com.yupi.springbootinit.model.vo.TagVO;
 import com.yupi.springbootinit.model.vo.CategoryVO;
+import com.yupi.springbootinit.model.vo.NativeDraftAwareVO;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 import lombok.Data;
 
 @Data
-public class PromptAssetVO implements Serializable {
+public class PromptAssetVO implements Serializable, NativeDraftAwareVO {
 
     private Long id;
 
@@ -82,6 +83,12 @@ public class PromptAssetVO implements Serializable {
     private Integer memberOnly;
 
     private Integer status;
+
+    private Boolean hasUnpublishedChanges;
+
+    private Long unpublishedDraftId;
+
+    private Long replacesResourceId;
 
     private Integer sort;
 

@@ -28,6 +28,9 @@ import com.yupi.springbootinit.manager.CosManager;
 import com.yupi.springbootinit.manager.PublicContentAntiCrawlerManager;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.ContentApiKeyService;
+import com.yupi.springbootinit.service.ContentDraftPublishService;
+import com.yupi.springbootinit.service.ContentExternalService;
+import com.yupi.springbootinit.service.ContentModuleDraftBridgeService;
 import com.yupi.springbootinit.service.UserService;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.http.HttpUtil;
@@ -66,6 +69,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 艺术作品接口 Artwork Controller
@@ -92,6 +96,12 @@ public class ArtworkController {
     private ContentApiKeyService contentApiKeyService;
 
     @Resource
+    private ContentDraftPublishService contentDraftPublishService;
+
+    @Resource
+    private ContentModuleDraftBridgeService contentModuleDraftBridgeService;
+
+    @Resource
     private PublicContentAntiCrawlerManager publicContentAntiCrawlerManager;
 
     /**
@@ -101,17 +111,17 @@ public class ArtworkController {
     @OperationLog(module = "artwork", action = "add_artwork")
     @ApiOperation("管理员添加艺术作品 Admin add artwork")
     public BaseResponse<Long> addArtwork(@RequestBody ArtworkAddRequest artworkAddRequest, HttpServletRequest request) {
-        User operator = resolveAdminOrSecretOperator(
-                artworkAddRequest == null ? null : artworkAddRequest.getApiSecret(),
-                request,
+        boolean keyRequest = contentApiKeyService.validateRequestKey(
+                artworkAddRequest == null ? null : artworkAddRequest.getApiSecret(), request,
                 ContentApiKeyService.SCOPE_ARTWORK_ADD);
+        User operator = keyRequest ? getDefaultAdminUser() : requireAdmin(request);
+        if (keyRequest && artworkAddRequest != null) {
+            artworkAddRequest.setStatus(com.yupi.springbootinit.model.enums.ArtworkStatusEnum.DRAFT.getValue());
+        }
         return ResultUtils.success(artworkService.addArtwork(artworkAddRequest, operator));
     }
 
-    private User resolveAdminOrSecretOperator(String requestSecret, HttpServletRequest request, String requiredScope) {
-        if (contentApiKeyService.validateRequestKey(requestSecret, request, requiredScope)) {
-            return getDefaultAdminUser();
-        }
+    private User requireAdmin(HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         if (!userService.isAdmin(loginUser)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
@@ -139,10 +149,23 @@ public class ArtworkController {
     @ApiOperation("管理员更新艺术作品 Admin update artwork")
     public BaseResponse<Boolean> updateArtwork(@RequestBody ArtworkUpdateRequest artworkUpdateRequest,
             HttpServletRequest request) {
-        User operator = resolveAdminOrSecretOperator(
-                artworkUpdateRequest == null ? null : artworkUpdateRequest.getApiSecret(),
-                request,
+        boolean keyRequest = contentApiKeyService.validateRequestKey(
+                artworkUpdateRequest == null ? null : artworkUpdateRequest.getApiSecret(), request,
                 ContentApiKeyService.SCOPE_ARTWORK_UPDATE);
+        User operator = keyRequest ? getDefaultAdminUser() : requireAdmin(request);
+        if (keyRequest && artworkUpdateRequest != null) {
+            Artwork existing = artworkService.getById(artworkUpdateRequest.getId());
+            if (existing == null) throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "作品不存在");
+            if (!com.yupi.springbootinit.model.enums.ArtworkStatusEnum.DRAFT.getValue().equals(existing.getStatus())) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR,
+                        "密钥不能通过旧接口覆盖已发布作品，请使用 /api/content/v1/resources/artwork");
+            }
+            artworkUpdateRequest.setStatus(com.yupi.springbootinit.model.enums.ArtworkStatusEnum.DRAFT.getValue());
+        }
+        if (artworkUpdateRequest != null && contentModuleDraftBridgeService.findByDraft(
+                com.yupi.springbootinit.service.ContentExternalService.ARTWORK, artworkUpdateRequest.getId()) != null) {
+            artworkUpdateRequest.setStatus(com.yupi.springbootinit.model.enums.ArtworkStatusEnum.DRAFT.getValue());
+        }
         return ResultUtils.success(artworkService.updateArtwork(artworkUpdateRequest, operator));
     }
 
@@ -153,6 +176,7 @@ public class ArtworkController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "artwork", action = "batch_delete_artwork")
     @ApiOperation("管理员批量删除艺术作品 Admin batch delete artwork")
+    @Transactional(rollbackFor = Exception.class)
     public BaseResponse<Boolean> deleteArtworkBatch(@RequestBody BatchDeleteRequest batchDeleteRequest) {
         if (batchDeleteRequest == null || CollUtil.isEmpty(batchDeleteRequest.getIds())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -160,6 +184,7 @@ public class ArtworkController {
         for (Long id : batchDeleteRequest.getIds()) {
             artworkService.deleteArtwork(id);
         }
+        contentModuleDraftBridgeService.removeByResources(ContentExternalService.ARTWORK, batchDeleteRequest.getIds());
         return ResultUtils.success(true);
     }
 
@@ -170,11 +195,13 @@ public class ArtworkController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "artwork", action = "batch_publish_artwork")
     @ApiOperation("Admin batch publish artworks")
-    public BaseResponse<Boolean> publishArtworkBatch(@RequestBody BatchDeleteRequest batchDeleteRequest) {
+    public BaseResponse<Boolean> publishArtworkBatch(@RequestBody BatchDeleteRequest batchDeleteRequest,
+            HttpServletRequest request) {
         if (batchDeleteRequest == null || CollUtil.isEmpty(batchDeleteRequest.getIds())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return ResultUtils.success(artworkService.publishArtworkBatch(batchDeleteRequest.getIds()));
+        return ResultUtils.success(contentDraftPublishService.publishArtwork(batchDeleteRequest.getIds(),
+                userService.getLoginUser(request)));
     }
 
     /**
@@ -211,11 +238,15 @@ public class ArtworkController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "artwork", action = "delete_artwork")
     @ApiOperation("管理员删除艺术作品 Admin delete artwork")
+    @Transactional(rollbackFor = Exception.class)
     public BaseResponse<Boolean> deleteArtwork(@RequestBody DeleteRequest deleteRequest) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return ResultUtils.success(artworkService.deleteArtwork(deleteRequest.getId()));
+        boolean deleted = artworkService.deleteArtwork(deleteRequest.getId());
+        if (deleted) contentModuleDraftBridgeService.removeByResources(
+                ContentExternalService.ARTWORK, java.util.Collections.singletonList(deleteRequest.getId()));
+        return ResultUtils.success(deleted);
     }
 
     /**
@@ -463,7 +494,9 @@ public class ArtworkController {
     public BaseResponse<Page<ArtworkVO>> listArtworkVOByPageForAdmin(@RequestBody ArtworkQueryRequest artworkQueryRequest,
             HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
-        return ResultUtils.success(artworkService.listArtworkVOByPage(artworkQueryRequest, loginUser, true));
+        Page<ArtworkVO> page = artworkService.listArtworkVOByPage(artworkQueryRequest, loginUser, true);
+        contentModuleDraftBridgeService.annotateAdminResources(ContentExternalService.ARTWORK, page.getRecords());
+        return ResultUtils.success(page);
     }
 
     /**

@@ -49,6 +49,9 @@ export interface BlogPostVO {
   contentHtml?: string;
   contentSchemaVersion: number;
   status: 'draft' | 'published' | 'offline';
+  hasUnpublishedChanges?: boolean;
+  unpublishedDraftId?: BlogId;
+  replacesResourceId?: BlogId;
   visibility: 'public' | 'login' | 'admin';
   memberOnly: 0 | 1;
   canAccess?: boolean;

@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.model.vo.videobackground;
 
 import com.yupi.springbootinit.model.vo.CategoryVO;
+import com.yupi.springbootinit.model.vo.NativeDraftAwareVO;
 import com.yupi.springbootinit.model.vo.TagVO;
 import java.io.Serializable;
 import java.util.Date;
@@ -8,7 +9,7 @@ import java.util.List;
 import lombok.Data;
 
 @Data
-public class VideoBackgroundVO implements Serializable {
+public class VideoBackgroundVO implements Serializable, NativeDraftAwareVO {
     private Long id;
     private String title;
     private String summary;
@@ -21,6 +22,9 @@ public class VideoBackgroundVO implements Serializable {
     private List<TagVO> tagList;
     private Integer memberOnly;
     private Integer status;
+    private Boolean hasUnpublishedChanges;
+    private Long unpublishedDraftId;
+    private Long replacesResourceId;
     private Integer videoWidth;
     private Integer videoHeight;
     private Double videoAspectRatio;

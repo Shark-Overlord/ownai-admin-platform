@@ -51,8 +51,25 @@ public class ContentApiKeyServiceImpl extends ServiceImpl<ContentApiKeyMapper, C
             SCOPE_ALL,
             SCOPE_ARTWORK_ADD,
             SCOPE_ARTWORK_UPDATE,
+            SCOPE_ARTWORK_READ,
+            SCOPE_ARTWORK_UPLOAD,
             SCOPE_PROMPT_ASSET_ADD,
-            SCOPE_PROMPT_ASSET_UPDATE
+            SCOPE_PROMPT_ASSET_UPDATE,
+            SCOPE_PROMPT_ASSET_READ,
+            SCOPE_PROMPT_ASSET_UPLOAD,
+            SCOPE_VIDEO_BACKGROUND_READ,
+            SCOPE_VIDEO_BACKGROUND_ADD,
+            SCOPE_VIDEO_BACKGROUND_UPDATE,
+            SCOPE_VIDEO_BACKGROUND_UPLOAD,
+            SCOPE_COMMUNITY_POST_READ,
+            SCOPE_COMMUNITY_POST_ADD,
+            SCOPE_COMMUNITY_POST_UPDATE,
+            SCOPE_COMMUNITY_POST_UPLOAD,
+            SCOPE_TUTORIAL_READ,
+            SCOPE_TUTORIAL_ADD,
+            SCOPE_TUTORIAL_UPDATE,
+            SCOPE_TUTORIAL_UPLOAD,
+            SCOPE_TAXONOMY_READ
     )));
 
     @Override
@@ -203,6 +220,50 @@ public class ContentApiKeyServiceImpl extends ServiceImpl<ContentApiKeyMapper, C
         update.setLastUsedIp(getClientIp(request));
         this.updateById(update);
         return true;
+    }
+
+    @Override
+    public ContentApiKey requireRequestKey(HttpServletRequest request, List<String> requiredScopes) {
+        String plainKey = request == null ? null
+                : StringUtils.trimToNull(request.getHeader(HEADER_CONTENT_ASSET_KEY));
+        if (plainKey == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "X-Content-Asset-Key is required");
+        }
+        validateRequiredScopes(requiredScopes);
+        ContentApiKey key = this.getOne(new QueryWrapper<ContentApiKey>()
+                .eq("keyHash", sha256Hex(plainKey))
+                .eq("isDelete", 0)
+                .last("LIMIT 1"));
+        if (key == null) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "invalid api key");
+        }
+        if (key.getStatus() == null || key.getStatus() != 1) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "api key disabled");
+        }
+        if (key.getExpireTime() != null && key.getExpireTime().before(new Date())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "api key expired");
+        }
+        Set<String> scopes = splitScopes(key.getScopes());
+        if (!scopes.contains(SCOPE_ALL) && requiredScopes.stream().noneMatch(scopes::contains)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "api key scope denied");
+        }
+        ContentApiKey update = new ContentApiKey();
+        update.setId(key.getId());
+        update.setLastUsedTime(new Date());
+        update.setLastUsedIp(getClientIp(request));
+        this.updateById(update);
+        return key;
+    }
+
+    private void validateRequiredScopes(List<String> requiredScopes) {
+        if (requiredScopes == null || requiredScopes.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "invalid required scope");
+        }
+        for (String scope : requiredScopes) {
+            if (StringUtils.isBlank(scope) || !ALLOWED_SCOPES.contains(scope)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "invalid required scope");
+            }
+        }
     }
 
     private ContentApiKeyVO toVO(ContentApiKey key) {

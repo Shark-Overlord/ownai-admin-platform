@@ -500,7 +500,13 @@ export default function PromptAssetManage() {
       valueType: 'select',
       valueEnum: statusValueEnum,
       width: 120,
-      render: (_: unknown, record: PromptAssetVO) => renderStatus(record.status),
+      render: (_: unknown, record: PromptAssetVO) => (
+        <Space size={4} wrap>
+          {renderStatus(record.status)}
+          {record.replacesResourceId && <Tag color="orange">待更新已发布内容</Tag>}
+          {record.hasUnpublishedChanges && <Tag color="orange">有未发布修改</Tag>}
+        </Space>
+      ),
     },
     {
       title: '精选',

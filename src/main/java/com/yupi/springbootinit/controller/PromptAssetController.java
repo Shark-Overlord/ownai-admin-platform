@@ -26,6 +26,9 @@ import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImageSyncResultVO
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetImportResultVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
 import com.yupi.springbootinit.service.ContentApiKeyService;
+import com.yupi.springbootinit.service.ContentDraftPublishService;
+import com.yupi.springbootinit.service.ContentModuleDraftBridgeService;
+import com.yupi.springbootinit.service.ContentExternalService;
 import com.yupi.springbootinit.service.PromptAssetService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
@@ -43,6 +46,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/promptAsset")
@@ -60,6 +64,12 @@ public class PromptAssetController {
 
     @Resource
     private ContentApiKeyService contentApiKeyService;
+
+    @Resource
+    private ContentDraftPublishService contentDraftPublishService;
+
+    @Resource
+    private ContentModuleDraftBridgeService contentModuleDraftBridgeService;
 
     @Resource
     private PublicContentAntiCrawlerManager publicContentAntiCrawlerManager;
@@ -134,14 +144,19 @@ public class PromptAssetController {
     @ApiOperation("Admin page query prompt assets")
     public BaseResponse<Page<PromptAssetVO>> listPromptAssetVOByPage(
             @RequestBody(required = false) PromptAssetQueryRequest request) {
-        return ResultUtils.success(promptAssetService.listPromptAssetVOByPage(request));
+        Page<PromptAssetVO> page = promptAssetService.listPromptAssetVOByPage(request);
+        contentModuleDraftBridgeService.annotateAdminResources(ContentExternalService.PROMPT_ASSET, page.getRecords());
+        return ResultUtils.success(page);
     }
 
     @GetMapping("/admin/get/vo")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @ApiOperation("Admin get prompt asset detail")
     public BaseResponse<PromptAssetVO> getPromptAssetVO(Long id) {
-        return ResultUtils.success(promptAssetService.getPromptAssetVO(id));
+        PromptAssetVO resource = promptAssetService.getPromptAssetVO(id);
+        contentModuleDraftBridgeService.annotateAdminResources(ContentExternalService.PROMPT_ASSET,
+                java.util.Collections.singletonList(resource));
+        return ResultUtils.success(resource);
     }
 
     @PostMapping("/admin/add")
@@ -149,19 +164,21 @@ public class PromptAssetController {
     @ApiOperation("Admin add prompt asset")
     public BaseResponse<Long> addPromptAsset(@RequestBody PromptAssetAddRequest request,
             HttpServletRequest httpServletRequest) {
-        checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
+        boolean keyRequest = checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
                 ContentApiKeyService.SCOPE_PROMPT_ASSET_ADD);
+        if (keyRequest && request != null) request.setStatus(0);
         return ResultUtils.success(promptAssetService.addPromptAsset(request));
     }
 
-    private void checkAdminOrContentAssetSecret(String requestSecret, HttpServletRequest request, String requiredScope) {
+    private boolean checkAdminOrContentAssetSecret(String requestSecret, HttpServletRequest request, String requiredScope) {
         if (contentApiKeyService.validateRequestKey(requestSecret, request, requiredScope)) {
-            return;
+            return true;
         }
         User loginUser = userService.getLoginUser(request);
         if (!userService.isAdmin(loginUser)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
+        return false;
     }
 
     @PostMapping("/admin/update")
@@ -169,8 +186,13 @@ public class PromptAssetController {
     @ApiOperation("Admin update prompt asset")
     public BaseResponse<Boolean> updatePromptAsset(@RequestBody PromptAssetUpdateRequest request,
             HttpServletRequest httpServletRequest) {
-        checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
+        boolean keyRequest = checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
                 ContentApiKeyService.SCOPE_PROMPT_ASSET_UPDATE);
+        protectPublishedPromptFromKey(request, keyRequest);
+        if (request != null && contentModuleDraftBridgeService.findByDraft(
+                com.yupi.springbootinit.service.ContentExternalService.PROMPT_ASSET, request.getId()) != null) {
+            request.setStatus(0);
+        }
         return ResultUtils.success(promptAssetService.updatePromptAsset(request));
     }
 
@@ -179,42 +201,63 @@ public class PromptAssetController {
     @ApiOperation("Admin update prompt asset tags")
     public BaseResponse<Boolean> updatePromptAssetTags(@RequestBody PromptAssetUpdateRequest request,
             HttpServletRequest httpServletRequest) {
-        checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
+        boolean keyRequest = checkAdminOrContentAssetSecret(request == null ? null : request.getApiSecret(), httpServletRequest,
                 ContentApiKeyService.SCOPE_PROMPT_ASSET_UPDATE);
+        protectPublishedPromptFromKey(request, keyRequest);
         return ResultUtils.success(promptAssetService.updatePromptAssetTags(request));
+    }
+
+    private void protectPublishedPromptFromKey(PromptAssetUpdateRequest request, boolean keyRequest) {
+        if (!keyRequest || request == null) return;
+        com.yupi.springbootinit.model.entity.PromptAsset existing = promptAssetService.getById(request.getId());
+        if (existing == null) throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "Prompt 资产不存在");
+        if (!Integer.valueOf(0).equals(existing.getStatus())) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,
+                    "密钥不能通过旧接口覆盖已发布 Prompt，请使用 /api/content/v1/resources/prompt_asset");
+        }
+        request.setStatus(0);
     }
 
     @PostMapping("/admin/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "delete_prompt_asset")
     @ApiOperation("Admin delete prompt asset")
+    @Transactional(rollbackFor = Exception.class)
     public BaseResponse<Boolean> deletePromptAsset(@RequestBody DeleteRequest request) {
         if (request == null || request.getId() == null || request.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return ResultUtils.success(promptAssetService.deletePromptAsset(request.getId()));
+        boolean deleted = promptAssetService.deletePromptAsset(request.getId());
+        if (deleted) contentModuleDraftBridgeService.removeByResources(
+                ContentExternalService.PROMPT_ASSET, java.util.Collections.singletonList(request.getId()));
+        return ResultUtils.success(deleted);
     }
 
     @PostMapping("/admin/delete/batch")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "batch_delete_prompt_asset")
     @ApiOperation("Admin batch delete prompt assets")
+    @Transactional(rollbackFor = Exception.class)
     public BaseResponse<Boolean> deletePromptAssetBatch(@RequestBody BatchDeleteRequest request) {
         if (request == null || CollUtil.isEmpty(request.getIds())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return ResultUtils.success(promptAssetService.deletePromptAssetBatch(request.getIds()));
+        boolean deleted = promptAssetService.deletePromptAssetBatch(request.getIds());
+        if (deleted) contentModuleDraftBridgeService.removeByResources(ContentExternalService.PROMPT_ASSET, request.getIds());
+        return ResultUtils.success(deleted);
     }
 
     @PostMapping("/admin/publish/batch")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "prompt_asset", action = "batch_publish_prompt_asset")
     @ApiOperation("Admin batch publish prompt assets")
-    public BaseResponse<Boolean> publishPromptAssetBatch(@RequestBody BatchDeleteRequest request) {
+    public BaseResponse<Boolean> publishPromptAssetBatch(@RequestBody BatchDeleteRequest request,
+            HttpServletRequest httpServletRequest) {
         if (request == null || CollUtil.isEmpty(request.getIds())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return ResultUtils.success(promptAssetService.publishPromptAssetBatch(request.getIds()));
+        return ResultUtils.success(contentDraftPublishService.publishPromptAssets(request.getIds(),
+                userService.getLoginUser(httpServletRequest)));
     }
 
     @PostMapping("/admin/sync/image/cos")

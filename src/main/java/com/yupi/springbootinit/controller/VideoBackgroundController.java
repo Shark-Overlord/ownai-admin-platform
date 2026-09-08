@@ -24,6 +24,9 @@ import com.yupi.springbootinit.model.vo.videobackground.VideoBackgroundResourceV
 import com.yupi.springbootinit.model.vo.videobackground.VideoBackgroundVO;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.service.VideoBackgroundService;
+import com.yupi.springbootinit.service.ContentDraftPublishService;
+import com.yupi.springbootinit.service.ContentModuleDraftBridgeService;
+import com.yupi.springbootinit.service.ContentExternalService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import java.io.BufferedInputStream;
@@ -45,6 +48,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/videoBackground")
@@ -53,6 +57,10 @@ public class VideoBackgroundController {
 
     @Resource
     private VideoBackgroundService videoBackgroundService;
+    @Resource
+    private ContentDraftPublishService contentDraftPublishService;
+    @Resource
+    private ContentModuleDraftBridgeService contentModuleDraftBridgeService;
     @Resource
     private UserService userService;
     @Resource
@@ -73,6 +81,10 @@ public class VideoBackgroundController {
     @OperationLog(module = "video_background", action = "update")
     public BaseResponse<Boolean> update(@RequestBody VideoBackgroundUpdateRequest request,
             HttpServletRequest servletRequest) {
+        if (request != null && contentModuleDraftBridgeService.findByDraft(
+                com.yupi.springbootinit.service.ContentExternalService.VIDEO_BACKGROUND, request.getId()) != null) {
+            request.setStatus(0);
+        }
         return ResultUtils.success(videoBackgroundService.updateVideoBackground(request,
                 userService.getLoginUser(servletRequest)));
     }
@@ -80,16 +92,21 @@ public class VideoBackgroundController {
     @PostMapping("/delete")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "video_background", action = "delete")
+    @Transactional(rollbackFor = Exception.class)
     public BaseResponse<Boolean> delete(@RequestBody DeleteRequest request) {
         if (request == null || request.getId() == null || request.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return ResultUtils.success(videoBackgroundService.deleteVideoBackground(request.getId()));
+        boolean deleted = videoBackgroundService.deleteVideoBackground(request.getId());
+        if (deleted) contentModuleDraftBridgeService.removeByResources(
+                ContentExternalService.VIDEO_BACKGROUND, java.util.Collections.singletonList(request.getId()));
+        return ResultUtils.success(deleted);
     }
 
     @PostMapping("/delete/batch")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "video_background", action = "batch_delete")
+    @Transactional(rollbackFor = Exception.class)
     public BaseResponse<Boolean> deleteBatch(@RequestBody BatchDeleteRequest request) {
         if (request == null || CollUtil.isEmpty(request.getIds())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -97,17 +114,20 @@ public class VideoBackgroundController {
         for (Long id : request.getIds()) {
             videoBackgroundService.deleteVideoBackground(id);
         }
+        contentModuleDraftBridgeService.removeByResources(ContentExternalService.VIDEO_BACKGROUND, request.getIds());
         return ResultUtils.success(true);
     }
 
     @PostMapping("/publish/batch")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "video_background", action = "batch_publish")
-    public BaseResponse<Boolean> publishBatch(@RequestBody BatchDeleteRequest request) {
+    public BaseResponse<Boolean> publishBatch(@RequestBody BatchDeleteRequest request,
+            HttpServletRequest servletRequest) {
         if (request == null || CollUtil.isEmpty(request.getIds())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return ResultUtils.success(videoBackgroundService.publishVideoBackgroundBatch(request.getIds()));
+        return ResultUtils.success(contentDraftPublishService.publishVideoBackgrounds(request.getIds(),
+                userService.getLoginUser(servletRequest)));
     }
 
     @PostMapping("/offline/batch")
@@ -135,8 +155,10 @@ public class VideoBackgroundController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Page<VideoBackgroundVO>> adminList(@RequestBody VideoBackgroundQueryRequest request,
             HttpServletRequest servletRequest) {
-        return ResultUtils.success(videoBackgroundService.listVideoBackgroundVOByPage(request,
-                userService.getLoginUser(servletRequest), true));
+        Page<VideoBackgroundVO> page = videoBackgroundService.listVideoBackgroundVOByPage(request,
+                userService.getLoginUser(servletRequest), true);
+        contentModuleDraftBridgeService.annotateAdminResources(ContentExternalService.VIDEO_BACKGROUND, page.getRecords());
+        return ResultUtils.success(page);
     }
 
     @PostMapping("/list/page/vo")
