@@ -220,7 +220,15 @@ export default function VideoBackgroundManage() {
       fieldProps: { mode: 'multiple', allowClear: true, showSearch: true, optionFilterProp: 'label', options: allTags.map((tag) => ({ label: tag.name, value: tag.id })) },
     },
     { title: '会员专享', dataIndex: 'memberOnly', width: 104, valueType: 'select', valueEnum: { 0: { text: '否', status: 'Default' }, 1: { text: '是', status: 'Success' } } },
-    { title: '状态', dataIndex: 'status', width: 92, valueType: 'select', valueEnum: { 0: { text: '下架', status: 'Error' }, 1: { text: '上架', status: 'Success' } } },
+    {
+      title: '状态', dataIndex: 'status', width: 210, valueType: 'select',
+      valueEnum: { 0: { text: '下架', status: 'Error' }, 1: { text: '上架', status: 'Success' } },
+      render: (_: unknown, record: VideoBackgroundVO) => <>
+        <Tag color={record.status === 1 ? 'green' : 'default'}>{record.status === 1 ? '上架' : '下架'}</Tag>
+        {record.replacesResourceId && <Tag color="orange">待更新已发布内容</Tag>}
+        {record.hasUnpublishedChanges && <Tag color="orange">有未发布修改</Tag>}
+      </>,
+    },
     { title: '排序', dataIndex: 'sort', search: false, width: 72 },
     { title: '创建时间', dataIndex: 'createTime', search: false, valueType: 'dateTime', width: 168 },
     {

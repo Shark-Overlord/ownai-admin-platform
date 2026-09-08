@@ -28,10 +28,27 @@ import {
 
 const scopeOptions = [
   { label: '全部内容资产接口', value: '*' },
+  { label: '作品查询', value: 'artwork:read' },
   { label: '作品新增', value: 'artwork:add' },
   { label: '作品修改', value: 'artwork:update' },
+  { label: '作品上传', value: 'artwork:upload' },
+  { label: 'Prompt 资产查询', value: 'prompt_asset:read' },
   { label: 'Prompt 资产新增', value: 'prompt_asset:add' },
   { label: 'Prompt 资产修改', value: 'prompt_asset:update' },
+  { label: 'Prompt 资产上传', value: 'prompt_asset:upload' },
+  { label: '视频素材查询', value: 'video_background:read' },
+  { label: '视频素材新增', value: 'video_background:add' },
+  { label: '视频素材修改', value: 'video_background:update' },
+  { label: '视频素材上传', value: 'video_background:upload' },
+  { label: '新闻与帖子查询', value: 'community_post:read' },
+  { label: '新闻与帖子新增', value: 'community_post:add' },
+  { label: '新闻与帖子修改', value: 'community_post:update' },
+  { label: '新闻与帖子上传', value: 'community_post:upload' },
+  { label: '教程资产查询', value: 'tutorial:read' },
+  { label: '教程资产新增', value: 'tutorial:add' },
+  { label: '教程资产修改', value: 'tutorial:update' },
+  { label: '教程资产上传', value: 'tutorial:upload' },
+  { label: '分类与标签查询', value: 'taxonomy:read' },
 ];
 
 const scopeText: Record<string, string> = scopeOptions.reduce(
@@ -89,7 +106,7 @@ export default function ContentApiKeyManage() {
     form.resetFields();
     form.setFieldsValue({
       status: 1,
-      scopes: ['prompt_asset:add', 'prompt_asset:update'],
+      scopes: ['tutorial:read', 'tutorial:add', 'tutorial:update', 'tutorial:upload', 'taxonomy:read'],
     });
     setDrawerOpen(true);
   };
@@ -314,7 +331,7 @@ export default function ContentApiKeyManage() {
         style={{ marginBottom: 16 }}
         type="info"
         showIcon
-        message="用于外部程序免登录创建或更新作品、Prompt 资产。密钥只保存哈希，明文只在创建成功后展示一次。"
+        message="用于外部程序免登录查询、上传、新增和更新内容草稿。发布仍由管理员在各内容模块完成。密钥只保存哈希，明文只展示一次。"
       />
       <ProTable
         actionRef={actionRef}

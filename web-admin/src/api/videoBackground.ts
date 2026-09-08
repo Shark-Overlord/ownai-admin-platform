@@ -13,6 +13,9 @@ export interface VideoBackgroundVO {
   tagList?: { id: string; name: string }[];
   memberOnly?: number;
   status?: number;
+  hasUnpublishedChanges?: boolean;
+  unpublishedDraftId?: number;
+  replacesResourceId?: number;
   videoWidth?: number;
   videoHeight?: number;
   durationMs?: number;

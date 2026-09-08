@@ -1,12 +1,13 @@
 package com.yupi.springbootinit.model.vo.blog;
 
+import com.yupi.springbootinit.model.vo.NativeDraftAwareVO;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 import lombok.Data;
 
 @Data
-public class BlogPostVO implements Serializable {
+public class BlogPostVO implements Serializable, NativeDraftAwareVO {
 
     private Long id;
     private Long authorId;
@@ -29,6 +30,9 @@ public class BlogPostVO implements Serializable {
     private String contentHtml;
     private Integer contentSchemaVersion;
     private String status;
+    private Boolean hasUnpublishedChanges;
+    private Long unpublishedDraftId;
+    private Long replacesResourceId;
     private String visibility;
     private Integer memberOnly;
     private Boolean canAccess;

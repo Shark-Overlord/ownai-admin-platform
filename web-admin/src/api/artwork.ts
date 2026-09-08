@@ -14,6 +14,9 @@ export interface ArtworkVO {
   pointsPrice?: number;
   memberOnly?: number;
   status?: number;
+  hasUnpublishedChanges?: boolean;
+  unpublishedDraftId?: number;
+  replacesResourceId?: number;
   tagList?: { id: number; name: string }[];
   htmlUrl?: string;
   sourceZipUrl?: string;

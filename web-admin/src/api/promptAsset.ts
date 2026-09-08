@@ -56,6 +56,9 @@ export interface PromptAssetVO {
   aiTagStatus?: number;
   memberOnly?: number;
   status?: number;
+  hasUnpublishedChanges?: boolean;
+  unpublishedDraftId?: number;
+  replacesResourceId?: number;
   sort?: number;
   isFeatured?: number;
   featuredSort?: number;

@@ -940,6 +940,45 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         promptAssetMediaMapper.updateById(media);
     }
 
+    @Override
+    public void syncPrimaryMediaForContentAgent(Long promptAssetId, String coverUrl, String previewMediaUrl) {
+        if (promptAssetId == null || promptAssetId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        PromptAsset asset = this.getById(promptAssetId);
+        if (asset == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+        PromptAssetMedia media = promptAssetMediaMapper.selectOne(new QueryWrapper<PromptAssetMedia>()
+                .eq("promptAssetId", promptAssetId)
+                .orderByAsc("sort", "id")
+                .last("limit 1"));
+        String originalUrl = StringUtils.defaultIfBlank(coverUrl, previewMediaUrl);
+        String cloudUrl = StringUtils.defaultIfBlank(previewMediaUrl, coverUrl);
+        if (StringUtils.isBlank(originalUrl) && StringUtils.isBlank(cloudUrl)) {
+            if (media != null) promptAssetMediaMapper.deleteById(media.getId());
+            return;
+        }
+        if (media == null) {
+            media = new PromptAssetMedia();
+            media.setPromptAssetId(promptAssetId);
+            media.setMediaType(StringUtils.defaultIfBlank(asset.getMediaType(), "image"));
+            media.setSort(0);
+            media.setCreateTime(new Date());
+            media.setIsDelete(0);
+        }
+        media.setOriginalUrl(originalUrl);
+        media.setLocalUrl(originalUrl);
+        media.setCloudUrl(cloudUrl);
+        media.setThumbnailCloudUrl(null);
+        media.setThumbnailLocalUrl(null);
+        media.setWidth(null);
+        media.setHeight(null);
+        fillMediaDimensionsFromOriginal(media, cloudUrl);
+        if (media.getId() == null) promptAssetMediaMapper.insert(media);
+        else promptAssetMediaMapper.updateById(media);
+    }
+
     private void syncPrimaryMediaAfterManualAdd(PromptAsset asset) {
         if (asset == null || asset.getId() == null || StringUtils.isBlank(asset.getCoverUrl())) {
             return;

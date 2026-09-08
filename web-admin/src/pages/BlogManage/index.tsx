@@ -411,7 +411,11 @@ export default function BlogManage({ initialTab = 'posts' }: BlogManageProps) {
       width: 110,
       render: (_: any, record: BlogPostVO) => {
         const item = statusMap[record.status] || { text: record.status, color: 'default' };
-        return <Tag color={item.color}>{item.text}</Tag>;
+        return <Space size={4} wrap>
+          <Tag color={item.color}>{item.text}</Tag>
+          {record.replacesResourceId && <Tag color="orange">待更新已发布内容</Tag>}
+          {record.hasUnpublishedChanges && <Tag color="orange">有未发布修改</Tag>}
+        </Space>;
       },
     },
     {

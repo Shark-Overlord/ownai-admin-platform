@@ -48,6 +48,9 @@ import com.yupi.springbootinit.service.BlogAiService;
 import com.yupi.springbootinit.service.BlogFrontService;
 import com.yupi.springbootinit.service.BlogBookService;
 import com.yupi.springbootinit.service.BlogPostService;
+import com.yupi.springbootinit.service.ContentDraftPublishService;
+import com.yupi.springbootinit.service.ContentModuleDraftBridgeService;
+import com.yupi.springbootinit.service.ContentExternalService;
 import com.yupi.springbootinit.service.BlogTagService;
 import com.yupi.springbootinit.service.UserService;
 import io.swagger.annotations.Api;
@@ -62,6 +65,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/blog")
@@ -70,6 +74,12 @@ public class BlogController {
 
     @Resource
     private BlogPostService blogPostService;
+
+    @Resource
+    private ContentDraftPublishService contentDraftPublishService;
+
+    @Resource
+    private ContentModuleDraftBridgeService contentModuleDraftBridgeService;
 
     @Resource
     private BlogAiService blogAiService;
@@ -281,14 +291,19 @@ public class BlogController {
     @ApiOperation("Admin page query blog posts")
     public BaseResponse<Page<BlogPostVO>> listAdminPosts(
             @RequestBody(required = false) BlogPostQueryRequest request) {
-        return ResultUtils.success(blogPostService.listAdminPosts(request));
+        Page<BlogPostVO> page = blogPostService.listAdminPosts(request);
+        contentModuleDraftBridgeService.annotateAdminResources(ContentExternalService.TUTORIAL_POST, page.getRecords());
+        return ResultUtils.success(page);
     }
 
     @GetMapping("/admin/posts/get")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @ApiOperation("Admin get blog post detail")
     public BaseResponse<BlogPostVO> getAdminPost(@RequestParam Long id) {
-        return ResultUtils.success(blogPostService.getAdminPost(id));
+        BlogPostVO resource = blogPostService.getAdminPost(id);
+        contentModuleDraftBridgeService.annotateAdminResources(ContentExternalService.TUTORIAL_POST,
+                java.util.Collections.singletonList(resource));
+        return ResultUtils.success(resource);
     }
 
     @PostMapping("/admin/posts/add")
@@ -312,8 +327,13 @@ public class BlogController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "blog", action = "delete_post")
     @ApiOperation("Admin delete blog post")
+    @Transactional(rollbackFor = Exception.class)
     public BaseResponse<Boolean> deletePost(@RequestBody DeleteRequest request) {
-        return ResultUtils.success(blogPostService.deletePost(requireId(request)));
+        Long id = requireId(request);
+        boolean deleted = blogPostService.deletePost(id);
+        if (deleted) contentModuleDraftBridgeService.removeByResources(
+                ContentExternalService.TUTORIAL_POST, java.util.Collections.singletonList(id));
+        return ResultUtils.success(deleted);
     }
 
     @PostMapping("/admin/posts/publish")
@@ -322,7 +342,7 @@ public class BlogController {
     @ApiOperation("Admin publish blog post")
     public BaseResponse<Boolean> publishPost(@RequestBody DeleteRequest request, HttpServletRequest httpRequest) {
         User adminUser = userService.getLoginUser(httpRequest);
-        return ResultUtils.success(blogPostService.publishPost(requireId(request), adminUser));
+        return ResultUtils.success(contentDraftPublishService.publishTutorialPost(requireId(request), adminUser));
     }
 
     @PostMapping("/admin/posts/batch/publish")
@@ -332,7 +352,7 @@ public class BlogController {
     public BaseResponse<Integer> batchPublishPosts(
             @RequestBody BlogPostBatchRequest request, HttpServletRequest httpRequest) {
         User adminUser = userService.getLoginUser(httpRequest);
-        return ResultUtils.success(blogPostService.batchPublishPosts(
+        return ResultUtils.success(contentDraftPublishService.publishTutorialPosts(
                 request == null ? null : request.getIds(), adminUser));
     }
 
@@ -340,8 +360,12 @@ public class BlogController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @OperationLog(module = "blog", action = "batch_delete_posts")
     @ApiOperation("Admin batch delete blog posts")
+    @Transactional(rollbackFor = Exception.class)
     public BaseResponse<Integer> batchDeletePosts(@RequestBody BlogPostBatchRequest request) {
-        return ResultUtils.success(blogPostService.batchDeletePosts(request == null ? null : request.getIds()));
+        List<Long> ids = request == null ? null : request.getIds();
+        Integer deleted = blogPostService.batchDeletePosts(ids);
+        contentModuleDraftBridgeService.removeByResources(ContentExternalService.TUTORIAL_POST, ids);
+        return ResultUtils.success(deleted);
     }
 
     @PostMapping("/admin/posts/batch/member-only")

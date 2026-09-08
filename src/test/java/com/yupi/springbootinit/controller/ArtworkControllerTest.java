@@ -17,6 +17,8 @@ import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.service.ArtworkService;
+import com.yupi.springbootinit.service.ContentDraftPublishService;
+import com.yupi.springbootinit.service.ContentModuleDraftBridgeService;
 import com.yupi.springbootinit.service.UserService;
 import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,13 +36,20 @@ class ArtworkControllerTest {
 
     private UserService userService;
 
+    private ContentDraftPublishService contentDraftPublishService;
+
     @BeforeEach
     void setUp() {
         artworkService = Mockito.mock(ArtworkService.class);
         userService = Mockito.mock(UserService.class);
+        contentDraftPublishService = Mockito.mock(ContentDraftPublishService.class);
         ArtworkController artworkController = new ArtworkController();
         org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "artworkService", artworkService);
         org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "userService", userService);
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "contentDraftPublishService",
+                contentDraftPublishService);
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "contentModuleDraftBridgeService",
+                Mockito.mock(ContentModuleDraftBridgeService.class));
         org.springframework.test.util.ReflectionTestUtils.setField(artworkController, "publicContentAntiCrawlerManager",
                 new PublicContentAntiCrawlerManager());
         mockMvc = MockMvcBuilders.standaloneSetup(artworkController)
@@ -191,7 +200,9 @@ class ArtworkControllerTest {
 
     @Test
     void publishArtworkBatchShouldReturnSuccess() throws Exception {
-        when(artworkService.publishArtworkBatch(any())).thenReturn(true);
+        User admin = new User(); admin.setId(1L);
+        when(userService.getLoginUser(any())).thenReturn(admin);
+        when(contentDraftPublishService.publishArtwork(any(), eq(admin))).thenReturn(true);
 
         mockMvc.perform(post("/artwork/publish/batch")
                         .contentType(MediaType.APPLICATION_JSON)

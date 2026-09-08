@@ -1,0 +1,234 @@
+openapi: 3.0.3
+info:
+  title: OwnAI Unified Content API
+  version: 1.0.0
+  description: External agents use an API key to query content and save module-native drafts. Publishing remains an administrator action in each original module.
+servers:
+  - url: https://admin.ownai.icu/api/content/v1
+    description: Production
+security:
+  - ContentAssetKey: []
+paths:
+  /capabilities:
+    get:
+      summary: Get permissions, resource types and writable fields for the current key
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /taxonomy:
+    get:
+      summary: List current categories and tags
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /resources/{type}/list:
+    post:
+      summary: List resources, including drafts visible to the bound operator
+      parameters:
+        - $ref: '#/components/parameters/ResourceType'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /resources/{type}/{id}:
+    get:
+      summary: Get editable resource details and current version
+      parameters:
+        - $ref: '#/components/parameters/ResourceType'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Resource details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+    patch:
+      summary: Partially update content through its module-native draft
+      description: Omitted fields are preserved, arrays are replaced, null is rejected, and protected fields such as status cannot be supplied. Updating a supported published resource creates or updates a replacement draft while the current version stays public.
+      parameters:
+        - $ref: '#/components/parameters/ResourceType'
+        - $ref: '#/components/parameters/ResourceId'
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Version returned by the latest resource detail request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Updated draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '409':
+          description: Version conflict or published-resource draft bridge not yet available
+  /resources/{type}:
+    post:
+      summary: Create a module-native draft
+      parameters:
+        - $ref: '#/components/parameters/ResourceType'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Created draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+  /uploads:
+    post:
+      summary: Upload a content asset using the existing validation and storage rules
+      parameters:
+        - name: biz
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - artwork_cover
+              - artwork_video
+              - artwork_prompt
+              - artwork_source
+              - prompt_asset_cover
+              - video_background_cover
+              - video_background_preview
+              - video_background_source
+              - blog_image
+              - blog_video
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+components:
+  securitySchemes:
+    ContentAssetKey:
+      type: apiKey
+      in: header
+      name: X-Content-Asset-Key
+  parameters:
+    ResourceType:
+      name: type
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/ResourceType'
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9]+$'
+  schemas:
+    ResourceType:
+      type: string
+      enum:
+        - artwork
+        - prompt_asset
+        - video_background
+        - community_post
+        - tutorial_book
+        - tutorial_chapter
+        - tutorial_post
+    ResourceQuery:
+      type: object
+      properties:
+        current:
+          type: integer
+          minimum: 1
+          default: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+        keyword:
+          type: string
+        status:
+          oneOf:
+            - type: integer
+            - type: string
+        categoryId:
+          type: string
+        bookId:
+          type: string
+        chapterId:
+          type: string
+        tagId:
+          type: string
+        tagIdList:
+          type: array
+          items:
+            type: string
+        memberOnly:
+          type: integer
+          enum: [0, 1]
+        assetType:
+          type: string
+    ResourceEnvelope:
+      type: object
+      required: [resourceType, id, version, resource]
+      properties:
+        resourceType:
+          $ref: '#/components/schemas/ResourceType'
+        id:
+          type: string
+        version:
+          type: string
+        resource:
+          type: object
+          additionalProperties: true
+          description: A replacement draft may include pendingDraft, draftResourceId, or replacesResourceId metadata.
+    ResourceResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ResourceEnvelope'
+    BaseResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+        data: {}
+        message:
+          type: string
+  responses:
+    Success:
+      description: Unified OwnAI response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BaseResponse'

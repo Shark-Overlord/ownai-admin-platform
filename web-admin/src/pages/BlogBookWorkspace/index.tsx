@@ -1032,6 +1032,8 @@ export default function BlogBookWorkspace() {
                     value={activePost ? postStatusLabel[activePost.status] : '新建草稿'}
                     options={[{ label: activePost ? postStatusLabel[activePost.status] : '新建草稿', value: activePost ? postStatusLabel[activePost.status] : '新建草稿' }]}
                   />
+                  {activePost?.replacesResourceId && <Tag color="orange" style={{ marginTop: 8 }}>待更新已发布文章</Tag>}
+                  {activePost?.hasUnpublishedChanges && <Tag color="orange" style={{ marginTop: 8 }}>已有待发布修改</Tag>}
                 </Form.Item>
                 <Form.Item name="visibility" label="可见范围" rules={[{ required: true, message: '请选择可见范围' }]}>
                   <Select options={[

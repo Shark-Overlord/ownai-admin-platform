@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.model.vo.artwork;
 
 import com.yupi.springbootinit.model.vo.CategoryVO;
+import com.yupi.springbootinit.model.vo.NativeDraftAwareVO;
 import com.yupi.springbootinit.model.vo.TagVO;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -9,7 +10,7 @@ import java.util.List;
 import lombok.Data;
 
 @Data
-public class ArtworkVO implements Serializable {
+public class ArtworkVO implements Serializable, NativeDraftAwareVO {
 
     private Long id;
 
@@ -40,6 +41,14 @@ public class ArtworkVO implements Serializable {
     private Integer memberOnly;
 
     private Integer status;
+
+    /** Published row has a replacement draft waiting in this module. */
+    private Boolean hasUnpublishedChanges;
+
+    private Long unpublishedDraftId;
+
+    /** This row is the replacement draft for an already-published row. */
+    private Long replacesResourceId;
 
     private Integer viewCount;
 

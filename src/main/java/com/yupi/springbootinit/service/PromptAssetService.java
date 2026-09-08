@@ -41,6 +41,9 @@ public interface PromptAssetService extends IService<PromptAsset> {
 
     Boolean updatePromptAsset(PromptAssetUpdateRequest request);
 
+    /** Synchronize only the primary media row after an external Agent patch. */
+    void syncPrimaryMediaForContentAgent(Long promptAssetId, String coverUrl, String previewMediaUrl);
+
     Boolean updatePromptAssetTags(PromptAssetUpdateRequest request);
 
     Boolean deletePromptAsset(Long id);
