@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class CosManager {
 
+    private static final String IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
     @Resource
     private CosClientConfig cosClientConfig;
 
@@ -34,6 +36,7 @@ public class CosManager {
     public PutObjectResult putObject(String key, String localFilePath) {
         PutObjectRequest putObjectRequest = new PutObjectRequest(cosClientConfig.getBucket(), key,
                 new File(localFilePath));
+        putObjectRequest.setMetadata(buildMetadata(key, null));
         return cosClient.putObject(putObjectRequest);
     }
 
@@ -47,7 +50,7 @@ public class CosManager {
     public PutObjectResult putObject(String key, File file) {
         PutObjectRequest putObjectRequest = new PutObjectRequest(cosClientConfig.getBucket(), key,
                 file);
-        putObjectRequest.setMetadata(buildMetadata(key));
+        putObjectRequest.setMetadata(buildMetadata(key, null));
         return cosClient.putObject(putObjectRequest);
     }
 
@@ -62,19 +65,29 @@ public class CosManager {
     public PutObjectResult putObject(String key, File file, String contentType) {
         PutObjectRequest putObjectRequest = new PutObjectRequest(cosClientConfig.getBucket(), key,
                 file);
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.setContentType(contentType);
-        putObjectRequest.setMetadata(metadata);
+        putObjectRequest.setMetadata(buildMetadata(key, contentType));
         return cosClient.putObject(putObjectRequest);
     }
 
-    private ObjectMetadata buildMetadata(String key) {
+    private ObjectMetadata buildMetadata(String key, String explicitContentType) {
         ObjectMetadata metadata = new ObjectMetadata();
-        String contentType = resolveContentType(key);
+        String contentType = explicitContentType != null ? explicitContentType : resolveContentType(key);
         if (contentType != null) {
             metadata.setContentType(contentType);
         }
+        if (isVideo(key, contentType)) {
+            metadata.setCacheControl(IMMUTABLE_CACHE_CONTROL);
+            metadata.setContentDisposition("inline");
+        }
         return metadata;
+    }
+
+    private boolean isVideo(String key, String contentType) {
+        if (contentType != null && contentType.toLowerCase().startsWith("video/")) {
+            return true;
+        }
+        String resolvedContentType = resolveContentType(key);
+        return resolvedContentType != null && resolvedContentType.startsWith("video/");
     }
 
     private String resolveContentType(String key) {

@@ -2,7 +2,7 @@ import ResourceHotSort from "@/components/ResourceHotSort";
 import { trackResource, useResourceView } from "@/lib/resource-analytics";
 import { usePromptUnlock } from "@/components/prompt/PromptUnlockProvider";
 import { subscribePromptAccess } from "@/lib/prompt-unlock";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   Check,
@@ -68,6 +68,7 @@ import {
 import { getAuthSessionEventName, getPersistedAuthToken } from "@/lib/auth-session";
 import {
   getArtworkAccessState,
+  isSupportedArtworkVideoUrl,
 } from "@/lib/artwork-display-rules";
 import { getJson, isAuthenticationError, RequestError } from "@/lib/request";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,122 @@ import type {
 const FRONTEND_PROMPT_CATEGORY_ID = "2071608263790104578";
 const IMAGE_PROMPT_CATEGORY_ID = "2057283059198771201";
 const PAGE_SIZE = 20;
+const MAX_VISIBLE_AUTOPLAY_VIDEOS = 5;
+
+interface ViewportAutoplayVideoEntry {
+  priority: number;
+  visible: boolean;
+}
+
+const viewportAutoplayVideos = new Map<HTMLVideoElement, ViewportAutoplayVideoEntry>();
+let isViewportAutoplayVisibilityListenerAttached = false;
+let viewportAutoplayShuffleTimer: number | undefined;
+
+function syncViewportAutoplayVideos() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const canPlay = document.visibilityState === "visible";
+  const selectedVideos = new Set(
+    [...viewportAutoplayVideos.entries()]
+      .filter(([video, entry]) => video.isConnected && entry.visible)
+      .sort(([, left], [, right]) => left.priority - right.priority)
+      .slice(0, MAX_VISIBLE_AUTOPLAY_VIDEOS)
+      .map(([video]) => video),
+  );
+
+  viewportAutoplayVideos.forEach((_, video) => {
+    if ((!canPlay || !selectedVideos.has(video)) && !video.paused) {
+      video.pause();
+    }
+  });
+
+  if (canPlay) {
+    selectedVideos.forEach((video) => {
+      if (video.paused) {
+        void video.play().catch(() => undefined);
+      }
+    });
+  }
+}
+
+function shuffleViewportAutoplayVideos() {
+  if (document.visibilityState !== "visible") {
+    return;
+  }
+
+  viewportAutoplayVideos.forEach((entry) => {
+    entry.priority = Math.random();
+  });
+  syncViewportAutoplayVideos();
+}
+
+function registerViewportAutoplayVideo(video: HTMLVideoElement) {
+  viewportAutoplayVideos.set(video, {
+    priority: Math.random(),
+    visible: false,
+  });
+
+  if (!isViewportAutoplayVisibilityListenerAttached) {
+    document.addEventListener("visibilitychange", syncViewportAutoplayVideos);
+    isViewportAutoplayVisibilityListenerAttached = true;
+  }
+
+  if (viewportAutoplayShuffleTimer === undefined) {
+    viewportAutoplayShuffleTimer = window.setInterval(
+      shuffleViewportAutoplayVideos,
+      10_000,
+    );
+  }
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      const videoEntry = viewportAutoplayVideos.get(video);
+      if (!videoEntry) {
+        return;
+      }
+
+      videoEntry.visible = entry.isIntersecting && entry.intersectionRatio >= 0.2;
+      syncViewportAutoplayVideos();
+    },
+    { threshold: [0, 0.2] },
+  );
+
+  observer.observe(video);
+
+  return () => {
+    observer.disconnect();
+    video.pause();
+    viewportAutoplayVideos.delete(video);
+    syncViewportAutoplayVideos();
+
+    if (viewportAutoplayVideos.size === 0 && isViewportAutoplayVisibilityListenerAttached) {
+      document.removeEventListener("visibilitychange", syncViewportAutoplayVideos);
+      isViewportAutoplayVisibilityListenerAttached = false;
+    }
+
+    if (viewportAutoplayVideos.size === 0 && viewportAutoplayShuffleTimer !== undefined) {
+      window.clearInterval(viewportAutoplayShuffleTimer);
+      viewportAutoplayShuffleTimer = undefined;
+    }
+  };
+}
+
+function useViewportAutoplayVideo(videoUrl?: string) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoUrl) {
+      return;
+    }
+
+    return registerViewportAutoplayVideo(video);
+  }, [videoUrl]);
+
+  return videoRef;
+}
 
 type FrontendPromptView = "home" | "library" | "favorites";
 type CategoryKey = string;
@@ -905,6 +1022,11 @@ function PromptCard({
   const [isCopyLoading, setIsCopyLoading] = useState(false);
   const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
   const [isCoverUnavailable, setIsCoverUnavailable] = useState(!item.image);
+  const [isVideoUnavailable, setIsVideoUnavailable] = useState(false);
+  const videoUrl = item.videoUrl && isSupportedArtworkVideoUrl(item.videoUrl)
+    ? item.videoUrl
+    : undefined;
+  const videoRef = useViewportAutoplayVideo(isVideoUnavailable ? undefined : videoUrl);
   const isImageLoaded = loadedImageUrl === item.image;
   const isMediaReady = isImageLoaded || isCoverUnavailable;
   const accessState = getArtworkAccessState(item);
@@ -915,6 +1037,10 @@ function PromptCard({
     setLoadedImageUrl(null);
     setIsCoverUnavailable(!item.image);
   }, [item.id, item.image]);
+
+  useEffect(() => {
+    setIsVideoUnavailable(false);
+  }, [item.id, videoUrl]);
 
   useEffect(() => {
     setIsFavorited(Boolean(item.favorited));
@@ -1136,6 +1262,20 @@ function PromptCard({
             <FileText className="h-5 w-5" aria-hidden="true" />
           </div>
         )}
+        {videoUrl && !isVideoUnavailable ? (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            poster={item.image || undefined}
+            muted
+            loop
+            playsInline
+            preload="none"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full bg-[var(--frontend-prompt-card-image-bg)] object-cover"
+            onError={() => setIsVideoUnavailable(true)}
+          />
+        ) : null}
         <button
           type="button"
           onClick={(event) => {
