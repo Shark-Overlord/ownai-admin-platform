@@ -85,15 +85,59 @@ jobs:
         run: |
           JAR_FILE="$(find target -maxdepth 1 -type f -name '*.jar' ! -name 'original-*' | head -n 1)"
           test -n "$JAR_FILE"
-          rsync -r --partial --append-verify --timeout=120 --info=progress2 \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
-            "$JAR_FILE" "$DEPLOY_USER@$DEPLOY_HOST:$BACKEND_PATH/app.jar.tmp"
+          LOCAL_JAR_SHA="$(sha256sum "$JAR_FILE" | awk '{print $1}')"
+          REMOTE_JAR_SHA="$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sha256sum '$BACKEND_PATH/app.jar' 2>/dev/null | awk '{print \$1}'" || true)"
+          if [ "$LOCAL_JAR_SHA" = "$REMOTE_JAR_SHA" ]; then
+            echo "Backend jar is already uploaded with matching SHA-256."
+          else
+            rsync -r --partial --append-verify --timeout=120 --info=progress2 \
+              -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
+              "$JAR_FILE" "$DEPLOY_USER@$DEPLOY_HOST:$BACKEND_PATH/app.jar.tmp"
+          fi
 
       - name: Activate backend jar
         timeout-minutes: 3
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "set -eu; mv '$BACKEND_PATH/app.jar.tmp' '$BACKEND_PATH/app.jar'; sudo systemctl restart springboot-init; sudo systemctl is-active springboot-init"
+            bash -s -- "$BACKEND_PATH" <<'REMOTE'
+          set -eu
+          backend_path="$1"
+          old_pid="$(systemctl show --property MainPID --value springboot-init)"
+          test "$old_pid" -gt 1
+
+          if [ -f "$backend_path/app.jar.tmp" ]; then
+            mv "$backend_path/app.jar.tmp" "$backend_path/app.jar"
+          fi
+
+          if sudo -n systemctl restart springboot-init; then
+            echo "Restarted backend with sudo."
+          else
+            process_owner="$(ps -o user= -p "$old_pid" | xargs)"
+            current_user="$(id -un)"
+            restart_policy="$(systemctl show --property Restart --value springboot-init)"
+            test "$process_owner" = "$current_user"
+            case "$restart_policy" in
+              always|on-failure|on-abnormal|on-abort) ;;
+              *) echo "Unsafe restart policy: $restart_policy" >&2; exit 1 ;;
+            esac
+            kill -TERM "$old_pid"
+            echo "Asked systemd-managed PID $old_pid to restart."
+          fi
+
+          for attempt in $(seq 1 45); do
+            new_pid="$(systemctl show --property MainPID --value springboot-init)"
+            service_state="$(systemctl is-active springboot-init || true)"
+            if [ "$new_pid" -gt 1 ] && [ "$new_pid" != "$old_pid" ] && [ "$service_state" = "active" ]; then
+              echo "Backend is active with new PID $new_pid."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          systemctl status springboot-init --no-pager || true
+          exit 1
+          REMOTE
 
       - name: Deploy admin frontend
         run: |
