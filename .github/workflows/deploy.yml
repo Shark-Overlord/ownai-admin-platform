@@ -80,15 +80,20 @@ jobs:
           echo "RELEASE_BACKUP_PATH=$RELEASE_BACKUP_PATH" >> "$GITHUB_ENV"
           echo "Production backup: \`$RELEASE_BACKUP_PATH\`" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Deploy backend jar
+      - name: Upload backend jar
+        timeout-minutes: 15
         run: |
           JAR_FILE="$(find target -maxdepth 1 -type f -name '*.jar' ! -name 'original-*' | head -n 1)"
           test -n "$JAR_FILE"
-          rsync -az \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+          rsync -r --partial --append-verify --timeout=120 --info=progress2 \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
             "$JAR_FILE" "$DEPLOY_USER@$DEPLOY_HOST:$BACKEND_PATH/app.jar.tmp"
+
+      - name: Activate backend jar
+        timeout-minutes: 3
+        run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "mv '$BACKEND_PATH/app.jar.tmp' '$BACKEND_PATH/app.jar' && sudo systemctl restart springboot-init"
+            "set -eu; mv '$BACKEND_PATH/app.jar.tmp' '$BACKEND_PATH/app.jar'; sudo systemctl restart springboot-init; sudo systemctl is-active springboot-init"
 
       - name: Deploy admin frontend
         run: |
