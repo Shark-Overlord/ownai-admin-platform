@@ -613,6 +613,7 @@ function parsePreviewJsonPayload(
 }
 
 export async function listHomeArtworks(options?: {
+  hotDays?: number;
   categoryId?: string | number | null;
   current?: number;
   pageSize?: number;
@@ -623,6 +624,7 @@ export async function listHomeArtworks(options?: {
   const searchText = options?.searchText?.trim();
   const query: ArtworkQueryRequest = {
     ...HOME_ARTWORK_QUERY,
+    ...(options?.hotDays ? { sortField: "hot", hotDays: options.hotDays } : {}),
     ...(options?.current ? { current: options.current } : {}),
     ...(options?.pageSize ? { pageSize: options.pageSize } : {}),
     ...(options?.categoryId ? { categoryId: options.categoryId } : {}),
@@ -671,6 +673,7 @@ export async function listHomeArtworks(options?: {
 }
 
 export async function listHomePromptAssets(options: {
+  hotDays?: number;
   categoryId?: string | number;
   current?: number;
   isFeatured?: "1";
@@ -686,6 +689,7 @@ export async function listHomePromptAssets(options: {
     "/promptAsset/list/page/vo",
     {
       ...HOME_PROMPT_ASSET_QUERY,
+      ...(options.hotDays ? { sortField: "hot", hotDays: options.hotDays } : {}),
       current,
       pageSize,
       ...(options.categoryId !== undefined ? { categoryId: options.categoryId } : {}),

@@ -31,6 +31,7 @@ sql/*.sql
 !sql/content_module_draft_bridge.sql
 !sql/video_background_favorite.sql
 !sql/site_analytics.sql
+!sql/resource_analytics.sql
 !sql/blog_schema.sql
 !sql/system_ai_config_migration.sql
 !sql/blog_book_chapter_migration.sql

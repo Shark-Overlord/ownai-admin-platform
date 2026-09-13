@@ -1,3 +1,5 @@
+import ResourceHotSort from "@/components/ResourceHotSort";
+import { trackResource, useResourceView } from "@/lib/resource-analytics";
 import { usePromptUnlock } from "@/components/prompt/PromptUnlockProvider";
 import { subscribePromptAccess } from "@/lib/prompt-unlock";
 import { useEffect, useState } from "react";
@@ -1401,6 +1403,7 @@ function PromptDetailDialog({
       const content = detail.item.sourceType === "artwork"
         ? await getArtworkPromptContent(detail.item.id) : detail.promptContent;
       await navigator.clipboard.writeText(content);
+      void trackResource(detail.item.sourceType === "artwork" ? "artwork" : "image_prompt", detail.item.id, "copy");
       setIsCopied(true);
       window.setTimeout(() => setIsCopied(false), 1400);
     } catch (error) {
@@ -1910,6 +1913,8 @@ export function FrontendPromptLibraryPage() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [categorySearchText, setCategorySearchText] = useState("");
   const [promptDetail, setPromptDetail] = useState<PromptDetailState | null>(null);
+  const [hotDays, setHotDays] = useState(0);
+  useResourceView(promptDetail?.item.sourceType === "artwork" ? "artwork" : "image_prompt", promptDetail?.item.id);
   const [homeOverviewItems, setHomeOverviewItems] = useState<SiteItem[]>([]);
   const [homeTotalCount, setHomeTotalCount] = useState(0);
   const [homeRecentThreeDaysCount, setHomeRecentThreeDaysCount] = useState(0);
@@ -2044,6 +2049,7 @@ export function FrontendPromptLibraryPage() {
       }
 
       const result = await listHomeArtworks({
+        hotDays,
         categoryId: activeFilter?.categoryId,
         current: nextPage,
         pageSize: PAGE_SIZE,
@@ -2107,7 +2113,7 @@ export function FrontendPromptLibraryPage() {
     void loadItems(1, { signal: controller.signal });
 
     return () => controller.abort();
-  }, [activeCategory, activeView, categories, categorySearchText]);
+  }, [activeCategory, activeView, categories, categorySearchText, hotDays]);
 
   useEffect(() => {
     if (activeView !== "favorites") {
@@ -2214,6 +2220,7 @@ export function FrontendPromptLibraryPage() {
     try {
       const promptContent = await loadPromptContent(item);
       await navigator.clipboard.writeText(promptContent);
+      void trackResource(item.sourceType === "artwork" ? "artwork" : "image_prompt", item.id, "copy");
       return true;
     } catch (error) {
       if (item.sourceType === "artwork" && error instanceof RequestError && [40101, 40300].includes(error.code ?? 0)) {
@@ -2385,6 +2392,7 @@ export function FrontendPromptLibraryPage() {
               </div>
             </div>
             <div className="px-5 pt-3 sm:px-6">
+              <div className="mb-3"><ResourceHotSort value={hotDays} onChange={setHotDays} /></div>
               <label className="flex h-11 w-full items-center gap-2 rounded-full bg-[var(--chat-control-soft)] px-4 text-[var(--chat-control-text)]">
                 <Search className="h-4 w-4 shrink-0 text-[var(--chat-muted)]" />
                 <input

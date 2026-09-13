@@ -36,17 +36,10 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.http.HttpUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -79,6 +72,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Api(tags = "Artwork")
 @Slf4j
 public class ArtworkController {
+    @Resource
+    private com.yupi.springbootinit.service.ResourceDownloadService resourceDownloadService;
 
     @Resource
     private ArtworkService artworkService;
@@ -347,54 +342,11 @@ public class ArtworkController {
     public void downloadArtworkSource(@RequestParam("id") long id, HttpServletRequest request,
             HttpServletResponse response) throws IOException {
         User loginUser = userService.getLoginUser(request);
-        String sourceZipUrl = artworkService.getArtworkSourceZipUrl(id, loginUser);
-        validateSourceZipUrl(sourceZipUrl);
-
-        Artwork artwork = artworkService.getById(id);
-        String downloadName = StringUtils.defaultIfBlank(artwork == null ? null : artwork.getTitle(),
-                "artwork-" + id) + "-source.zip";
-        String encodedName = URLEncoder.encode(downloadName, StandardCharsets.UTF_8.name())
-                .replace("+", "%20");
-
-        HttpURLConnection connection = (HttpURLConnection) new URL(sourceZipUrl).openConnection();
-        connection.setConnectTimeout(15_000);
-        connection.setReadTimeout(120_000);
-        connection.setInstanceFollowRedirects(true);
-        connection.setRequestMethod("GET");
-        int statusCode = connection.getResponseCode();
-        if (statusCode < 200 || statusCode >= 300) {
-            connection.disconnect();
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "源码文件读取失败");
-        }
-
-        response.setContentType("application/zip");
-        response.setHeader("Content-Disposition",
-                "attachment; filename=\"artwork-source.zip\"; filename*=UTF-8''" + encodedName);
-        response.setHeader("Cache-Control", "private, no-store");
-        long contentLength = connection.getContentLengthLong();
-        if (contentLength >= 0) {
-            response.setContentLengthLong(contentLength);
-        }
-
-        try (InputStream inputStream = new BufferedInputStream(connection.getInputStream());
-                OutputStream outputStream = new BufferedOutputStream(response.getOutputStream())) {
-            byte[] buffer = new byte[16 * 1024];
-            int length;
-            while ((length = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, length);
-            }
-            outputStream.flush();
-        } finally {
-            connection.disconnect();
-        }
+        resourceDownloadService.download("artwork", id, null, loginUser,
+                () -> artworkService.getArtworkSourceZipUrl(id, loginUser), "artwork-" + id + "-source", response);
     }
 
-    private void validateSourceZipUrl(String sourceZipUrl) {
-        String cosHost = StringUtils.removeEnd(StringUtils.trimToEmpty(cosClientConfig.getHost()), "/");
-        if (StringUtils.isBlank(cosHost) || !StringUtils.startsWith(sourceZipUrl, cosHost + "/")) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "源码文件地址无效");
-        }
-    }
+
 
     /**
      * 获取作品统计 Get artwork statistics

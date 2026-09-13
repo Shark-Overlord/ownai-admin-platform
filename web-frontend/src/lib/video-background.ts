@@ -215,6 +215,7 @@ async function listVideoBackgroundPage(
     ...(options.tagIdList?.length ? { tagIdList: options.tagIdList.map(String) } : {}),
     ...(options.memberOnly === 1 ? { memberOnly: 1 } : {}),
     ...(options.sortField ? { sortField: options.sortField } : {}),
+    ...(options.hotDays ? { hotDays: options.hotDays } : {}),
     ...(options.sortOrder ? { sortOrder: options.sortOrder } : {}),
   };
   const result = await postJson<Page<VideoBackgroundVO>>(path, query, {

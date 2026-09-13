@@ -307,6 +307,10 @@ public class VideoBackgroundServiceImpl extends ServiceImpl<VideoBackgroundMappe
             wrapper.last("ORDER BY (SELECT updateTime FROM video_background_favorite f WHERE f.videoBackgroundId = "
                     + "video_background.id AND f.userId = " + favoriteUserId + " AND f.isDelete = 0) DESC, id DESC");
         } else {
+            if ("hot".equals(request.getSortField())) {
+                wrapper.last(com.yupi.springbootinit.service.ResourceAnalyticsService.hotOrder("video_background", request.getHotDays()));
+                return wrapper;
+            }
             String sortField = request.getSortField();
             String sortOrder = request.getSortOrder();
             wrapper.orderBy(SqlUtils.validSortField(sortField), CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);

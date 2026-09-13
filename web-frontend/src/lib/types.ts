@@ -230,6 +230,7 @@ export interface AnnouncementVO {
 }
 
 export interface ArtworkQueryRequest {
+  hotDays?: number;
   categoryId?: number | string;
   current: number;
   memberOnly?: number;
@@ -316,6 +317,7 @@ export interface ArtworkDetailVO extends ArtworkVO {
 }
 
 export interface VideoBackgroundQueryRequest {
+  hotDays?: number;
   categoryId?: number | string;
   current: number;
   memberOnly?: number;

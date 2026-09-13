@@ -1,3 +1,6 @@
+import ResourceHotSort from "@/components/ResourceHotSort";
+import PromptImageDownload from "@/components/PromptImageDownload";
+import { trackResource, useResourceView } from "@/lib/resource-analytics";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent, UIEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -152,6 +155,7 @@ const PAGE_COPY = {
     promptMarketDescription: "Curated visual prompts ready for concept, layout, and production exploration",
     featured: "Featured",
     latest: "Latest",
+    allAssets: "All",
     promptMarketViews: "views",
     promptLibrary: "Prompt library",
     promptSearch: "Search prompts",
@@ -250,6 +254,7 @@ const PAGE_COPY = {
     promptMarketDescription: "精选视觉 Prompt，适合概念、版式和交付探索",
     featured: "精选",
     latest: "最新",
+    allAssets: "全部",
     promptMarketViews: "浏览",
     promptLibrary: "提示词",
     promptSearch: "搜索提示词",
@@ -2511,7 +2516,7 @@ function PromptMarketView({
                       )}
                       aria-pressed={active}
                     >
-                      {option === "latest" ? copy.latest : copy.featured}
+                      {option === "latest" ? copy.allAssets : copy.featured}
                     </button>
                   );
                 })}
@@ -3047,6 +3052,7 @@ function PromptDetailOverlay({
   relatedItems,
   onClose,
   onCopyPrompt,
+  onMessage,
   onOpenRelated,
   onReferenceImage,
   onUsePrompt,
@@ -3057,6 +3063,7 @@ function PromptDetailOverlay({
   relatedItems: SiteItem[];
   onClose: () => void;
   onCopyPrompt: () => void;
+  onMessage: (text: string) => void;
   onOpenRelated: (item: SiteItem) => void;
   onReferenceImage: (imageUrl: string) => void;
   onUsePrompt: () => void;
@@ -3077,6 +3084,7 @@ function PromptDetailOverlay({
     >
       <div className="relative hidden min-w-0 flex-1 items-center justify-center px-8 py-8 lg:flex">
         <div className="absolute right-6 top-5 z-10 flex items-center gap-2">
+          <PromptImageDownload id={item.id} onMessage={onMessage} />
           <button
             type="button"
             onClick={onCopyPrompt}
@@ -3165,9 +3173,10 @@ function PromptDetailOverlay({
           </div>
 
           <section className="border-b border-[var(--chat-border)] pb-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <span className="text-[13px] font-semibold text-[var(--chat-muted-2)]">{copy.promptContent}</span>
-              <button
+              <PromptImageDownload id={item.id} onMessage={onMessage} />
+          <button
                 type="button"
                 onClick={onCopyPrompt}
                 className={cn(
@@ -3283,6 +3292,8 @@ export function ImageStudio2Page() {
   const [activeHistoryId, setActiveHistoryId] = useState("");
   const [activePromptId, setActivePromptId] = useState("");
   const [promptDetailItem, setPromptDetailItem] = useState<SiteItem | null>(null);
+  const [hotDays, setHotDays] = useState(0);
+  useResourceView("image_prompt", promptDetailItem?.id);
   const [promptCopyStatus, setPromptCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationMessages, setConversationMessages] = useState<ConversationMessageView[]>([]);
@@ -3454,6 +3465,7 @@ export function ImageStudio2Page() {
         categoryId: IMAGE_PROMPT_CATEGORY_ID,
         current: page,
         isFeatured: filter === "featured" ? "1" : undefined,
+        hotDays,
         pageSize: PROMPT_PAGE_SIZE,
         sceneTagIdList: categoryId === "all" ? undefined : [categoryId],
         signal,
@@ -3744,7 +3756,7 @@ export function ImageStudio2Page() {
     return () => {
       abortController.abort();
     };
-  }, [mainView, promptMarketCategoryId, promptMarketFilter]);
+  }, [mainView, promptMarketCategoryId, promptMarketFilter, hotDays]);
 
   useEffect(() => {
     if (mainView !== "promptSearch") {
@@ -4157,6 +4169,7 @@ export function ImageStudio2Page() {
 
     try {
       await copyTextToClipboard(getPromptItemText(promptDetailItem));
+      void trackResource("image_prompt", promptDetailItem.id, "copy");
       setPromptCopyStatus("copied");
     } catch {
       setPromptCopyStatus("error");
@@ -4629,6 +4642,8 @@ export function ImageStudio2Page() {
                   totalCount={homeTotalPromptCount}
                 />
               ) : isPromptMarketView ? (
+                <>
+                <div className="mb-3"><ResourceHotSort value={hotDays} onChange={setHotDays} /></div>
                 <PromptMarketView
                   activeCategoryId={promptMarketCategoryId}
                   categories={promptMarketCategories}
@@ -4644,6 +4659,7 @@ export function ImageStudio2Page() {
                   onOpenPrompt={handlePromptMarketPick}
                   onUsePrompt={handleUsePromptItem}
                 />
+                </>
               ) : isPromptSearchView ? (
                 <PromptSearchView
                   copy={copy}
@@ -4865,6 +4881,7 @@ export function ImageStudio2Page() {
             setPromptCopyStatus("idle");
           }}
           onCopyPrompt={handleCopyPromptItem}
+          onMessage={(text) => setFeedback({ message: text, tone: "error" })}
           onOpenRelated={(item) => {
             setActivePromptId(item.id);
             setPromptDetailItem(item);

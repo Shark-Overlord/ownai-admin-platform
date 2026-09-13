@@ -21,5 +21,7 @@ public class ArtworkQueryRequest extends PageRequest implements Serializable {
 
     private Integer status;
 
+    private Integer hotDays;
+
     private static final long serialVersionUID = 1L;
 }

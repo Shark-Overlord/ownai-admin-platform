@@ -1,3 +1,5 @@
+import ResourceHotSort from "@/components/ResourceHotSort";
+import { useResourceView } from "@/lib/resource-analytics";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -587,6 +589,8 @@ export function VideoBackgroundLibraryPage() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<VideoBackgroundItem | null>(null);
+  const [hotDays, setHotDays] = useState(0);
+  useResourceView("video_background", detailItem?.id);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const currentItems = activeView === "favorites" ? favoriteItems : items;
@@ -701,7 +705,8 @@ export function VideoBackgroundLibraryPage() {
       pageSize: PAGE_SIZE,
       memberOnly: activeView === "library" && memberFilter === "member" ? 1 : undefined,
       searchText,
-      sortField: "createTime",
+      sortField: hotDays ? "hot" : "createTime",
+      hotDays: hotDays || undefined,
       sortOrder: "descend",
       signal,
     } as const;
@@ -756,7 +761,7 @@ export function VideoBackgroundLibraryPage() {
     void loadPage(1, false, controller.signal);
 
     return () => controller.abort();
-  }, [activeView, memberFilter, searchText]);
+  }, [activeView, memberFilter, searchText, hotDays]);
 
   const handleViewChange = (nextView: VideoLibraryView) => {
     if (nextView === "favorites" && !getPersistedLoginUser()) {
@@ -891,6 +896,7 @@ export function VideoBackgroundLibraryPage() {
           ) : null}
 
           <div className="px-4 py-4 sm:px-5">
+            {activeView === "library" && <div className="mb-3"><ResourceHotSort value={hotDays} onChange={setHotDays} /></div>}
             {isLoading ? (
               <PromptMasonry maxColumnCount={4} preferredColumnWidth={250}>
                 {Array.from({ length: 8 }).map((_, index) => <VideoBackgroundSkeleton key={index} />)}
