@@ -51,7 +51,7 @@ export default function ResourceAnalytics() {
   const field = (title: string, dataIndex: string, width = 110): ColumnsType<Row>[number] => ({ title, dataIndex, width });
   const typeColumn: ColumnsType<Row>[number] = { title: '类型', dataIndex: 'resourceType', width: 120, render: (v) => names[v] || v };
   const flowColumn: ColumnsType<Row>[number] = { title: '传输流量', dataIndex: 'transferredBytes', width: 130, render: bytes };
-  const accountColumns: ColumnsType<Row> = [field('账户 ID', 'userId', 190), field('昵称', 'userName', 140), field('请求次数', 'requests'), field('完成次数', 'downloads'), field('请求资源数', 'uniqueResources'), { title: '重复请求数', width: 110, render: (_, row) => Math.max(0, Number(row.requests) - Number(row.uniqueResources)) }, flowColumn,
+  const accountColumns: ColumnsType<Row> = [field('账户 ID', 'userId', 190), field('昵称', 'userName', 140), field('请求次数', 'requests'), field('完成次数', 'downloads'), field('请求资源数', 'uniqueResources'), { title: '重复请求数', width: 110, render: (_, row) => Math.max(0, Number(row.requests || 0) - Number(row.uniqueResources || 0)) }, flowColumn,
     { title: '下载权限', dataIndex: 'restricted', width: 100, render: (v) => <Tag color={Number(v) ? 'red' : 'green'}>{Number(v) ? '下载受限' : '允许下载'}</Tag> },
     { title: '操作', width: 265, fixed: 'right', render: (_, row) => <Space size={4}>
       <Button size="small" type="link" onClick={() => openDownloads(row, true)}>明细</Button>
@@ -85,7 +85,7 @@ export default function ResourceAnalytics() {
       <Button onClick={() => void load()} loading={loading}>刷新</Button>
     </Space>
     <Typography.Paragraph type="secondary">采集起点：{time(result.collectedFrom)} · 资源指标每5分钟汇总，上次更新：{time(result.updatedAt)} · 账户与下载明细实时查询</Typography.Paragraph>
-    <Tabs activeKey={tab} onChange={(v) => { setTab(v); setPage(1); setUserId(undefined); setResourceId(undefined); setSort(v === 'accounts' ? 'transferredBytes' : 'hotScore'); }} items={[{ key: 'resources', label: '资源排行' }, { key: 'overview', label: '下载流量' }, { key: 'accounts', label: '账户排行' }, { key: 'downloads', label: '下载明细' }]} />
+    <Tabs activeKey={tab} onChange={(v) => { sequence.current++; setResult({}); setLoading(true); setTab(v); setPage(1); setUserId(undefined); setResourceId(undefined); setSort(v === 'accounts' ? 'transferredBytes' : 'hotScore'); }} items={[{ key: 'resources', label: '资源排行' }, { key: 'overview', label: '下载流量' }, { key: 'accounts', label: '账户排行' }, { key: 'downloads', label: '下载明细' }]} />
     <Space wrap style={{ marginBottom: 16 }}>
       {['resources', 'downloads'].includes(tab) && <Select aria-label="资源类型" style={{ width: 150 }} value={type} allowClear placeholder="全部类型" onChange={(v) => { setType(v); setPage(1); }} options={Object.entries(names).map(([value, label]) => ({ value, label }))} />}
       {['resources', 'accounts'].includes(tab) && <Select aria-label="排序" style={{ width: 150 }} value={sort} onChange={(v) => { setSort(v); setPage(1); }} options={sorts.map(([value, label]) => ({ value, label }))} />}
@@ -98,7 +98,7 @@ export default function ResourceAnalytics() {
       <Card title="每日趋势"><Table rowKey={(r) => `${r.statDate}-${r.resourceType}`} dataSource={result.daily || []} pagination={{ pageSize: 15 }} scroll={{ x: 800 }} columns={[field('日期', 'statDate', 120), typeColumn, field('请求次数', 'requests'), field('完成次数', 'downloads'), field('下载账户数', 'downloadUsers'), flowColumn,
         { title: '流量趋势', width: 180, render: (_, r) => <div aria-label={bytes(r.transferredBytes)} style={{ height: 8, background: 'var(--ant-color-fill-secondary, #eee)', borderRadius: 4 }}><div style={{ height: 8, borderRadius: 4, background: '#1677ff', width: `${100 * Number(r.transferredBytes) / Math.max(1, ...(result.daily || []).map((d) => Number(d.transferredBytes)))}%` }} /></div> },
       ]} /></Card>
-    </Space> : <Table<Row> rowKey={(r) => tab === 'accounts' ? String(r.userId) : `${r.resourceType}-${r.id}`} loading={loading} dataSource={result.records || []} columns={tab === 'resources' ? resourceColumns : tab === 'accounts' ? accountColumns : downloadColumns} scroll={{ x: 'max-content' }} pagination={{ current: page, pageSize: 20, total: result.total || 0, showSizeChanger: false, onChange: setPage }} />}
+    </Space> : <Table<Row> key={tab} rowKey={(r) => String(r.id ?? r.userId ?? `${r.resourceType}-${r.resourceId}`)} loading={loading} dataSource={result.records || []} columns={tab === 'resources' ? resourceColumns : tab === 'accounts' ? accountColumns : downloadColumns} scroll={{ x: 'max-content' }} pagination={{ current: page, pageSize: 20, total: result.total || 0, showSizeChanger: false, onChange: setPage }} />}
     <Modal title={Number(target?.restricted) ? '恢复账户下载' : '禁止账户下载'} open={!!target} onCancel={() => setTarget(null)} onOk={() => void save()} confirmLoading={saving} okText="保存" cancelText="取消">
       <Typography.Paragraph>{target?.userName}（{target?.userId}）</Typography.Paragraph>
       <Typography.Paragraph type="secondary">仅影响新的站内文件下载，登录、浏览、收藏和复制保持可用</Typography.Paragraph>
