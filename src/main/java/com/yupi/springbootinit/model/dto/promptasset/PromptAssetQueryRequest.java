@@ -44,5 +44,7 @@ public class PromptAssetQueryRequest extends PageRequest implements Serializable
 
     private String sourceRepoName;
 
+    private Integer hotDays;
+
     private static final long serialVersionUID = 1L;
 }

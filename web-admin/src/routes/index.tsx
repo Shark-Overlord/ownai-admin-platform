@@ -1,3 +1,4 @@
+import ResourceAnalytics from '../pages/ResourceAnalytics';
 import { Navigate } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout';
 import Login from '../pages/Login';
@@ -50,6 +51,9 @@ export const routes = [
         path: 'dashboard',
         element: <Dashboard />,
         meta: { requiresAdmin: true },
+      },
+      {
+        path: 'resource-analytics', element: <ResourceAnalytics />, meta: { requiresAdmin: true },
       },
       {
         path: 'site-analytics',
@@ -220,6 +224,9 @@ export const menuRoutes = [
         path: '/dashboard',
         name: '概况',
         icon: 'DashboardOutlined',
+      },
+      {
+        path: '/resource-analytics', name: '资源统计', icon: 'BarChartOutlined',
       },
       {
         path: '/site-analytics',

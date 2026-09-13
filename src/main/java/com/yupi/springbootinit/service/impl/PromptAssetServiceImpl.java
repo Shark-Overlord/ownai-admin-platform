@@ -675,6 +675,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
 
     private void applyPromptAssetListTypeSort(QueryWrapper<PromptAsset> queryWrapper, PromptAssetQueryRequest request) {
         String listType = StringUtils.lowerCase(StringUtils.trimToEmpty(request.getListType()));
+        if ("hot".equals(request.getSortField()) || "hot".equals(listType)) {
+            queryWrapper.last(com.yupi.springbootinit.service.ResourceAnalyticsService.hotOrder("image_prompt", request.getHotDays()));
+            return;
+        }
         if (StringUtils.isBlank(listType)) {
             String sortField = request.getSortField();
             String sortOrder = request.getSortOrder();

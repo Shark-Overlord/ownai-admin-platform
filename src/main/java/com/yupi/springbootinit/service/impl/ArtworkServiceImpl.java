@@ -394,6 +394,10 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
                     .collect(Collectors.toList());
             queryWrapper.in("id", artworkIdList);
         }
+        if ("hot".equals(safeRequest.getSortField())) {
+            queryWrapper.last(com.yupi.springbootinit.service.ResourceAnalyticsService.hotOrder("artwork", safeRequest.getHotDays()));
+            return queryWrapper;
+        }
         String sortField = safeRequest.getSortField();
         String sortOrder = safeRequest.getSortOrder();
         queryWrapper.orderBy(SqlUtils.validSortField(sortField),

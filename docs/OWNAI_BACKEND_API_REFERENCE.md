@@ -287,3 +287,44 @@
 | `CategoryVO` | `id, parentId, name, description, sort, children, tags` |
 | `LoginUserVO` | `id, userAccount, userName, userAvatar, userRole, memberLevel, token, pointBalance` |
 | `AnnouncementVO` | `id, title, content, type, status, priority, publishTime, expireTime, readStatus, createTime` |
+
+## 资源热度、下载统计与下载权限
+
+部署新代码前，先在目标数据库执行增量脚本 `sql/resource_analytics.sql`。脚本只新增表，不回填历史下载或统一浏览数；已有收藏继续参与统计。回退代码时保留新增表与记录。数据库连接与业务日期均按北京时间使用；采集起点保存在 `resource_analytics_state`。
+
+后台入口：`/resource-analytics`。包含资源排行、下载流量、账户排行、下载明细，可按日期筛选，账户可按昵称或 ID 搜索，操作记录可查看最近 100 次限制／恢复。不启用自动异常判定、自动限流或自动封禁。
+
+以下路径均需加部署环境的 `/api` 前缀，沿用数值 `code` 的 `BaseResponse`，所有 ID 在前端按字符串处理。
+
+| 方法与路径 | 权限 | 参数／行为 |
+| --- | --- | --- |
+| `POST /resource-analytics/track` | 浏览允许匿名；复制需登录 | `{resourceType, resourceId, action, visitorId, eventKey}`；类型为 `artwork / video_background / image_prompt`，动作为 `view / copy`，身份从登录态读取。`eventKey` 使用 UUID，同一次重试复用它 |
+| `GET /resource-analytics/admin/resources` | 管理员 | `startDate, endDate, resourceType, sort, page, pageSize`；返回指标记录、总数、采集起点及最近汇总时间 |
+| `GET /resource-analytics/admin/overview` | 管理员 | `startDate, endDate`；类型汇总、每日趋势；无下载日期补零 |
+| `GET /resource-analytics/admin/accounts` | 管理员 | `startDate, endDate, sort, keyword, page, pageSize`；包括未下载账户，便于恢复历史限制 |
+| `GET /resource-analytics/admin/downloads` | 管理员 | `startDate, endDate, userId, resourceType, resourceId, page, pageSize`；完成、失败及传输中记录 |
+| `POST /resource-analytics/admin/download-permission` | 管理员 | `{userId, restricted, reason}`；原因必填，最多 500 字；操作与审计在同一事务写入 |
+| `GET /resource-analytics/admin/download-permission/audit` | 管理员 | `userId`；最近 100 次操作，包含原因、操作人、时间 |
+| `GET /promptAsset/source/download` | 登录且有资源访问权 | `id, mediaId?`；指定图片必须属于该资产；省略时取主图原文件，缺失时不会退回缩略图 |
+
+作品和视频的 `/artwork/source/download`、`/videoBackground/source/download` 保持原路径，统一使用下载服务。每次请求在源文件读取前重新查询账户下载权限与整号封禁状态；限制立即影响已登录账户的新请求，已开始的传输继续执行。下载受限返回 `40310`，对应 `ErrorCode.DOWNLOAD_RESTRICTED`，文案为“下载受限，请联系管理员”。普通下载限制不改变角色、会员权益、登录、浏览、收藏或复制能力。恢复必须由管理员手动操作。
+
+原文件只允许配置中的 HTTPS 存储来源，默认信任 `cos.client.host`，其他受控存储来源可通过 `resource.download.trusted-origins` 指定完整 origin（逗号分隔）。不跟随重定向；原文件地址由服务端根据资产解析，客户端不能提交下载 URL。公开预览与旧存储直链不在账户下载限制覆盖范围内。
+
+三个公开分页接口沿用原有鉴权和字段脱敏：请求新增 `sortField: "hot", hotDays: 7 | 30`，默认热度窗口为 7 天；图片 Prompt 的既有 `listType: "hot"` 也采用统一公式。选择“默认”时保留原列表排序。热度相同按现有创建时间、ID 倒序排列（现有实体没有独立的发布时间字段）。
+
+热度为 `5×有效下载 + 3×新增收藏 + 有效浏览 + 2×有效复制`。下载、复制按账户／资源／北京时间自然日去重；下载仅完成记录进入有效下载。浏览在详情实际打开后上报，30 分钟内按账户或匿名访客与资源去重，并通过数据库行锁防止并发重复计数。收藏使用当前有效收藏记录和首次收藏时间，反复取消、恢复不会生成新的收藏人数。客户端只上报浏览、复制，不能上报下载成功或流量；收藏也以服务端记录为准。
+
+资源指标每 5 分钟聚合，展示 `updatedAt`；账户、下载明细和流量页查询实时记录。重复下载、失败前已传输的字节都保留，账户“重复请求数”为请求次数减去请求过的不同资源数。字节表示后端成功写入响应的数据，不等于云厂商的实际计费流量，也不包含公开预览或绕过应用接口的访问。浏览器成功写入剪贴板才记录复制；前端埋点不能证明真实人工行为，因此不用于自动处罚账户。
+
+本地验证（JDK 17）：
+
+```powershell
+$env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
+.\mvnw.cmd '-Dtest=ResourceAnalyticsServiceTest,ResourceDownloadServiceTest,PromptAssetDownloadControllerTest' test
+.\mvnw.cmd '-Dtest=*Test,!CosManagerTest,!UserServiceTest' test
+npm --prefix web-admin run build
+npm --prefix web-frontend run build
+```
+
+第二条测试命令选择无需真实外部服务的 `*Test` 测试；`CosManagerTest` 为真实 COS 上传测试，`UserServiceTest` 使用完整应用默认配置，均不在此离线回归范围。真实联调使用独立本地 QA 数据库和测试账户，禁止将 QA 数据计入线上运营统计。

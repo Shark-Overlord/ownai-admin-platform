@@ -14,5 +14,7 @@ public class VideoBackgroundQueryRequest extends PageRequest implements Serializ
     private List<Long> tagIdList;
     private Integer memberOnly;
     private Integer status;
+    private Integer hotDays;
+
     private static final long serialVersionUID = 1L;
 }
