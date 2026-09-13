@@ -72,6 +72,14 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
+      - name: Backup current production release
+        run: |
+          RELEASE_BACKUP_PATH="$BACKEND_PATH/releases/${GITHUB_RUN_ID}-${GITHUB_SHA}"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "set -eu; mkdir -p '$RELEASE_BACKUP_PATH'; cp -p '$BACKEND_PATH/app.jar' '$RELEASE_BACKUP_PATH/app.jar.before'; tar -czf '$RELEASE_BACKUP_PATH/admin.before.tar.gz' -C '$ADMIN_FRONTEND_PATH' .; tar -czf '$RELEASE_BACKUP_PATH/frontend.before.tar.gz' -C '$PUBLIC_FRONTEND_PATH' .; sha256sum '$RELEASE_BACKUP_PATH/app.jar.before' '$RELEASE_BACKUP_PATH/admin.before.tar.gz' '$RELEASE_BACKUP_PATH/frontend.before.tar.gz' > '$RELEASE_BACKUP_PATH/before.sha256'"
+          echo "RELEASE_BACKUP_PATH=$RELEASE_BACKUP_PATH" >> "$GITHUB_ENV"
+          echo "Production backup: \`$RELEASE_BACKUP_PATH\`" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Deploy backend jar
         run: |
           JAR_FILE="$(find target -maxdepth 1 -type f -name '*.jar' ! -name 'original-*' | head -n 1)"
@@ -109,3 +117,21 @@ jobs:
           rsync -r --delete --exclude=index.html --no-times --omit-dir-times --no-perms --no-owner --no-group \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
             web-frontend/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$PUBLIC_FRONTEND_PATH/"
+
+      - name: Record deployed hashes and rollback command
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sha256sum '$BACKEND_PATH/app.jar' '$ADMIN_FRONTEND_PATH/index.html' '$PUBLIC_FRONTEND_PATH/index.html' | tee '$RELEASE_BACKUP_PATH/deployed.sha256'" \
+            | tee deployed.sha256
+          {
+            echo '### Deployment evidence'
+            echo
+            echo '```text'
+            cat deployed.sha256
+            echo '```'
+            echo
+            echo 'Rollback command:'
+            echo '```bash'
+            echo "ssh $DEPLOY_USER@$DEPLOY_HOST \"cp -p '$RELEASE_BACKUP_PATH/app.jar.before' '$BACKEND_PATH/app.jar' && tar -xzf '$RELEASE_BACKUP_PATH/admin.before.tar.gz' -C '$ADMIN_FRONTEND_PATH' && tar -xzf '$RELEASE_BACKUP_PATH/frontend.before.tar.gz' -C '$PUBLIC_FRONTEND_PATH' && find '$ADMIN_FRONTEND_PATH' '$PUBLIC_FRONTEND_PATH' -type d -exec chmod 755 {} + && find '$ADMIN_FRONTEND_PATH' '$PUBLIC_FRONTEND_PATH' -type f -exec chmod 644 {} + && sudo systemctl restart springboot-init\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
