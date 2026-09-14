@@ -21,6 +21,7 @@ import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkListVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkDeconstructionVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.config.CosClientConfig;
@@ -32,14 +33,16 @@ import com.yupi.springbootinit.service.ContentDraftPublishService;
 import com.yupi.springbootinit.service.ContentExternalService;
 import com.yupi.springbootinit.service.ContentModuleDraftBridgeService;
 import com.yupi.springbootinit.service.UserService;
-import cn.hutool.core.io.FileUtil;
+import com.yupi.springbootinit.utils.ArtworkPreviewBridgeInjector;
 import cn.hutool.http.HttpUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -47,7 +50,7 @@ import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -334,6 +337,16 @@ public class ArtworkController {
                 userService.getLoginUserPermitNull(request), false));
     }
 
+    @GetMapping("/deconstruction")
+    @ApiOperation("获取作品深度解构工作台数据")
+    public BaseResponse<ArtworkDeconstructionVO> getArtworkDeconstruction(@RequestParam("id") long id,
+            HttpServletRequest request, HttpServletResponse response) {
+        response.setHeader("Cache-Control", "private, no-store");
+        User loginUser = userService.getLoginUserPermitNull(request);
+        boolean adminView = loginUser != null && userService.isAdmin(loginUser);
+        return ResultUtils.success(artworkService.getArtworkDeconstruction(id, loginUser, adminView));
+    }
+
     /**
      * Download a source package after checking login and member/permanent/free access.
      */
@@ -399,6 +412,7 @@ public class ArtworkController {
             artworkListVO.setFavorited(artworkVO.getFavorited());
             artworkListVO.setFavoriteCount(artworkVO.getFavoriteCount());
             artworkListVO.setHasSourceCode(artworkVO.getHasSourceCode());
+            artworkListVO.setIsDeconstructed(Integer.valueOf(1).equals(artworkVO.getIsDeconstructed()));
             return artworkListVO;
         }).collect(Collectors.toList()));
         return ResultUtils.success(listPage);
@@ -452,57 +466,53 @@ public class ArtworkController {
     }
 
     /**
-     * 上传HTML原型压缩包（自动解压、上传COS）
+     * 上传单文件 HTML 原型。托管预览自动注入 postMessage 桥接，原始 HTML 自动封装为源码 ZIP。
      */
     @PostMapping("/upload/html")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    @ApiOperation("上传HTML原型压缩包 Upload HTML prototype zip")
-    public BaseResponse<Map<String, String>> uploadHtmlZip(@RequestPart("file") MultipartFile multipartFile) {
+    @ApiOperation("上传独立 HTML 原型 Upload standalone HTML prototype")
+    public BaseResponse<Map<String, String>> uploadStandaloneHtml(@RequestPart("file") MultipartFile multipartFile) {
         String filename = multipartFile.getOriginalFilename();
-        if (filename == null || !filename.toLowerCase().endsWith(".zip")) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "仅支持 ZIP 压缩包");
+        if (filename == null || !filename.toLowerCase().endsWith(".html")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "仅支持 HTML 文件");
         }
         if (multipartFile.getSize() > 50 * 1024 * 1024) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件大小不能超过 50MB");
         }
 
-        String tmpDir = System.getProperty("java.io.tmpdir");
         String uuid = UUID.randomUUID().toString().replace("-", "");
-        File extractDir = new File(tmpDir, "artwork-html-" + uuid);
+        File previewHtmlFile = null;
         File sourceZipFile = null;
 
         try {
+            byte[] originalHtmlBytes = multipartFile.getBytes();
+            String originalHtml = new String(originalHtmlBytes, StandardCharsets.UTF_8);
+            if (StringUtils.isBlank(originalHtml)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "HTML 文件不能为空");
+            }
+
+            // Keep the downloadable source pristine while injecting the bridge only into the hosted preview.
+            previewHtmlFile = File.createTempFile("artwork-preview-", ".html");
+            Files.write(previewHtmlFile.toPath(),
+                    ArtworkPreviewBridgeInjector.inject(originalHtml).getBytes(StandardCharsets.UTF_8));
+
             sourceZipFile = File.createTempFile("artwork-source-", ".zip");
-            multipartFile.transferTo(sourceZipFile);
-
-            // 1. 解压
-            try (InputStream inputStream = new java.io.FileInputStream(sourceZipFile)) {
-                extractZip(inputStream, extractDir);
+            try (ZipOutputStream output = new ZipOutputStream(new FileOutputStream(sourceZipFile))) {
+                output.putNextEntry(new ZipEntry("index.html"));
+                try (ByteArrayInputStream input = new ByteArrayInputStream(originalHtmlBytes)) {
+                    byte[] buffer = new byte[8192];
+                    int length;
+                    while ((length = input.read(buffer)) != -1) {
+                        output.write(buffer, 0, length);
+                    }
+                }
+                output.closeEntry();
             }
 
-            // 2. 查找 index.html
-            File indexHtml = findIndexHtml(extractDir);
-            if (indexHtml == null) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR, "压缩包内未找到 index.html");
-            }
-
-            // 3. 上传所有资源到 COS
-            String cosPrefix = "artwork/html/" + uuid + "/";
+            String htmlKey = "artwork/html/" + uuid + "/index.html";
             String sourceKey = "artwork/source/" + uuid + ".zip";
             cosManager.putObject(sourceKey, sourceZipFile, "application/zip");
-            String htmlKey = null;
-            for (File file : FileUtil.loopFiles(extractDir)) {
-                String relativePath = extractDir.toURI().relativize(file.toURI()).getPath().replace("\\", "/");
-                String key = cosPrefix + relativePath;
-                cosManager.putObject(key, file);
-                if (file.getCanonicalFile().equals(indexHtml.getCanonicalFile())) {
-                    htmlKey = key;
-                }
-            }
-
-            if (htmlKey == null) {
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "COS 上传异常");
-            }
+            cosManager.putObject(htmlKey, previewHtmlFile, "text/html; charset=utf-8");
 
             Map<String, String> result = new HashMap<>();
             result.put("htmlUrl", cosClientConfig.getHost() + "/" + htmlKey);
@@ -511,60 +521,23 @@ public class ArtworkController {
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("upload html zip error", e);
+            log.error("upload standalone html error", e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败: " + e.getMessage());
         } finally {
-            FileUtil.del(extractDir);
+            if (previewHtmlFile != null) {
+                try {
+                    Files.deleteIfExists(previewHtmlFile.toPath());
+                } catch (IOException e) {
+                    log.warn("Could not delete temporary preview HTML {}", previewHtmlFile, e);
+                }
+            }
             if (sourceZipFile != null) {
-                FileUtil.del(sourceZipFile);
+                try {
+                    Files.deleteIfExists(sourceZipFile.toPath());
+                } catch (IOException e) {
+                    log.warn("Could not delete temporary source ZIP {}", sourceZipFile, e);
+                }
             }
         }
-    }
-
-    private void extractZip(InputStream inputStream, File destDir) throws IOException {
-        if (!destDir.exists()) {
-            destDir.mkdirs();
-        }
-        String destinationPath = destDir.getCanonicalPath() + File.separator;
-        long extractedSize = 0L;
-        final long maxExtractedSize = 200L * 1024 * 1024;
-        try (ZipInputStream zis = new ZipInputStream(inputStream)) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                File entryFile = new File(destDir, entry.getName());
-                if (!entryFile.getCanonicalPath().startsWith(destinationPath)) {
-                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "ZIP 压缩包包含非法路径");
-                }
-                if (entry.isDirectory()) {
-                    entryFile.mkdirs();
-                    continue;
-                }
-                File parent = entryFile.getParentFile();
-                if (parent != null && !parent.exists()) {
-                    parent.mkdirs();
-                }
-                try (FileOutputStream fos = new FileOutputStream(entryFile)) {
-                    byte[] buffer = new byte[8192];
-                    int len;
-                    while ((len = zis.read(buffer)) > 0) {
-                        extractedSize += len;
-                        if (extractedSize > maxExtractedSize) {
-                            throw new BusinessException(ErrorCode.PARAMS_ERROR, "ZIP 解压后文件不能超过 200MB");
-                        }
-                        fos.write(buffer, 0, len);
-                    }
-                }
-                zis.closeEntry();
-            }
-        }
-    }
-
-    private File findIndexHtml(File dir) {
-        for (File file : FileUtil.loopFiles(dir)) {
-            if ("index.html".equalsIgnoreCase(file.getName())) {
-                return file;
-            }
-        }
-        return null;
     }
 }

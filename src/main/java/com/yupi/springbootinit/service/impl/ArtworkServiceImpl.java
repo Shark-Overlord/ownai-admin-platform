@@ -1,6 +1,8 @@
 package com.yupi.springbootinit.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -33,6 +35,7 @@ import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.model.vo.CategoryVO;
 import com.yupi.springbootinit.model.vo.TagVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkDeconstructionVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkListVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
@@ -63,6 +66,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> implements ArtworkService {
 
+    private static final Set<String> DEVICE_FRAMES = new LinkedHashSet<>(
+            java.util.Arrays.asList("app", "website", "none"));
+
     @Resource
     private CategoryMapper categoryMapper;
 
@@ -84,6 +90,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     @Resource
     private UserService userService;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public long addArtwork(ArtworkAddRequest artworkAddRequest, User loginUser) {
@@ -100,9 +108,12 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         }
         Artwork artwork = new Artwork();
         BeanUtils.copyProperties(artworkAddRequest, artwork);
+        artwork.setIsDeconstructed(artwork.getIsDeconstructed() == null ? 0 : artwork.getIsDeconstructed());
+        artwork.setDeviceFrame(StringUtils.defaultIfBlank(artwork.getDeviceFrame(), "website").toLowerCase());
         artwork.setPointsPrice(artwork.getPointsPrice() == null ? 100 : artwork.getPointsPrice());
         fillArtworkImageDimensions(artwork);
         validateArtwork(artwork, artworkAddRequest.getTagIdList());
+        validateArtworkDeconstruction(artwork, null);
         artwork.setUserId(loginUser.getId());
         artwork.setViewCount(0);
         artwork.setSort(artwork.getSort() == null ? 0 : artwork.getSort());
@@ -143,6 +154,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
                 || oldArtwork.getImageWidth() <= 0 || oldArtwork.getImageHeight() <= 0;
         boolean dimensionsResolved = !needsDimensions || fillArtworkImageDimensions(artwork);
         validateArtwork(artwork, artworkUpdateRequest.getTagIdList());
+        validateArtworkDeconstruction(artwork, oldArtwork);
         boolean result = this.updateById(artwork);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "作品更新失败");
         if (coverChanged && !dimensionsResolved) {
@@ -429,6 +441,33 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
     }
 
     @Override
+    public ArtworkDeconstructionVO getArtworkDeconstruction(Long artworkId, User loginUser, boolean adminView) {
+        ThrowUtils.throwIf(artworkId == null || artworkId <= 0, ErrorCode.PARAMS_ERROR);
+        Artwork artwork = this.getById(artworkId);
+        ThrowUtils.throwIf(artwork == null, ErrorCode.NOT_FOUND_ERROR, "作品不存在");
+        if (!adminView) {
+            ThrowUtils.throwIf(!ArtworkStatusEnum.PUBLISHED.getValue().equals(artwork.getStatus()),
+                    ErrorCode.NO_AUTH_ERROR, "作品未发布");
+            ThrowUtils.throwIf(!Integer.valueOf(1).equals(artwork.getIsDeconstructed()),
+                    ErrorCode.NOT_FOUND_ERROR, "该作品暂未发布深度解构");
+            ThrowUtils.throwIf(!hasArtworkAccess(artworkId, loginUser), ErrorCode.NO_AUTH_ERROR,
+                    "请先解锁该作品后查看深度解构");
+        }
+        ArtworkDeconstructionVO result = new ArtworkDeconstructionVO();
+        result.setId(artwork.getId());
+        result.setTitle(artwork.getTitle());
+        result.setIsDeconstructed(artwork.getIsDeconstructed());
+        result.setDeviceFrame(StringUtils.defaultIfBlank(artwork.getDeviceFrame(), "website"));
+        result.setDeconstructedPrompt(artwork.getDeconstructedPrompt());
+        result.setPromptData(parseJson(artwork.getPromptData(), "promptData"));
+        result.setPartsData(parseJson(artwork.getPartsData(), "partsData"));
+        result.setAssetsData(parseJson(artwork.getAssetsData(), "assetsData"));
+        result.setHtmlUrl(artwork.getHtmlUrl());
+        result.setStandaloneHtml(artwork.getStandaloneHtml());
+        return result;
+    }
+
+    @Override
     public String getArtworkPromptContent(Long artworkId, User loginUser) {
         ThrowUtils.throwIf(artworkId == null || artworkId <= 0, ErrorCode.PARAMS_ERROR);
         Artwork artwork = this.getById(artworkId);
@@ -524,6 +563,72 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
                 ErrorCode.PARAMS_ERROR, "二级标签不属于当前分类");
     }
 
+    private void validateArtworkDeconstruction(Artwork artwork, Artwork existing) {
+        Integer enabled = firstNonNull(artwork.getIsDeconstructed(),
+                existing == null ? null : existing.getIsDeconstructed());
+        String deviceFrame = firstNonBlank(artwork.getDeviceFrame(),
+                existing == null ? null : existing.getDeviceFrame());
+        ThrowUtils.throwIf(enabled != null && enabled != 0 && enabled != 1,
+                ErrorCode.PARAMS_ERROR, "isDeconstructed 只能为 0 或 1");
+        if (StringUtils.isNotBlank(deviceFrame)) {
+            deviceFrame = deviceFrame.trim().toLowerCase();
+            ThrowUtils.throwIf(!DEVICE_FRAMES.contains(deviceFrame), ErrorCode.PARAMS_ERROR,
+                    "deviceFrame 只能为 app、website 或 none");
+            if (StringUtils.isNotBlank(artwork.getDeviceFrame())) artwork.setDeviceFrame(deviceFrame);
+        }
+
+        String promptData = firstNonBlank(artwork.getPromptData(), existing == null ? null : existing.getPromptData());
+        String partsData = firstNonBlank(artwork.getPartsData(), existing == null ? null : existing.getPartsData());
+        String assetsData = firstNonBlank(artwork.getAssetsData(), existing == null ? null : existing.getAssetsData());
+        validateJson(promptData, "promptData");
+        validateJson(partsData, "partsData");
+        validateJson(assetsData, "assetsData");
+
+        if (Integer.valueOf(1).equals(enabled)) {
+            ThrowUtils.throwIf(StringUtils.isBlank(firstNonBlank(artwork.getDeconstructedPrompt(),
+                    existing == null ? null : existing.getDeconstructedPrompt())), ErrorCode.PARAMS_ERROR,
+                    "启用深度解构前必须填写完整解构 Prompt");
+            ThrowUtils.throwIf(StringUtils.isBlank(promptData), ErrorCode.PARAMS_ERROR,
+                    "启用深度解构前必须填写设计令牌");
+            ThrowUtils.throwIf(StringUtils.isBlank(partsData), ErrorCode.PARAMS_ERROR,
+                    "启用深度解构前必须填写核心零件");
+            ThrowUtils.throwIf(StringUtils.isBlank(assetsData), ErrorCode.PARAMS_ERROR,
+                    "启用深度解构前必须填写设计资产");
+            String htmlUrl = firstNonBlank(artwork.getHtmlUrl(), existing == null ? null : existing.getHtmlUrl());
+            String legacyStandaloneHtml = firstNonBlank(artwork.getStandaloneHtml(),
+                    existing == null ? null : existing.getStandaloneHtml());
+            ThrowUtils.throwIf(StringUtils.isBlank(htmlUrl) && StringUtils.isBlank(legacyStandaloneHtml),
+                    ErrorCode.PARAMS_ERROR, "启用深度解构前必须上传独立 HTML");
+        }
+    }
+
+    private void validateJson(String value, String fieldName) {
+        if (StringUtils.isBlank(value)) return;
+        try {
+            objectMapper.readTree(value);
+        } catch (Exception exception) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, fieldName + " 必须是合法 JSON");
+        }
+    }
+
+    private JsonNode parseJson(String value, String fieldName) {
+        if (StringUtils.isBlank(value)) return null;
+        try {
+            return objectMapper.readTree(value);
+        } catch (Exception exception) {
+            log.error("Invalid artwork deconstruction JSON in {}", fieldName, exception);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "作品解构数据格式错误");
+        }
+    }
+
+    private <T> T firstNonNull(T value, T fallback) {
+        return value == null ? fallback : value;
+    }
+
+    private String firstNonBlank(String value, String fallback) {
+        return StringUtils.isBlank(value) ? fallback : value;
+    }
+
     private void saveArtworkTags(Long artworkId, List<Long> tagIdList) {
         if (artworkId == null || CollUtil.isEmpty(tagIdList)) {
             return;
@@ -588,6 +693,7 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
             item.setFavorited(artworkVO.getFavorited());
             item.setFavoriteCount(artworkVO.getFavoriteCount());
             item.setHasSourceCode(artworkVO.getHasSourceCode());
+            item.setIsDeconstructed(Integer.valueOf(1).equals(artworkVO.getIsDeconstructed()));
             return item;
         }).collect(Collectors.toList());
     }

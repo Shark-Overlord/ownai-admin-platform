@@ -21,7 +21,22 @@ export interface ArtworkVO {
   htmlUrl?: string;
   sourceZipUrl?: string;
   hasSourceCode?: boolean;
+  isDeconstructed?: number;
+  deviceFrame?: 'app' | 'website' | 'none';
   createTime?: string;
+}
+
+export interface ArtworkDeconstructionVO {
+  id: string;
+  title: string;
+  isDeconstructed?: number;
+  deviceFrame?: 'app' | 'website' | 'none';
+  deconstructedPrompt?: string;
+  promptData?: unknown;
+  partsData?: unknown;
+  assetsData?: unknown;
+  htmlUrl?: string;
+  standaloneHtml?: string;
 }
 
 export interface ArtworkAddRequest {
@@ -36,7 +51,15 @@ export interface ArtworkAddRequest {
   pointsPrice?: number;
   memberOnly?: number;
   status?: number;
+  htmlUrl?: string;
   sourceZipUrl?: string;
+  isDeconstructed?: number;
+  deviceFrame?: 'app' | 'website' | 'none';
+  deconstructedPrompt?: string;
+  promptData?: string;
+  partsData?: string;
+  assetsData?: string;
+  standaloneHtml?: string;
   tagIdList?: number[];
 }
 
@@ -78,4 +101,8 @@ export async function updateArtworkMemberOnlyBatch(params: { ids: number[]; memb
 
 export async function getArtworkVOById(id: number) {
   return request.get('/artwork/get/vo', { params: { id } }) as Promise<{ data: ArtworkVO }>;
+}
+
+export async function getArtworkDeconstruction(id: number | string) {
+  return request.get('/artwork/deconstruction', { params: { id } }) as Promise<{ data: ArtworkDeconstructionVO }>;
 }

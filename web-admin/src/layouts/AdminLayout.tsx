@@ -99,8 +99,9 @@ export default function AdminLayout() {
     );
   }
 
-  const isTutorialWorkspace = /^\/tutorial-assets\/books\/[^/]+\/workspace\/?$/.test(location.pathname);
-  if (isTutorialWorkspace) {
+  const isFullscreenWorkspace = /^\/tutorial-assets\/books\/[^/]+\/workspace\/?$/.test(location.pathname)
+    || /^\/artwork\/deconstruction\/[^/]+\/?$/.test(location.pathname);
+  if (isFullscreenWorkspace) {
     return <Outlet />;
   }
 
