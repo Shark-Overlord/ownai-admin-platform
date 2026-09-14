@@ -26,6 +26,7 @@ export interface SiteItem {
   favoriteCount?: number;
   favorited?: boolean;
   hasSourceCode?: boolean;
+  isDeconstructed?: boolean;
   tags: string[];
   assetTags?: string[];
   assetTagTexts?: string[];
@@ -294,6 +295,7 @@ export interface ArtworkVO {
   favorited?: boolean;
   hasSourceCode?: boolean;
   htmlUrl?: string;
+  isDeconstructed?: boolean | number;
   id: string;
   imageAspectRatio?: number | string;
   imageHeight?: number | string;
@@ -314,6 +316,19 @@ export interface ArtworkVO {
 
 export interface ArtworkDetailVO extends ArtworkVO {
   accessReason?: string | null;
+}
+
+export interface ArtworkDeconstructionVO {
+  id: string;
+  title: string;
+  isDeconstructed?: number;
+  deviceFrame?: "app" | "website" | "none";
+  deconstructedPrompt?: string;
+  promptData?: unknown;
+  partsData?: unknown;
+  assetsData?: unknown;
+  htmlUrl?: string;
+  standaloneHtml?: string;
 }
 
 export interface VideoBackgroundQueryRequest {

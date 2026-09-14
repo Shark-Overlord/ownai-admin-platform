@@ -6,6 +6,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { SiteAnalyticsTracker } from "@/components/analytics/SiteAnalyticsTracker";
 const ContactPage = lazy(() => import("@/pages/ContactPage").then(module => ({ default: module.ContactPage })));
 const FrontendPromptLibraryPage = lazy(() => import("@/pages/FrontendPromptLibraryPage").then(module => ({ default: module.FrontendPromptLibraryPage })));
+const ArtworkDeconstructionPage = lazy(() => import("@/pages/ArtworkDeconstruction"));
 const HomePage = lazy(() => import("@/pages/HomePage").then(module => ({ default: module.HomePage })));
 const OwnAIDesignPage = lazy(() => import("@/pages/OwnAIDesignPage").then(module => ({ default: module.OwnAIDesignPage })));
 const ImageStudio2Page = lazy(() => import("@/pages/ImageStudio2Page").then(module => ({ default: module.ImageStudio2Page })));
@@ -37,12 +38,16 @@ function RouteRobotsPolicy() {
 
 function App() {
   useTheme(); // Initialize theme on load
+  const location = useLocation();
+  const isDeconstructionRoute = location.pathname.startsWith(
+    "/artwork/deconstruction/",
+  );
 
   return (
     <>
       <SiteAnalyticsTracker />
       <RouteRobotsPolicy />
-      <AnnouncementPopup />
+      {!isDeconstructionRoute && <AnnouncementPopup />}
       <PromptUnlockProvider>
       <RouteLoadBoundary><Suspense fallback={<main className="flex min-h-[60vh] items-center justify-center gap-3 bg-[var(--hero-surface)] text-[14px] text-[var(--hero-muted)]" role="status">正在加载页面…</main>}><Routes>
       <Route path="/" element={<HomePage />} />
@@ -61,6 +66,14 @@ function App() {
         element={
           <ProtectedRoute>
             <FrontendPromptLibraryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/artwork/deconstruction/:id"
+        element={
+          <ProtectedRoute>
+            <ArtworkDeconstructionPage />
           </ProtectedRoute>
         }
       />

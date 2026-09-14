@@ -5,6 +5,7 @@ import {
 } from "@/lib/artwork-display-rules";
 import type {
   ArtworkDetailVO,
+  ArtworkDeconstructionVO,
   ArtworkPreviewResponse,
   ArtworkQueryRequest,
   ArtworkVO,
@@ -60,6 +61,7 @@ interface ArtworkHomeOverviewItemVO {
   favoriteCount?: number | string;
   favorited?: boolean;
   hasSourceCode?: boolean;
+  isDeconstructed?: boolean;
   id: string;
   imageAspectRatio?: number | string;
   imageHeight?: number | string;
@@ -461,6 +463,8 @@ export function normalizeArtworkToSiteItem(artwork: ArtworkVO): SiteItem {
     favorited:
       typeof artwork.favorited === "boolean" ? artwork.favorited : undefined,
     hasSourceCode: artwork.hasSourceCode === true,
+    isDeconstructed:
+      artwork.isDeconstructed === true || artwork.isDeconstructed === 1,
     tags: tagNames,
     image: normalizeArtworkImage(
       getFirstCoverImageUrl([artwork.coverUrl, artwork.imageUrl]),
@@ -616,6 +620,7 @@ export async function listHomeArtworks(options?: {
   hotDays?: number;
   categoryId?: string | number | null;
   current?: number;
+  memberOnly?: number;
   pageSize?: number;
   searchText?: string;
   signal?: AbortSignal;
@@ -624,10 +629,15 @@ export async function listHomeArtworks(options?: {
   const searchText = options?.searchText?.trim();
   const query: ArtworkQueryRequest = {
     ...HOME_ARTWORK_QUERY,
-    ...(options?.hotDays ? { sortField: "hot", hotDays: options.hotDays } : {}),
+    ...(options?.hotDays
+      ? { sortField: "hot", hotDays: options.hotDays }
+      : { sortField: "createTime", sortOrder: "descend" }),
     ...(options?.current ? { current: options.current } : {}),
     ...(options?.pageSize ? { pageSize: options.pageSize } : {}),
     ...(options?.categoryId ? { categoryId: options.categoryId } : {}),
+    ...(options?.memberOnly !== undefined
+      ? { memberOnly: options.memberOnly }
+      : {}),
     ...(options?.tagIdList?.length ? { tagIdList: options.tagIdList } : {}),
     ...(searchText ? { searchText } : {}),
   };
@@ -814,6 +824,7 @@ export async function getArtworkHomeOverview(options?: { signal?: AbortSignal })
       favorited:
         typeof item.favorited === "boolean" ? item.favorited : undefined,
       hasSourceCode: item.hasSourceCode === true,
+      isDeconstructed: item.isDeconstructed === true,
       tags: tagNames,
       image: normalizeArtworkOverviewCover(
         getFirstCoverImageUrl([item.coverUrl, item.imageUrl]),
@@ -945,6 +956,31 @@ export async function getArtworkDetail(
 
   if (!result.data) {
     throw new RequestError("Artwork detail is unavailable right now");
+  }
+
+  return result.data;
+}
+
+export async function getArtworkDeconstruction(
+  artworkId: number | string,
+  options?: { signal?: AbortSignal },
+) {
+  const result = await getJson<ArtworkDeconstructionVO | null>(
+    "/artwork/deconstruction",
+    {
+      query: { id: artworkId },
+      signal: options?.signal,
+    },
+  );
+
+  if (result.code !== 0) {
+    throw new RequestError(result.message || "作品解构数据加载失败", {
+      code: result.code,
+    });
+  }
+
+  if (!result.data) {
+    throw new RequestError("作品解构数据暂不可用");
   }
 
   return result.data;
