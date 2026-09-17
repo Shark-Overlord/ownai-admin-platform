@@ -40,6 +40,20 @@ public class ArtworkUpdateRequest implements Serializable {
 
     private String sourceZipUrl;
 
+    private Integer isDeconstructed;
+
+    private String deviceFrame;
+
+    private String deconstructedPrompt;
+
+    private String promptData;
+
+    private String partsData;
+
+    private String assetsData;
+
+    private String standaloneHtml;
+
     private List<Long> tagIdList;
 
     private String apiSecret;

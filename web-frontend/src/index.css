@@ -2249,6 +2249,16 @@ html.dark .image-studio-chat-select-content {
   min-width: 0;
 }
 
+.resource-hot-sort-content [data-radix-select-viewport] {
+  width: 100% !important;
+  min-width: 100% !important;
+  height: auto !important;
+}
+
+.resource-hot-sort-content .resource-hot-sort-item + .resource-hot-sort-item {
+  margin-top: 2px !important;
+}
+
 .image-studio-chat-sidebar,
 .image-studio-chat-scroll,
 .tutorial-post-scroll,

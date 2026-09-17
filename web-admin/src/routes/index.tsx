@@ -30,6 +30,7 @@ import BlogBookManage from '../pages/BlogBookManage';
 import BlogBookWorkspace from '../pages/BlogBookWorkspace';
 import AiConfigManage from '../pages/AiConfigManage';
 import HomeContentManage from '../pages/HomeContentManage';
+import ArtworkDeconstruction from '../pages/ArtworkDeconstruction';
 
 export const routes = [
   {
@@ -68,6 +69,11 @@ export const routes = [
       {
         path: 'artwork',
         element: <ArtworkManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'artwork/deconstruction/:id',
+        element: <ArtworkDeconstruction />,
         meta: { requiresAdmin: true },
       },
       {

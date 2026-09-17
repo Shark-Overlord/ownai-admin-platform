@@ -76,21 +76,22 @@
 | `GET /artwork/detail` | 否 | 获取公开详情及当前账号权限；未授权时不返回完整提示词和源码地址 | `id` query | `ArtworkVO`，含 `pointsPrice`、`canAccessPrompt`、`permanentlyUnlocked`、`accessReason` |
 | `GET /artwork/get/vo` | 否 | 兼容旧调用的提示词接口；无权限时返回业务码 `40101` | `id` query | `String`：作品提示词 |
 | `GET /artwork/source/download` | 是 | 代理下载源码 ZIP，重新校验会员、免费或永久积分解锁权限 | `id` query | 文件流 `application/zip` |
-| `GET /artwork/preview/{id}` | 否 | 预览 HTML 原型作品 | path：`id` | HTML 文本 |
+| `GET /artwork/preview/{id}` | 否 | 代理读取 COS HTML 并以可嵌入的 `text/html` 返回；用于普通预览及解构 iframe，规避 COS 默认域名强制下载 | path：`id` | HTML 文本 |
 | `GET /artwork/stats` | 否 | 获取作品数量统计 | 无 | `{ total }` |
 | `POST /artwork/favorite/add` | 是 | 收藏作品 | `{ artworkId }` | `true` |
 | `POST /artwork/favorite/cancel` | 是 | 取消收藏作品 | `{ artworkId }` | `true` |
 | `GET /artwork/favorite/check` | 是 | 查询当前用户是否收藏作品 | `artworkId` query | `true/false` |
 | `POST /artwork/favorite/my/list/page` | 是 | 我的作品收藏分页 | `ArtworkQueryRequest` | `Page<ArtworkListVO>` |
-| `POST /artwork/add` | 管理员或密钥 | 新增作品 | `ArtworkAddRequest`：`{ apiSecret, title, summary, description, coverUrl, videoUrl, htmlUrl, sourceZipUrl, promptContent, categoryId, tagIdList, memberOnly, status, sort }` | 新作品 ID |
-| `POST /artwork/update` | 管理员或密钥 | 更新作品 | `ArtworkUpdateRequest`：`{ apiSecret, id, title, summary, description, coverUrl, videoUrl, htmlUrl, sourceZipUrl, promptContent, categoryId, tagIdList, memberOnly, status, sort }` | `true` |
+| `POST /artwork/add` | 管理员或密钥 | 新增作品 | `ArtworkAddRequest`：`{ apiSecret, title, summary, description, coverUrl, videoUrl, htmlUrl, sourceZipUrl, promptContent, categoryId, tagIdList, memberOnly, status, sort, isDeconstructed, deviceFrame, deconstructedPrompt, promptData, partsData, assetsData, standaloneHtml }` | 新作品 ID |
+| `POST /artwork/update` | 管理员或密钥 | 更新作品 | `ArtworkUpdateRequest`：字段同新增作品并增加 `id`；解构 JSON 字段必须是合法 JSON，启用 `isDeconstructed=1` 前必须补齐所有解构内容 | `true` |
+| `GET /artwork/deconstruction?id=<作品ID>` | 作品访问权限；管理员可预览草稿 | 获取独立解构工作台数据；新作品使用上传 HTML 后生成的 `htmlUrl`，旧数据缺失时兼容回退 `standaloneHtml` | 无 | `{ id, title, isDeconstructed, deviceFrame, deconstructedPrompt, promptData, partsData, assetsData, htmlUrl, standaloneHtml }` |
 | `POST /artwork/publish/batch` | 管理员 | 批量发布作品 | `{ ids: [] }` | `true` |
 | `POST /artwork/offline/batch` | 管理员 | 批量下架作品，只把 `status` 设为 `0`，不删除作品数据 | `{ ids: number[] }` | `true` |
 | `POST /artwork/member-only/batch` | 管理员 | 批量设置或取消会员专享 | `{ ids: number[], memberOnly: 0 \| 1 }`，`1` 为会员专享，`0` 为普通作品 | `true` |
 | `POST /artwork/delete` | 管理员 | 删除作品 | `{ id }` | `true` |
 | `POST /artwork/delete/batch` | 管理员 | 批量删除作品 | `{ ids: [] }` | `true` |
 | `POST /artwork/admin/list/page/vo` | 管理员 | 后台作品分页列表 | `ArtworkQueryRequest` | `Page<ArtworkVO>` |
-| `POST /artwork/upload/html` | 管理员 | 上传 HTML 原型 ZIP，解压并上传 COS | `multipart/form-data`：`file` | `{ htmlUrl, sourceZipUrl }` |
+| `POST /artwork/upload/html` | 管理员 | 上传单个独立 `.html`；原始内容自动封装为源码 ZIP，托管预览会注入受控 `postMessage` 零件高亮桥接后上传 COS | `multipart/form-data`：`file`（HTML，最大 50MB） | `{ htmlUrl, sourceZipUrl }` |
 
 ## 图片生成
 

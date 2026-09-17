@@ -53,5 +53,8 @@ public class ArtworkListVO implements Serializable {
      */
     private Boolean hasSourceCode;
 
+    /** Whether a published deep-deconstruction workspace is available. */
+    private Boolean isDeconstructed;
+
     private static final long serialVersionUID = 1L;
 }

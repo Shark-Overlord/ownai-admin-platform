@@ -16,6 +16,7 @@ import com.yupi.springbootinit.model.vo.artwork.ArtworkListVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkDeconstructionVO;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.ContentDraftPublishService;
 import com.yupi.springbootinit.service.ContentModuleDraftBridgeService;
@@ -85,6 +86,32 @@ class ArtworkControllerTest {
     }
 
     @Test
+    void adminCanLoadDraftDeconstructionWithPrivateCachePolicy() throws Exception {
+        User admin = new User();
+        admin.setId(1L);
+        ArtworkDeconstructionVO deconstruction = new ArtworkDeconstructionVO();
+        deconstruction.setId(9007199254740993L);
+        deconstruction.setTitle("Draft deconstruction");
+        deconstruction.setDeviceFrame("website");
+        deconstruction.setIsDeconstructed(0);
+        deconstruction.setHtmlUrl("https://preview.example/index.html");
+        when(userService.getLoginUserPermitNull(any())).thenReturn(admin);
+        when(userService.isAdmin(admin)).thenReturn(true);
+        when(artworkService.getArtworkDeconstruction(eq(9007199254740993L), eq(admin), eq(true)))
+                .thenReturn(deconstruction);
+
+        mockMvc.perform(get("/artwork/deconstruction").param("id", "9007199254740993"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.id").value("9007199254740993"))
+                .andExpect(jsonPath("$.data.title").value("Draft deconstruction"))
+                .andExpect(jsonPath("$.data.deviceFrame").value("website"))
+                .andExpect(jsonPath("$.data.htmlUrl").value("https://preview.example/index.html"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", "private, no-store"));
+    }
+
+    @Test
     void orderIdsRoundTripWithoutJavascriptPrecisionLoss() throws Exception {
         com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper()
                 .registerModule(new com.yupi.springbootinit.config.JsonConfig().longToStringModule());
@@ -109,6 +136,7 @@ class ArtworkControllerTest {
         artworkVO.setFavorited(true);
         artworkVO.setFavoriteCount(3);
         artworkVO.setHasSourceCode(true);
+        artworkVO.setIsDeconstructed(1);
         artworkVO.setPermanentlyUnlocked(true);
         artworkVO.setPointsPrice(100);
         artworkVOPage.setRecords(Collections.singletonList(artworkVO));
@@ -127,6 +155,7 @@ class ArtworkControllerTest {
                 .andExpect(jsonPath("$.data.records[0].favorited").value(true))
                 .andExpect(jsonPath("$.data.records[0].favoriteCount").value(3))
                 .andExpect(jsonPath("$.data.records[0].hasSourceCode").value(true))
+                .andExpect(jsonPath("$.data.records[0].isDeconstructed").value(true))
                 .andExpect(jsonPath("$.data.records[0].permanentlyUnlocked").value(true))
                 .andExpect(jsonPath("$.data.records[0].pointsPrice").value(100));
     }

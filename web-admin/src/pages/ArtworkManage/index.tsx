@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { Button, Drawer, Form, Input, InputNumber, Select, Switch, Tabs, Upload, Row, Col, message, Popconfirm, Image, Tag } from 'antd';
+import { Button, Drawer, Form, Input, InputNumber, Select, Switch, Tabs, Upload, Row, Col, message, Popconfirm, Image, Tag, Alert, Space } from 'antd';
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -19,6 +19,7 @@ import {
   offlineArtworkBatch,
   updateArtworkMemberOnlyBatch,
   addArtwork,
+  getArtworkDeconstruction,
   type ArtworkVO,
 } from '../../api/artwork';
 import { listCategory, type CategoryVO } from '../../api/category';
@@ -28,6 +29,7 @@ export default function ArtworkManage() {
   const actionRef = useRef<any>(null);
   const [form] = Form.useForm();
   const currentVideoUrl = Form.useWatch('videoUrl', form);
+  const currentHtmlUrl = Form.useWatch('htmlUrl', form);
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<ArtworkVO | null>(null);
   const [categories, setCategories] = useState<CategoryVO[]>([]);
@@ -35,9 +37,20 @@ export default function ArtworkManage() {
   const [selectedRows, setSelectedRows] = useState<ArtworkVO[]>([]);
   const [coverFileList, setCoverFileList] = useState<any[]>([]);
   const [videoFileList, setVideoFileList] = useState<any[]>([]);
+  const [htmlFileList, setHtmlFileList] = useState<any[]>([]);
   const [sourceFileList, setSourceFileList] = useState<any[]>([]);
   const [previewImage, setPreviewImage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  const formatJson = (value: unknown) => value == null ? '' : JSON.stringify(value, null, 2);
+  const validateJson = async (_: unknown, value?: string) => {
+    if (!value?.trim()) return;
+    try {
+      JSON.parse(value);
+    } catch {
+      throw new Error('请输入合法 JSON');
+    }
+  };
 
   useEffect(() => {
     listCategory().then((res) => setCategories(res.data));
@@ -91,6 +104,14 @@ export default function ArtworkManage() {
       width: 80,
       render: (_: any, record: ArtworkVO) =>
         record.hasSourceCode || record.sourceZipUrl ? <Tag color="green">有源码</Tag> : <Tag>无源码</Tag>,
+    },
+    {
+      title: '深度解构',
+      dataIndex: 'isDeconstructed',
+      search: false,
+      width: 96,
+      render: (_: any, record: ArtworkVO) =>
+        record.isDeconstructed === 1 ? <Tag color="blue">已启用</Tag> : <Tag>未启用</Tag>,
     },
     {
       title: '分类',
@@ -196,6 +217,15 @@ export default function ArtworkManage() {
           预览
         </Button>,
         <Button
+          key="deconstruction"
+          type="link"
+          onClick={() => {
+            window.open(`/artwork/deconstruction/${record.id}`, '_blank', 'noopener,noreferrer');
+          }}
+        >
+          解构预览
+        </Button>,
+        <Button
           key="edit"
           type="link"
           onClick={() => {
@@ -239,7 +269,23 @@ export default function ArtworkManage() {
         status: editing.status,
         htmlUrl: editing.htmlUrl,
         sourceZipUrl: editing.sourceZipUrl,
+        isDeconstructed: editing.isDeconstructed === 1,
+        deviceFrame: editing.deviceFrame || 'website',
       });
+      let active = true;
+      void getArtworkDeconstruction(editing.id)
+        .then((res) => {
+          if (!active) return;
+          form.setFieldsValue({
+            isDeconstructed: res.data.isDeconstructed === 1,
+            deviceFrame: res.data.deviceFrame || 'website',
+            deconstructedPrompt: res.data.deconstructedPrompt || '',
+            promptData: formatJson(res.data.promptData),
+            partsData: formatJson(res.data.partsData),
+            assetsData: formatJson(res.data.assetsData),
+          });
+        })
+        .catch(() => undefined);
       setCoverFileList(
         editing.coverUrl
           ? [
@@ -264,6 +310,18 @@ export default function ArtworkManage() {
             ]
           : []
       );
+      setHtmlFileList(
+        editing.htmlUrl
+          ? [
+              {
+                uid: '-4',
+                name: 'index.html',
+                status: 'done',
+                url: editing.htmlUrl,
+              },
+            ]
+          : []
+      );
       setSourceFileList(
         editing.sourceZipUrl
           ? [
@@ -276,9 +334,11 @@ export default function ArtworkManage() {
             ]
           : []
       );
+      return () => { active = false; };
     } else if (!modalVisible) {
       setCoverFileList([]);
       setVideoFileList([]);
+      setHtmlFileList([]);
       setSourceFileList([]);
     }
   }, [modalVisible, editing, form]);
@@ -287,6 +347,7 @@ export default function ArtworkManage() {
     const payload = {
       ...values,
       memberOnly: values.memberOnly ? 1 : 0,
+      isDeconstructed: values.isDeconstructed ? 1 : 0,
       tagIdList: values.tagIdList || [],
     };
     if (editing) {
@@ -449,7 +510,7 @@ export default function ArtworkManage() {
           </div>
         }
       >
-        <Form form={form} layout="vertical" onFinish={handleSave} initialValues={{ pointsPrice: 100 }}>
+        <Form form={form} layout="vertical" onFinish={handleSave} initialValues={{ pointsPrice: 100, isDeconstructed: false, deviceFrame: 'website' }}>
           <Tabs
             defaultActiveKey="1"
             items={[
@@ -519,37 +580,92 @@ export default function ArtworkManage() {
                 label: '作品上传',
                 children: (
                   <>
-                    <Form.Item label="ZIP压缩包">
+                    <Form.Item
+                      label="独立 HTML"
+                      extra="上传单个可独立运行的 .html 文件，最大 50MB；系统会自动注入预览桥接并生成源码 ZIP"
+                    >
                       <Upload
                         name="file"
                         action="/api/artwork/upload/html"
                         maxCount={1}
-                        accept=".zip"
+                        accept=".html,text/html"
+                        fileList={htmlFileList}
                         headers={{ Authorization: `Bearer ${localStorage.getItem('token') || ''}` }}
+                        beforeUpload={(file) => {
+                          if (!file.name.toLowerCase().endsWith('.html')) {
+                            message.error('预览文件仅支持 HTML');
+                            return Upload.LIST_IGNORE;
+                          }
+                          if (file.size > 50 * 1024 * 1024) {
+                            message.error('HTML 文件不能超过 50MB');
+                            return Upload.LIST_IGNORE;
+                          }
+                          return true;
+                        }}
                         onChange={(info) => {
+                          setHtmlFileList(info.fileList);
                           if (info.file.status === 'done') {
                             const res = info.file.response;
                             if (res?.code === 0) {
                               const { htmlUrl, sourceZipUrl } = res.data;
                               form.setFieldsValue({ htmlUrl, sourceZipUrl });
+                              setHtmlFileList([
+                                { uid: '-4', name: info.file.name, status: 'done', url: htmlUrl },
+                              ]);
                               if (sourceZipUrl) {
                                 setSourceFileList([
                                   { uid: '-3', name: 'source.zip', status: 'done', url: sourceZipUrl },
                                 ]);
                               }
-                              message.success('上传成功，已保存预览文件和源码压缩包');
+                              message.success('HTML 上传成功，预览桥接与源码 ZIP 已自动生成');
                             } else {
                               message.error(res?.message || '上传失败');
                             }
                           } else if (info.file.status === 'error') {
                             message.error('上传失败');
+                          } else if (info.file.status === 'removed') {
+                            form.setFieldsValue({ htmlUrl: undefined });
                           }
                         }}
                       >
-                        <Button icon={<UploadOutlined />}>上传 ZIP 压缩包</Button>
+                        <Button icon={<UploadOutlined />}>上传 HTML 文件</Button>
                       </Upload>
                     </Form.Item>
-                    <Form.Item label="源码压缩包" extra="仅支持 ZIP，最大 50MB；用户下载前会校验登录及会员或永久解锁权限">
+                    <Form.Item
+                      name="htmlUrl"
+                      hidden
+                      rules={[
+                        ({ getFieldValue }) => ({
+                          validator: async (_, value) => {
+                            if (getFieldValue('isDeconstructed') && !value) {
+                              throw new Error('启用深度解构前请上传独立 HTML');
+                            }
+                          },
+                        }),
+                      ]}
+                    />
+                    {currentHtmlUrl ? (
+                      <Form.Item label="HTML 预览地址">
+                        <Input
+                          readOnly
+                          value={currentHtmlUrl}
+                          addonAfter={
+                            <Button
+                              type="link"
+                              size="small"
+                              style={{ padding: 0 }}
+                              onClick={() => window.open(currentHtmlUrl, '_blank', 'noopener,noreferrer')}
+                            >
+                              打开
+                            </Button>
+                          }
+                        />
+                      </Form.Item>
+                    ) : null}
+                    <Form.Item
+                      label="源码压缩包（可选替换）"
+                      extra="上传 HTML 时会自动生成；仅在另有完整工程源码时上传 ZIP 替换，最大 50MB"
+                    >
                       <Upload
                         name="file"
                         action="/api/file/upload?biz=artwork_source"
@@ -735,14 +851,83 @@ export default function ArtworkManage() {
                       ) : null}
                     </Form.Item>
                     <Form.Item name="videoUrl" hidden />
-                    <Form.Item label="HTML原型地址" name="htmlUrl">
-                      <Input placeholder="上传 ZIP 后会自动回填，也可手动填写" />
-                    </Form.Item>
                   </>
                 ),
               },
               {
                 key: '4',
+                forceRender: true,
+                label: '深度解构',
+                children: (
+                  <>
+                    <Alert
+                      type="info"
+                      showIcon
+                      message="先在“作品上传”中上传独立 HTML，再保存并打开“解构预览”验收；确认无误后再开启前台展示。"
+                      style={{ marginBottom: 16 }}
+                    />
+                    <Space wrap style={{ marginBottom: 16 }}>
+                      <Upload
+                        accept=".json,application/json"
+                        showUploadList={false}
+                        beforeUpload={(file) => {
+                          void file.text().then((text) => {
+                            const data = JSON.parse(text);
+                            const frame = data?.meta?.deviceFrame === 'iphone' ? 'app'
+                              : data?.meta?.deviceFrame === 'none' ? 'none' : 'website';
+                            form.setFieldsValue({
+                              deviceFrame: frame,
+                              deconstructedPrompt: data?.prompt?.rawMarkdown || '',
+                              promptData: formatJson(data?.prompt),
+                              partsData: formatJson(data?.parts || []),
+                              assetsData: formatJson(data?.assets || {}),
+                            });
+                            message.success('解构模板 JSON 已导入，请在“作品上传”中上传独立 HTML');
+                          }).catch(() => message.error('解构模板 JSON 解析失败'));
+                          return false;
+                        }}
+                      >
+                        <Button icon={<UploadOutlined />}>导入模板 JSON</Button>
+                      </Upload>
+                      {editing ? (
+                        <Button onClick={() => window.open(`/artwork/deconstruction/${editing.id}`, '_blank', 'noopener,noreferrer')}>
+                          打开解构预览
+                        </Button>
+                      ) : null}
+                    </Space>
+                    <Row gutter={16}>
+                      <Col span={12}>
+                        <Form.Item label="前台展示解构按钮" name="isDeconstructed" valuePropName="checked" extra="关闭时后台仍可预览，前台不会出现入口">
+                          <Switch checkedChildren="已启用" unCheckedChildren="未启用" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item label="预览外壳" name="deviceFrame">
+                          <Select options={[
+                            { label: '网页浏览器', value: 'website' },
+                            { label: 'App 手机', value: 'app' },
+                            { label: '无外壳', value: 'none' },
+                          ]} />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Form.Item label="完整解构 System Prompt" name="deconstructedPrompt">
+                      <Input.TextArea rows={12} placeholder="粘贴模板 prompt.rawMarkdown，或通过上方 JSON 自动导入" />
+                    </Form.Item>
+                    <Form.Item label="设计令牌 promptData" name="promptData" rules={[{ validator: validateJson }]}>
+                      <Input.TextArea rows={10} placeholder='{"colors": [], "typography": [], "motions": [], "rules": {}}' />
+                    </Form.Item>
+                    <Form.Item label="核心零件 partsData" name="partsData" rules={[{ validator: validateJson }]}>
+                      <Input.TextArea rows={10} placeholder='[{"id":"navbar","targetId":"partSlotNavbar","title":"导航栏","code":"..."}]' />
+                    </Form.Item>
+                    <Form.Item label="设计资产 assetsData" name="assetsData" rules={[{ validator: validateJson }]}>
+                      <Input.TextArea rows={8} placeholder='{"icons": [], "media": []}' />
+                    </Form.Item>
+                  </>
+                ),
+              },
+              {
+                key: '5',
                 forceRender: true,
                 label: '分类标签',
                 children: (
@@ -770,7 +955,7 @@ export default function ArtworkManage() {
                 ),
               },
               {
-                key: '5',
+                key: '6',
                 forceRender: true,
                 label: '定价权限',
                 children: (

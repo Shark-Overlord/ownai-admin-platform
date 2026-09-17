@@ -16,10 +16,12 @@ import {
   Home,
   LoaderCircle,
   Lock,
+  Layers3,
   Menu,
   PanelLeftOpen,
   PanelLeftClose,
   Search,
+  SlidersHorizontal,
   Star,
   X,
 } from "lucide-react";
@@ -82,6 +84,7 @@ import type {
 
 const FRONTEND_PROMPT_CATEGORY_ID = "2071608263790104578";
 const IMAGE_PROMPT_CATEGORY_ID = "2057283059198771201";
+const VIDEO_BACKGROUND_CATEGORY_ID = "2086654566127300610";
 const PAGE_SIZE = 20;
 const MAX_VISIBLE_AUTOPLAY_VIDEOS = 5;
 
@@ -392,7 +395,12 @@ async function listFrontendCategoryNavigation(options?: { signal?: AbortSignal }
   const remoteCategories = (result.data ?? [])
     .map(normalizeCategoryNode)
     .filter((category): category is FrontendPromptCategory => Boolean(category))
-    .filter((category) => category.filter.categoryId !== IMAGE_PROMPT_CATEGORY_ID);
+    .filter(
+      (category) =>
+        category.filter.categoryId !== IMAGE_PROMPT_CATEGORY_ID &&
+        category.filter.categoryId !== VIDEO_BACKGROUND_CATEGORY_ID &&
+        normalizeCategoryName(category.name) !== "视频背景素材",
+    );
 
   return dedupeCategories(remoteCategories);
 }
@@ -866,6 +874,17 @@ function FrontendPromptSidebar({
   );
 }
 
+function CardActionTooltip({ label }: { label: string }) {
+  return (
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute bottom-full right-0 z-30 mb-2 translate-y-1 whitespace-nowrap rounded-[6px] border border-[var(--frontend-prompt-card-border)] bg-[var(--chat-panel-bg)] px-2 py-1 text-[11px] font-medium leading-4 text-[var(--chat-ink)] opacity-0 shadow-[0_8px_20px_rgba(0,0,0,0.18)] transition-[opacity,transform] duration-150 group-hover/card-action:translate-y-0 group-hover/card-action:opacity-100 group-focus-visible/card-action:translate-y-0 group-focus-visible/card-action:opacity-100"
+    >
+      {label}
+    </span>
+  );
+}
+
 function ArtworkSourceButton({
   item,
   onMessage,
@@ -961,7 +980,7 @@ function ArtworkSourceButton({
         type="button"
         onClick={() => void handleDownload()}
         disabled={isDownloading}
-        className="mt-2 flex h-10 w-full items-center justify-between rounded-[10px] border border-[var(--chat-border)] bg-[var(--chat-control-soft)] px-4 text-left text-[14px] font-semibold text-[var(--chat-ink)] shadow-[0_2px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-[var(--chat-border-strong)] hover:bg-[var(--chat-control-hover)] disabled:cursor-not-allowed disabled:opacity-70 dark:shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
+        className="mt-2 flex h-10 w-full cursor-pointer items-center justify-between rounded-[10px] border border-[var(--chat-border)] bg-[var(--chat-control-soft)] px-4 text-left text-[14px] font-semibold text-[var(--chat-ink)] shadow-[0_2px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-[var(--chat-border-strong)] hover:bg-[var(--chat-control-hover)] disabled:cursor-not-allowed disabled:opacity-70 dark:shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
       >
         <span className="inline-flex items-center gap-2">
           <Code2 className="h-4 w-4 text-[var(--chat-muted)]" />
@@ -985,12 +1004,75 @@ function ArtworkSourceButton({
         void handleDownload();
       }}
       disabled={isDownloading}
-      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--frontend-prompt-card-border)] bg-[var(--frontend-prompt-card-control-bg)] px-2 text-[12px] font-semibold text-[var(--frontend-prompt-card-control-text)] transition-colors hover:border-[var(--frontend-prompt-card-border-hover)] hover:bg-[var(--frontend-prompt-card-control-hover)] hover:text-[var(--frontend-prompt-card-text)] disabled:cursor-not-allowed disabled:opacity-70"
+      className="group/card-action relative inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] border border-[var(--frontend-prompt-card-border)] bg-[var(--frontend-prompt-card-control-bg)] text-[var(--frontend-prompt-card-control-text)] transition-colors hover:border-[var(--frontend-prompt-card-border-hover)] hover:bg-[var(--frontend-prompt-card-control-hover)] hover:text-[var(--frontend-prompt-card-text)] disabled:cursor-not-allowed disabled:opacity-70"
       aria-label={label}
-      title={label}
     >
       <Icon className={cn("h-3.5 w-3.5", isDownloading && "animate-spin")} />
-      <span>{label}</span>
+      <CardActionTooltip label={label} />
+    </button>
+  );
+}
+
+function ArtworkDeconstructionButton({
+  item,
+  variant,
+}: {
+  item: SiteItem;
+  variant: "card" | "section";
+}) {
+  const requestUnlock = usePromptUnlock();
+  const isAvailable =
+    item.sourceType === "artwork" && item.isDeconstructed === true;
+  const isLocked = isAvailable && getArtworkAccessState(item) === "locked";
+
+  if (!isAvailable) {
+    return null;
+  }
+
+  const openDeconstruction = async () => {
+    if (isLocked) {
+      await requestUnlock(item.id);
+      return;
+    }
+
+    window.open(
+      `/artwork/deconstruction/${encodeURIComponent(item.id)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  if (variant === "section") {
+    return (
+      <button
+        type="button"
+        onClick={() => void openDeconstruction()}
+        className="mt-3 flex h-10 w-full cursor-pointer items-center justify-between rounded-[10px] border border-[var(--chat-border)] bg-[var(--chat-control-soft)] px-4 text-left text-[14px] font-semibold text-[var(--chat-ink)] shadow-[0_2px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-[var(--chat-border-strong)] hover:bg-[var(--chat-control-hover)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
+      >
+        <span className="inline-flex items-center gap-2">
+          <Layers3 className="h-4 w-4 text-[var(--chat-muted)]" />
+          作品解构
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--chat-muted)]">
+          {isLocked ? <Lock className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          {isLocked ? "解锁查看" : "查看解构"}
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        void openDeconstruction();
+      }}
+      className="group/card-action relative inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] border border-[var(--frontend-prompt-card-border)] bg-[var(--frontend-prompt-card-control-bg)] text-[var(--frontend-prompt-card-control-text)] transition-colors hover:border-[var(--frontend-prompt-card-border-hover)] hover:bg-[var(--frontend-prompt-card-control-hover)] hover:text-[var(--frontend-prompt-card-text)]"
+      aria-label={isLocked ? "解锁后查看作品解构" : "查看作品解构"}
+    >
+      {isLocked ? <Lock className="h-3.5 w-3.5" /> : <Layers3 className="h-3.5 w-3.5" />}
+      <CardActionTooltip label={isLocked ? "解锁后查看作品解构" : "查看作品解构"} />
     </button>
   );
 }
@@ -1330,6 +1412,7 @@ function PromptCard({
           </div>
         </div>
         <div className="relative z-20 flex shrink-0 items-center gap-1.5">
+          <ArtworkDeconstructionButton item={item} variant="card" />
           <ArtworkSourceButton
             item={item}
             onMessage={onMessage}
@@ -1342,7 +1425,20 @@ function PromptCard({
               void handleCopy();
             }}
             disabled={isCopyLoading}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--frontend-prompt-card-border)] bg-[var(--frontend-prompt-card-control-bg)] px-2.5 text-[12px] font-semibold text-[var(--frontend-prompt-card-control-text)] transition-colors hover:border-[var(--frontend-prompt-card-border-hover)] hover:bg-[var(--frontend-prompt-card-control-hover)] hover:text-[var(--frontend-prompt-card-text)] disabled:cursor-not-allowed disabled:opacity-70"
+            className="group/card-action relative inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] border border-[var(--frontend-prompt-card-border)] bg-[var(--frontend-prompt-card-control-bg)] text-[var(--frontend-prompt-card-control-text)] transition-colors hover:border-[var(--frontend-prompt-card-border-hover)] hover:bg-[var(--frontend-prompt-card-control-hover)] hover:text-[var(--frontend-prompt-card-text)] disabled:cursor-not-allowed disabled:opacity-70"
+            aria-label={
+              isCopyLoading
+                ? "正在读取提示词"
+                : isLocked
+                  ? isLoggedIn
+                    ? item.sourceType === "artwork"
+                      ? "积分解锁提示词"
+                      : "升级后解锁提示词"
+                    : "登录后解锁提示词"
+                  : isCopied
+                    ? "提示词已复制"
+                    : "复制提示词"
+            }
           >
             {isCopyLoading ? (
               <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
@@ -1353,17 +1449,21 @@ function PromptCard({
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}
-            <span>
-              {isCopyLoading
-                ? "读取中"
-                : isLocked
-                  ? isLoggedIn
-                    ? (item.sourceType === "artwork" ? "积分解锁" : "升级")
-                    : "解锁"
-                  : isCopied
-                    ? "已复制"
-                    : "复制"}
-            </span>
+            <CardActionTooltip
+              label={
+                isCopyLoading
+                  ? "正在读取提示词"
+                  : isLocked
+                    ? isLoggedIn
+                      ? item.sourceType === "artwork"
+                        ? "积分解锁提示词"
+                        : "升级后解锁提示词"
+                      : "登录后解锁提示词"
+                    : isCopied
+                      ? "提示词已复制"
+                      : "复制提示词"
+              }
+            />
           </button>
         </div>
       </div>
@@ -1704,7 +1804,7 @@ function PromptDetailDialog({
             <button
               type="button"
               onClick={() => void handleCopy()}
-              className="mt-7 inline-flex h-10 items-center justify-center gap-2 rounded-[10px] bg-[var(--chat-primary-bg)] px-4 text-[14px] font-semibold text-[var(--chat-primary-text)] transition-colors hover:bg-[var(--chat-primary-hover)]"
+              className="mt-7 inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[var(--chat-primary-bg)] px-4 text-[14px] font-semibold text-[var(--chat-primary-text)] transition-colors hover:bg-[var(--chat-primary-hover)]"
             >
               {isLocked ? (
                 <Lock className="h-4 w-4" />
@@ -1723,6 +1823,11 @@ function PromptDetailDialog({
                     : "复制完整提示词"}
               </span>
             </button>
+
+            <ArtworkDeconstructionButton
+              item={detail.item}
+              variant="section"
+            />
 
             {shouldShowSections ? (
               <div className="mt-8">
@@ -2054,6 +2159,7 @@ export function FrontendPromptLibraryPage() {
   const [categorySearchText, setCategorySearchText] = useState("");
   const [promptDetail, setPromptDetail] = useState<PromptDetailState | null>(null);
   const [hotDays, setHotDays] = useState(0);
+  const [memberFilter, setMemberFilter] = useState<"all" | "member">("all");
   useResourceView(promptDetail?.item.sourceType === "artwork" ? "artwork" : "image_prompt", promptDetail?.item.id);
   const [homeOverviewItems, setHomeOverviewItems] = useState<SiteItem[]>([]);
   const [homeTotalCount, setHomeTotalCount] = useState(0);
@@ -2192,6 +2298,7 @@ export function FrontendPromptLibraryPage() {
         hotDays,
         categoryId: activeFilter?.categoryId,
         current: nextPage,
+        memberOnly: memberFilter === "member" ? 1 : undefined,
         pageSize: PAGE_SIZE,
         searchText: categorySearchText,
         signal: options?.signal,
@@ -2253,7 +2360,7 @@ export function FrontendPromptLibraryPage() {
     void loadItems(1, { signal: controller.signal });
 
     return () => controller.abort();
-  }, [activeCategory, activeView, categories, categorySearchText, hotDays]);
+  }, [activeCategory, activeView, categories, categorySearchText, hotDays, memberFilter]);
 
   useEffect(() => {
     if (activeView !== "favorites") {
@@ -2414,6 +2521,10 @@ export function FrontendPromptLibraryPage() {
     activeView === "favorites"
       ? "已收藏的前端提示词"
       : "按分类浏览可复用的前端 UI 提示词";
+  const activeLibraryCategory = activeCategory
+    ? findCategoryById(categories, activeCategory)
+    : null;
+  const activeLibraryTitle = activeLibraryCategory?.name || "全部资源";
 
   const renderPromptList = (
     promptItems: SiteItem[],
@@ -2523,26 +2634,58 @@ export function FrontendPromptLibraryPage() {
           />
         ) : activeView === "library" ? (
           <div className="min-h-full overflow-hidden rounded-[28px] bg-[var(--chat-panel-bg)] shadow-[var(--chat-panel-shadow)]">
-            <div className="flex h-14 shrink-0 items-center border-b border-transparent px-5 sm:px-6">
-              <div className="flex h-full items-center gap-6 text-[15px] font-semibold text-[var(--chat-ink)]">
-                <span className="relative flex h-full items-center">
-                  {activeCategory ? findCategoryById(categories, activeCategory)?.name || "分类资源" : "全部资源"}
-                  <span className="absolute bottom-0 left-1/2 h-[2px] w-6 -translate-x-1/2 rounded-full bg-[var(--chat-ink)]" />
-                </span>
+            <header className="flex flex-col gap-3 border-b border-[var(--chat-border)] px-4 py-3 sm:min-h-14 sm:flex-row sm:items-center sm:px-5 sm:py-2.5">
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-[16px] font-semibold text-[var(--chat-ink)]">
+                  {activeLibraryTitle}
+                </h1>
+                <p className="mt-0.5 hidden text-[12px] text-[var(--chat-muted)] sm:block">
+                  浏览作品预览，复制提示词，下载源码或查看深度解构
+                </p>
               </div>
-            </div>
-            <div className="px-5 pt-3 sm:px-6">
-              <div className="mb-3"><ResourceHotSort value={hotDays} onChange={setHotDays} /></div>
-              <label className="flex h-11 w-full items-center gap-2 rounded-full bg-[var(--chat-control-soft)] px-4 text-[var(--chat-control-text)]">
+              <label className="flex h-9 w-full min-w-0 items-center gap-2 rounded-[9px] bg-[var(--chat-control-soft)] px-3 text-[var(--chat-muted)] sm:max-w-[380px] sm:flex-[1.4]">
                 <Search className="h-4 w-4 shrink-0 text-[var(--chat-muted)]" />
                 <input
                   value={categorySearchText}
                   onChange={(event) => setCategorySearchText(event.target.value)}
                   aria-label={activeCategory ? "搜索当前分类提示词" : "搜索全部提示词"}
                   placeholder={activeCategory ? "搜索当前分类提示词" : "搜索全部提示词"}
-                  className="h-full min-w-0 flex-1 bg-transparent text-[14px] text-[var(--chat-ink)] placeholder:text-[var(--chat-input-placeholder)] focus:outline-none"
+                  className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-[var(--chat-ink)] placeholder:text-[var(--chat-input-placeholder)] focus:outline-none"
                 />
               </label>
+            </header>
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--chat-border)] px-4 py-2.5 sm:px-5">
+              <span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--chat-muted)]">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                筛选
+              </span>
+              <button
+                type="button"
+                onClick={() => setMemberFilter("all")}
+                className={cn(
+                  "inline-flex h-8 cursor-pointer items-center rounded-[7px] px-2.5 text-[12px] font-medium transition-colors",
+                  memberFilter === "all"
+                    ? "bg-[var(--chat-sidebar-active)] text-[var(--chat-ink)]"
+                    : "text-[var(--chat-muted)] hover:bg-[var(--chat-control-soft)]",
+                )}
+              >
+                全部
+              </button>
+              <button
+                type="button"
+                onClick={() => setMemberFilter("member")}
+                className={cn(
+                  "inline-flex h-8 cursor-pointer items-center rounded-[7px] px-2.5 text-[12px] font-medium transition-colors",
+                  memberFilter === "member"
+                    ? "bg-[var(--chat-sidebar-active)] text-[var(--chat-ink)]"
+                    : "text-[var(--chat-muted)] hover:bg-[var(--chat-control-soft)]",
+                )}
+              >
+                会员专享
+              </button>
+            </div>
+            <div className="px-4 py-3 sm:px-5">
+              <ResourceHotSort value={hotDays} onChange={setHotDays} appearance="panel" />
             </div>
             {renderPromptList(items, {
               emptyMessage: categorySearchText ? "没有找到匹配内容，试试其他关键词" : "这个分类暂时没有资源，可以选择其他分类看看",

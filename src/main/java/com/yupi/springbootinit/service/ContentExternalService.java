@@ -726,7 +726,8 @@ public class ContentExternalService {
         Map<String, Set<String>> result = new LinkedHashMap<>();
         result.put(ARTWORK, set("externalKey", "title", "summary", "description", "coverUrl", "videoUrl",
                 "promptContent", "categoryId", "cashPrice", "pointsPrice", "memberOnly", "sort", "htmlUrl",
-                "sourceZipUrl", "tagIdList"));
+                "sourceZipUrl", "isDeconstructed", "deviceFrame", "deconstructedPrompt", "promptData",
+                "partsData", "assetsData", "standaloneHtml", "tagIdList"));
         result.put(PROMPT_ASSET, creating
                 ? set("assetType", "categoryId", "title", "summary", "promptContent", "promptCn",
                 "coverUrl", "previewMediaUrl", "memberOnly", "sort", "isFeatured", "featuredSort",
