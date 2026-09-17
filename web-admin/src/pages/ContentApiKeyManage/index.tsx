@@ -47,9 +47,204 @@ const scopeOptions = [
   { label: '教程资产查询', value: 'tutorial:read' },
   { label: '教程资产新增', value: 'tutorial:add' },
   { label: '教程资产修改', value: 'tutorial:update' },
+  { label: '教程资产上传', value: 'tutorial:upload' },
   { label: '全站分类与标签查询（含教程/作品/社区只读字典）', value: 'taxonomy:read' },
   { label: '作品分类与标签管理（增改分类及二级标签）', value: 'category:manage' },
 ];
+
+interface ScopeGroup {
+  title: string;
+  icon?: string;
+  items: { label: string; value: string }[];
+}
+
+const SCOPE_GROUPS: ScopeGroup[] = [
+  {
+    title: '🎨 作品模块',
+    items: [
+      { label: '作品查询', value: 'artwork:read' },
+      { label: '作品新增', value: 'artwork:add' },
+      { label: '作品修改', value: 'artwork:update' },
+      { label: '作品上传', value: 'artwork:upload' },
+    ],
+  },
+  {
+    title: '💡 Prompt 资产',
+    items: [
+      { label: 'Prompt 查询', value: 'prompt_asset:read' },
+      { label: 'Prompt 新增', value: 'prompt_asset:add' },
+      { label: 'Prompt 修改', value: 'prompt_asset:update' },
+      { label: 'Prompt 上传', value: 'prompt_asset:upload' },
+    ],
+  },
+  {
+    title: '🎬 视频素材',
+    items: [
+      { label: '视频查询', value: 'video_background:read' },
+      { label: '视频新增', value: 'video_background:add' },
+      { label: '视频修改', value: 'video_background:update' },
+      { label: '视频上传', value: 'video_background:upload' },
+    ],
+  },
+  {
+    title: '📰 新闻与帖子',
+    items: [
+      { label: '帖子查询', value: 'community_post:read' },
+      { label: '帖子新增', value: 'community_post:add' },
+      { label: '帖子修改', value: 'community_post:update' },
+      { label: '帖子上传', value: 'community_post:upload' },
+    ],
+  },
+  {
+    title: '📚 教程资产',
+    items: [
+      { label: '教程查询', value: 'tutorial:read' },
+      { label: '教程新增', value: 'tutorial:add' },
+      { label: '教程修改', value: 'tutorial:update' },
+      { label: '教程上传', value: 'tutorial:upload' },
+    ],
+  },
+  {
+    title: '🏷️ 分类与标签',
+    items: [
+      { label: '作品分类与标签管理（增改分类与二级标签）', value: 'category:manage' },
+      { label: '全站分类与标签查询（含教程/作品/社区只读字典）', value: 'taxonomy:read' },
+    ],
+  },
+];
+
+const ScopeSelector: React.FC<{
+  value?: string[];
+  onChange?: (value: string[]) => void;
+}> = ({ value = [], onChange }) => {
+  const isAll = value.includes('*');
+
+  const handleAllToggle = (checked: boolean) => {
+    if (checked) {
+      onChange?.(['*']);
+    } else {
+      onChange?.([]);
+    }
+  };
+
+  const handleItemToggle = (scopeValue: string, checked: boolean) => {
+    let next = value.filter((v) => v !== '*');
+    if (checked) {
+      if (!next.includes(scopeValue)) {
+        next.push(scopeValue);
+      }
+    } else {
+      next = next.filter((v) => v !== scopeValue);
+    }
+    onChange?.(next);
+  };
+
+  const handleGroupSelectAll = (groupValues: string[], selectAll: boolean) => {
+    let next = value.filter((v) => v !== '*');
+    if (selectAll) {
+      groupValues.forEach((gv) => {
+        if (!next.includes(gv)) next.push(gv);
+      });
+    } else {
+      next = next.filter((v) => !groupValues.includes(v));
+    }
+    onChange?.(next);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* 超级全量权限 */}
+      <div
+        style={{
+          padding: '10px 14px',
+          background: isAll ? '#e6f4ff' : '#fafafa',
+          border: `1px solid ${isAll ? '#91caff' : '#e8e8e8'}`,
+          borderRadius: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          transition: 'all 0.2s',
+        }}
+      >
+        <Checkbox checked={isAll} onChange={(e) => handleAllToggle(e.target.checked)}>
+          <span style={{ fontWeight: 600, color: isAll ? '#1677ff' : '#262626' }}>
+            全部内容资产权限 (*)
+          </span>
+        </Checkbox>
+        <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+          勾选后直接拥有所有模块的读写与上传能力
+        </span>
+      </div>
+
+      {/* 模块分组卡片 */}
+      {SCOPE_GROUPS.map((group) => {
+        const groupValues = group.items.map((i) => i.value);
+        const groupSelectedCount = groupValues.filter((v) => value.includes(v)).length;
+        const allGroupSelected = groupValues.length > 0 && groupSelectedCount === groupValues.length;
+        const indeterminate = groupSelectedCount > 0 && !allGroupSelected;
+
+        return (
+          <div
+            key={group.title}
+            style={{
+              border: '1px solid #f0f0f0',
+              borderRadius: 8,
+              background: isAll ? '#f9f9f9' : '#ffffff',
+              padding: '10px 14px',
+              transition: 'all 0.2s',
+              opacity: isAll ? 0.65 : 1,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 8,
+                paddingBottom: 6,
+                borderBottom: '1px dashed #f0f0f0',
+              }}
+            >
+              <div style={{ fontWeight: 600, fontSize: 13, color: '#262626' }}>
+                {group.title}
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#8c8c8c' }}>
+                  ({isAll ? groupValues.length : groupSelectedCount}/{groupValues.length})
+                </span>
+              </div>
+              <Checkbox
+                disabled={isAll}
+                indeterminate={indeterminate}
+                checked={isAll || allGroupSelected}
+                onChange={(e) => handleGroupSelectAll(groupValues, e.target.checked)}
+                style={{ fontSize: 12 }}
+              >
+                全选本组
+              </Checkbox>
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: group.items.length > 2 ? 'repeat(4, 1fr)' : '1fr',
+                gap: '8px 12px',
+              }}
+            >
+              {group.items.map((item) => (
+                <Checkbox
+                  key={item.value}
+                  disabled={isAll}
+                  checked={isAll || value.includes(item.value)}
+                  onChange={(e) => handleItemToggle(item.value, e.target.checked)}
+                >
+                  <span style={{ fontSize: 13 }}>{item.label}</span>
+                </Checkbox>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const scopeText: Record<string, string> = scopeOptions.reduce(
   (acc, item) => ({ ...acc, [item.value]: item.label }),
@@ -368,7 +563,7 @@ export default function ContentApiKeyManage() {
       <Drawer
         title={current ? '编辑 API 密钥' : '新增 API 密钥'}
         open={drawerOpen}
-        width={640}
+        width={720}
         destroyOnClose
         onClose={() => setDrawerOpen(false)}
         extra={
@@ -388,9 +583,9 @@ export default function ContentApiKeyManage() {
             name="scopes"
             label="授权范围"
             rules={[{ required: true, message: '请选择授权范围' }]}
-            extra="说明：'全站分类与标签查询'为全站字典总览（只读，含教程、作品、社区）；如需允许 Agent 自主新增/修改作品分类及二级标签，请勾选'作品分类与标签管理'。"
+            extra="可直接勾选顶部「全部内容资产权限」，也可按模块点选或「全选本组」。"
           >
-            <Checkbox.Group options={scopeOptions} />
+            <ScopeSelector />
           </Form.Item>
           <Form.Item name="status" label="状态" rules={[{ required: true }]}>
             <Select
