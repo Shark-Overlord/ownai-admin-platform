@@ -28,6 +28,8 @@ import java.util.List;
 import com.yupi.springbootinit.service.impl.BlogBookServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.any;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -36,6 +38,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 class BlogBookServiceImplTest {
 
     @Mock
@@ -74,6 +77,7 @@ class BlogBookServiceImplTest {
         when(blogPostMapper.selectOne(any())).thenReturn(existing, last);
         when(blogChapterMapper.selectOne(any())).thenReturn(chapter);
         when(blogBookMapper.selectOne(any())).thenReturn(book);
+        when(blogBookMapper.selectOne(any(), anyBoolean())).thenReturn(book);
         when(blogPostMapper.updateById(any(BlogPost.class))).thenReturn(1);
 
         service.assignPost(existing.getId(), chapter.getId());
@@ -106,6 +110,7 @@ class BlogBookServiceImplTest {
         BlogPost firstPost = post(10L, first.getId());
         BlogPost secondPost = post(11L, second.getId());
         when(blogBookMapper.selectOne(any())).thenReturn(book);
+        when(blogBookMapper.selectOne(any(), anyBoolean())).thenReturn(book);
         when(blogChapterMapper.selectList(any())).thenReturn(Arrays.asList(first, second));
         when(blogPostMapper.selectList(any())).thenReturn(Arrays.asList(firstPost, secondPost));
         when(blogChapterMapper.updateById(any(BlogChapter.class))).thenReturn(1);
@@ -148,6 +153,7 @@ class BlogBookServiceImplTest {
         when(blogCategoryMapper.selectById(category.getId())).thenReturn(category);
         when(blogBookMapper.selectCount(any())).thenReturn(0L);
         when(blogBookMapper.selectOne(any())).thenReturn(existing);
+        when(blogBookMapper.selectOne(any(), anyBoolean())).thenReturn(existing);
         when(blogBookMapper.updateById(any(BlogBook.class))).thenReturn(1);
 
         service.saveBook(request, null);

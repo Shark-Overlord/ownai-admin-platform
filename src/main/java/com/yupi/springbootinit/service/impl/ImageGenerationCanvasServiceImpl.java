@@ -15,7 +15,7 @@ import com.yupi.springbootinit.model.vo.imagegeneration.ImageGenerationCanvasVO;
 import com.yupi.springbootinit.service.ImageGenerationCanvasService;
 import com.yupi.springbootinit.service.ImageGenerationMessageService;
 import java.util.Date;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;

@@ -3,7 +3,7 @@ package com.yupi.springbootinit.wxmp;
 import com.yupi.springbootinit.wxmp.handler.EventHandler;
 import com.yupi.springbootinit.wxmp.handler.MessageHandler;
 import com.yupi.springbootinit.wxmp.handler.SubscribeHandler;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import me.chanjar.weixin.common.api.WxConsts.EventType;
 import me.chanjar.weixin.common.api.WxConsts.XmlMsgType;
 import me.chanjar.weixin.mp.api.WxMpMessageRouter;

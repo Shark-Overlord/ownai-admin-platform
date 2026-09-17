@@ -24,7 +24,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import javax.net.ssl.HttpsURLConnection;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;

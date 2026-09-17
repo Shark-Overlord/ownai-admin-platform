@@ -9,8 +9,8 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.announcement.PublicNewsVO;
 import com.yupi.springbootinit.service.NewsService;
 import com.yupi.springbootinit.service.UserService;
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

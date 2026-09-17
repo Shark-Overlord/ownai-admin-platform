@@ -7,7 +7,7 @@ import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.model.entity.PointRechargeConfig;
 import com.yupi.springbootinit.service.PointRechargeConfigService;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

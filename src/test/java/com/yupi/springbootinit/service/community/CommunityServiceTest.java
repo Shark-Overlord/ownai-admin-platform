@@ -77,7 +77,7 @@ class CommunityServiceTest {
         jdbc.execute("CREATE TABLE announcement(id BIGINT PRIMARY KEY,title VARCHAR(150),summary VARCHAR(300),status VARCHAR(20),popupEnabled INT,targetType VARCHAR(30),targetId BIGINT)");
         reset(users,announcements);
         when(users.getLoginUser(any())).thenAnswer(inv -> {
-            javax.servlet.http.HttpServletRequest r=inv.getArgument(0);String role=r.getHeader("X-Test-Role");
+            jakarta.servlet.http.HttpServletRequest r=inv.getArgument(0);String role=r.getHeader("X-Test-Role");
             if(role==null) throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
             User u=new User();u.setId("admin".equals(role)?1L:2L);u.setUserRole(role);return u;
         });

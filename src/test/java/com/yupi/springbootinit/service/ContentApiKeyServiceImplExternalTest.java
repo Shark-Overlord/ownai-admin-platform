@@ -20,6 +20,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 class ContentApiKeyServiceImplExternalTest {
     @Mock private ContentApiKeyMapper mapper;
     private ContentApiKeyServiceImpl service;
@@ -37,7 +38,8 @@ class ContentApiKeyServiceImplExternalTest {
     void authenticatesPrimaryHeaderAndExactScope() {
         ContentApiKey key = key("tutorial:read", 1);
         when(mapper.selectOne(any())).thenReturn(key);
-        when(mapper.updateById(any())).thenReturn(1);
+        when(mapper.selectOne(any(), org.mockito.ArgumentMatchers.anyBoolean())).thenReturn(key);
+        when(mapper.updateById(any(ContentApiKey.class))).thenReturn(1);
         assertEquals(key, service.requireRequestKey(request,
                 Collections.singletonList(ContentApiKeyService.SCOPE_TUTORIAL_READ)));
     }

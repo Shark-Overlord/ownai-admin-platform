@@ -9,7 +9,7 @@ import io.jsonwebtoken.security.Keys;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.crypto.SecretKey;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 

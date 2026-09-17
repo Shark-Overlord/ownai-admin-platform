@@ -1,6 +1,6 @@
 package com.yupi.springbootinit.utils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Network helpers.

@@ -214,7 +214,7 @@ class BlogFrontServiceImplTest {
 
         assertTrue(service.addPostFavorite(post.getId(), user));
 
-        verify(blogPostFavoriteMapper, never()).insert(any());
+        verify(blogPostFavoriteMapper, never()).insert(any(BlogPostFavorite.class));
     }
 
     @Test
