@@ -7,6 +7,8 @@ import lombok.Data;
 @Data
 public class PromptAssetAddRequest implements Serializable {
 
+    private String externalId;
+
     private String assetType;
 
     private Long categoryId;

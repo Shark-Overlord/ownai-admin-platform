@@ -62,6 +62,8 @@ public interface ContentApiKeyService extends IService<ContentApiKey> {
 
     String SCOPE_TAXONOMY_READ = "taxonomy:read";
 
+    String SCOPE_CATEGORY_MANAGE = "category:manage";
+
     ContentApiKeyCreateVO addKey(ContentApiKeyAddRequest request, User loginUser);
 
     Boolean updateKey(ContentApiKeyUpdateRequest request);

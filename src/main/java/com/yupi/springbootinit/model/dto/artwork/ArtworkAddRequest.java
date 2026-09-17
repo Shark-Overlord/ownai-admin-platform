@@ -10,6 +10,8 @@ public class ArtworkAddRequest implements Serializable {
 
     private String externalKey;
 
+    private String externalId;
+
     private String title;
 
     private String summary;

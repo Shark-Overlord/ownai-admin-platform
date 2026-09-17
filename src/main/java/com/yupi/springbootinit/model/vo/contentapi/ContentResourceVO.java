@@ -9,6 +9,8 @@ import lombok.Data;
 public class ContentResourceVO implements Serializable {
     private String resourceType;
     private String id;
+    private String externalId;
+    private Boolean created;
     private String version;
     private JsonNode resource;
     private static final long serialVersionUID = 1L;

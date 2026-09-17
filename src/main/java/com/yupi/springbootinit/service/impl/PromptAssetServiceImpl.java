@@ -332,6 +332,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     public Long addPromptAsset(PromptAssetAddRequest request) {
         validateAddRequest(request);
         PromptAsset asset = new PromptAsset();
+        asset.setExternalId(StringUtils.trimToNull(request.getExternalId()));
         asset.setAssetType(StringUtils.trim(request.getAssetType()));
         asset.setCategoryId(request.getCategoryId());
         asset.setTitle(StringUtils.left(StringUtils.trim(request.getTitle()), 255));
