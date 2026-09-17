@@ -87,7 +87,7 @@ public class DeconstructionAssetFavoriteServiceImpl
             existing.setMetaData(request.getMetaData());
             existing.setIsDelete(0);
             existing.setUpdateTime(new Date());
-            return favoriteMapper.updateById(existing) > 0;
+            return favoriteMapper.restoreFavorite(existing) > 0;
         }
 
         // 插入新记录

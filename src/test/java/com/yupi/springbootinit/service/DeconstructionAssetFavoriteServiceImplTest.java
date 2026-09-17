@@ -111,7 +111,7 @@ class DeconstructionAssetFavoriteServiceImplTest {
         existing.setId(10L);
         existing.setIsDelete(1);
         when(favoriteMapper.selectIncludingDeleted(1001L, 1L, "icon", "search")).thenReturn(existing);
-        when(favoriteMapper.updateById(any(DeconstructionAssetFavorite.class))).thenReturn(1);
+        when(favoriteMapper.restoreFavorite(any(DeconstructionAssetFavorite.class))).thenReturn(1);
 
         DeconstructionAssetFavoriteAddRequest request = new DeconstructionAssetFavoriteAddRequest();
         request.setArtworkId(1L);
@@ -123,7 +123,7 @@ class DeconstructionAssetFavoriteServiceImplTest {
         Boolean result = service.addFavorite(request, loginUser);
         assertTrue(result);
         assertEquals(0, existing.getIsDelete());
-        verify(favoriteMapper).updateById(existing);
+        verify(favoriteMapper).restoreFavorite(existing);
     }
 
     @Test
