@@ -397,11 +397,16 @@ function AssetsPane({
   const [mediaFilter, setMediaFilter] = useState<'all' | 'video' | 'image'>('all');
 
   const mediaWithIndex = useMemo(() => {
-    return media.map((item, originalIndex) => ({
+    const list = media.map((item, originalIndex) => ({
       ...item,
       originalIndex,
       assetKey: `media-${originalIndex}`,
     }));
+    return list.slice().sort((a, b) => {
+      const aIsVideo = a.type === 'video' ? 1 : 0;
+      const bIsVideo = b.type === 'video' ? 1 : 0;
+      return bIsVideo - aIsVideo;
+    });
   }, [media]);
 
   const videoCount = useMemo(() => mediaWithIndex.filter((m) => m.type === 'video').length, [mediaWithIndex]);
@@ -540,14 +545,28 @@ function AssetsPane({
                         className="dc-media-video-element"
                       />
                     ) : (
-                      <img
-                        src={item.url}
-                        alt={item.title || '设计素材'}
-                        className="dc-media-image-element"
-                        loading="lazy"
-                        onClick={() => item.url && window.open(item.url, '_blank')}
-                        title={item.title ? `${item.title} (点击在新标签页打开大图)` : '点击在新标签页打开大图'}
-                      />
+                      <>
+                        <img
+                          src={item.url}
+                          alt={item.title || '设计素材'}
+                          className="dc-media-image-element"
+                          loading="lazy"
+                        />
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="dc-media-preview-overlay"
+                          title="在新标签页中查看原尺寸大图"
+                        >
+                          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.3-4.3" />
+                            <path d="M11 8v6M8 11h6" />
+                          </svg>
+                          <span>查看原图</span>
+                        </a>
+                      </>
                     )}
                   </div>
                 </article>
