@@ -2,6 +2,7 @@
 import { Link } from "react-router-dom";
 import {
   Check,
+  ChevronDown,
   Code2,
   Copy,
   ExternalLink,
@@ -10,7 +11,6 @@ import {
   Sparkles,
   Trash2,
   Layers,
-  FileCode,
 } from "lucide-react";
 import {
   cancelDeconstructionAssetFavorite,
@@ -33,6 +33,7 @@ export function DeconstructionFavoriteView({
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -102,6 +103,18 @@ export function DeconstructionFavoriteView({
     }
   };
 
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const emptyDescriptions = {
     prompt: "还没有收藏解构提示词。在作品解构页的【提示词规范】面板点击 Save 即可收藏。",
     component: "还没有收藏解构零件组件。在作品解构页的【零件拆解】面板点击 Save 即可收藏。",
@@ -118,9 +131,9 @@ export function DeconstructionFavoriteView({
             type="text"
             placeholder={
               assetType === "prompt"
-                ? "搜索已收藏提示词与设计规范..."
+                ? "搜索已收藏提示词规范..."
                 : assetType === "component"
-                ? "搜索已收藏零件切片代码..."
+                ? "搜索已收藏零件组件..."
                 : "搜索已收藏图标与素材..."
             }
             value={searchText}
@@ -153,7 +166,7 @@ export function DeconstructionFavoriteView({
           </p>
         </div>
       ) : assetType === "icon" ? (
-        /* 图标/素材展示网格 */
+        /* 图标素材专属网格视图 */
         <div className="fav-icon-grid">
           {items.map((item) => {
             const isCopied = copiedId === item.id;
@@ -207,76 +220,128 @@ export function DeconstructionFavoriteView({
           })}
         </div>
       ) : (
-        /* 提示词 & 组件展示网格 */
-        <div className={assetType === "prompt" ? "fav-prompt-grid" : "fav-component-grid"}>
+        /* 提示词 & 组件：高效可折叠列表视图 (Accordion List) */
+        <div className="fav-assets-list">
           {items.map((item) => {
             const isCopied = copiedId === item.id;
+            const isExpanded = expandedIds.has(item.id);
             return (
-              <article className="fav-asset-card" key={item.id}>
-                <div className="fav-asset-header">
-                  <div className="fav-asset-title-group">
-                    <h3>{item.title || (assetType === "prompt" ? "解构设计规范" : item.assetKey)}</h3>
-                    <div className="fav-asset-tag-row">
-                      {item.tag && <span className="fav-asset-badge accent">{item.tag}</span>}
-                      <span className="fav-asset-badge">
-                        {assetType === "prompt" ? "System Prompt" : "UI Part Code"}
-                      </span>
-                      {item.artworkTitle && (
-                        <span className="fav-asset-badge">来源: {item.artworkTitle}</span>
+              <article
+                className={`fav-list-item${isExpanded ? " is-expanded" : ""}`}
+                key={item.id}
+              >
+                {/* 紧凑行头部：支持点击展开/折叠 */}
+                <div
+                  className="fav-list-row"
+                  onClick={() => toggleExpand(item.id)}
+                >
+                  <div className="fav-list-left">
+                    <div className="fav-type-badge-icon">
+                      {assetType === "prompt" ? (
+                        <Sparkles className="h-4 w-4" />
+                      ) : (
+                        <Code2 className="h-4 w-4" />
                       )}
+                    </div>
+                    <div className="fav-list-meta">
+                      <div className="fav-list-title-row">
+                        <h4 className="fav-list-title">
+                          {item.title || (assetType === "prompt" ? "解构设计规范" : item.assetKey)}
+                        </h4>
+                        {item.tag && <span className="fav-asset-badge accent">{item.tag}</span>}
+                        <span className="fav-asset-badge">
+                          {assetType === "prompt" ? "System Prompt" : "UI Part"}
+                        </span>
+                        {item.artworkTitle && (
+                          <span className="fav-asset-badge">出处: {item.artworkTitle}</span>
+                        )}
+                      </div>
+                      {item.description && (
+                        <p className="fav-list-desc" title={item.description}>
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 右侧操作区：无需展开直接复制、直达解构 */}
+                  <div
+                    className="fav-list-right"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="fav-list-date">
+                      {item.createTime ? item.createTime.slice(0, 10) : ""}
+                    </span>
+                    <div className="fav-list-actions">
+                      <button
+                        type="button"
+                        className="fav-btn"
+                        onClick={() => handleCopy(item.id, item.content)}
+                        title="复制代码或提示词"
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-400" />
+                            <span>已复制</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            <span>复制</span>
+                          </>
+                        )}
+                      </button>
+                      <Link
+                        to={`/artwork/deconstruction/${item.artworkId}`}
+                        className="fav-btn"
+                        target="_blank"
+                        rel="noreferrer"
+                        title="在新窗口查看原作品解构"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        <span>解构</span>
+                      </Link>
+                      <button
+                        type="button"
+                        className="fav-btn danger"
+                        onClick={() => handleRemove(item)}
+                        title="取消收藏"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        className="fav-btn"
+                        onClick={() => toggleExpand(item.id)}
+                        title={isExpanded ? "收起代码" : "展开代码"}
+                      >
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 fav-expand-arrow${
+                            isExpanded ? " is-expanded" : ""
+                          }`}
+                        />
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                {item.description && <p className="fav-asset-desc">{item.description}</p>}
-
-                {/* 代码或提示词内容预览 */}
-                <div className="fav-asset-code-box">
-                  {item.content}
-                </div>
-
-                {/* 卡片底栏操作 */}
-                <div className="fav-asset-footer">
-                  <span className="fav-asset-date">
-                    {item.createTime ? item.createTime.slice(0, 10) : "已收藏"}
-                  </span>
-                  <div className="fav-asset-actions">
-                    <button
-                      type="button"
-                      className="fav-btn"
-                      onClick={() => handleCopy(item.id, item.content)}
-                    >
-                      {isCopied ? (
-                        <>
-                          <Check className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>已复制</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5" />
-                          <span>复制代码</span>
-                        </>
-                      )}
-                    </button>
-                    <Link
-                      to={`/artwork/deconstruction/${item.artworkId}`}
-                      className="fav-btn"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span>查看解构</span>
-                    </Link>
-                    <button
-                      type="button"
-                      className="fav-btn danger"
-                      onClick={() => handleRemove(item)}
-                      title="取消收藏"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                {/* 展开的代码/Prompt详情抽屉框 */}
+                {isExpanded && (
+                  <div className="fav-list-expand-box">
+                    <div className="fav-expand-header">
+                      <span>{assetType === "prompt" ? "Prompt Markdown 规范全文" : "组件 TSX / JSX 源码"}</span>
+                      <button
+                        type="button"
+                        className="fav-btn"
+                        onClick={() => handleCopy(item.id, item.content)}
+                      >
+                        {isCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                        <span>{isCopied ? "已复制代码" : "复制代码"}</span>
+                      </button>
+                    </div>
+                    <pre className="fav-asset-code-box">{item.content}</pre>
                   </div>
-                </div>
+                )}
               </article>
             );
           })}
