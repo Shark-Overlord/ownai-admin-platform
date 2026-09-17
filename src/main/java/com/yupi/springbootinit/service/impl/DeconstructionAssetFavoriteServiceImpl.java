@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
@@ -66,6 +68,11 @@ public class DeconstructionAssetFavoriteServiceImpl
         ThrowUtils.throwIf(artwork == null || Integer.valueOf(1).equals(artwork.getIsDelete()),
                 ErrorCode.NOT_FOUND_ERROR, "作品不存在");
 
+        String finalContent = request.getContent();
+        if ("prompt".equals(assetType)) {
+            finalContent = resolveFullPromptContent(finalContent, artwork);
+        }
+
         DeconstructionAssetFavorite existing = favoriteMapper.selectIncludingDeleted(userId, artworkId, assetType, assetKey);
         if (existing != null) {
             if (Integer.valueOf(0).equals(existing.getIsDelete())) {
@@ -76,7 +83,7 @@ public class DeconstructionAssetFavoriteServiceImpl
             existing.setTitle(StringUtils.defaultString(request.getTitle()));
             existing.setTag(StringUtils.defaultString(request.getTag()));
             existing.setDescription(request.getDescription());
-            existing.setContent(request.getContent());
+            existing.setContent(finalContent);
             existing.setMetaData(request.getMetaData());
             existing.setIsDelete(0);
             existing.setUpdateTime(new Date());
@@ -92,12 +99,115 @@ public class DeconstructionAssetFavoriteServiceImpl
         favorite.setTitle(StringUtils.defaultString(request.getTitle()));
         favorite.setTag(StringUtils.defaultString(request.getTag()));
         favorite.setDescription(request.getDescription());
-        favorite.setContent(request.getContent());
+        favorite.setContent(finalContent);
         favorite.setMetaData(request.getMetaData());
         favorite.setCreateTime(new Date());
         favorite.setUpdateTime(new Date());
         favorite.setIsDelete(0);
         return favoriteMapper.insert(favorite) > 0;
+    }
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private String resolveFullPromptContent(String originalContent, Artwork artwork) {
+        if (StringUtils.isNotBlank(originalContent) && originalContent.trim().length() > 150) {
+            return originalContent.trim();
+        }
+        if (artwork == null || StringUtils.isBlank(artwork.getPromptData())) {
+            return StringUtils.defaultString(originalContent);
+        }
+        try {
+            JsonNode data = OBJECT_MAPPER.readTree(artwork.getPromptData());
+            String title = StringUtils.defaultIfBlank(artwork.getTitle(), "作品");
+            String fallback = StringUtils.defaultIfBlank(artwork.getDeconstructedPrompt(), originalContent);
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("# ").append(title).append(" · SYSTEM_PROMPT & 视觉设计规范\n\n");
+
+            JsonNode roleNode = data.get("role");
+            String role = (roleNode != null && !roleNode.isNull()) ? roleNode.asText() : fallback;
+            sb.append("## 角色与核心任务 (Role & Objective)\n").append(role).append("\n\n");
+
+            JsonNode layoutNode = data.get("layout");
+            if (layoutNode != null && !layoutNode.isNull() && StringUtils.isNotBlank(layoutNode.asText())) {
+                sb.append("## 01. 界面布局与视觉风格\n**整体布局**：").append(layoutNode.asText()).append("\n\n");
+            }
+
+            JsonNode viewportsNode = data.get("viewports");
+            if (viewportsNode != null && viewportsNode.isArray() && viewportsNode.size() > 0) {
+                sb.append("### 画板基准与设备视口 (Viewport Specs)\n");
+                for (JsonNode v : viewportsNode) {
+                    String name = v.path("name").asText("");
+                    String size = v.path("size").asText("");
+                    String note = v.path("note").asText("");
+                    sb.append("- **").append(name).append("** (").append(size).append("): ").append(note).append("\n");
+                }
+                sb.append("\n");
+            }
+
+            JsonNode colorsNode = data.get("colors");
+            if (colorsNode != null && colorsNode.isArray() && colorsNode.size() > 0) {
+                sb.append("### 色彩系统 (Color Palette)\n");
+                for (JsonNode c : colorsNode) {
+                    String value = c.path("value").asText("");
+                    String label = c.path("label").asText("");
+                    String note = c.path("note").asText("");
+                    sb.append("- `").append(value).append("` **").append(label).append("**: ").append(note).append("\n");
+                }
+                sb.append("\n");
+            }
+
+            JsonNode typographyNode = data.get("typography");
+            if (typographyNode != null && typographyNode.isArray() && typographyNode.size() > 0) {
+                sb.append("### 文字排版与资产 (Typography)\n");
+                for (JsonNode t : typographyNode) {
+                    String roleLbl = t.has("role") ? t.get("role").asText() : t.path("label").asText("");
+                    String value = t.path("value").asText("");
+                    String note = t.path("note").asText("");
+                    sb.append("- **").append(roleLbl).append("**: `").append(value).append("` (").append(note).append(")\n");
+                }
+                sb.append("\n");
+            }
+
+            JsonNode motionsNode = data.get("motions");
+            if (motionsNode != null && motionsNode.isArray() && motionsNode.size() > 0) {
+                sb.append("## 02. 交互控件与动效参数 (Motion Specs)\n");
+                for (JsonNode m : motionsNode) {
+                    String label = m.path("label").asText("");
+                    String desc = m.path("desc").asText("");
+                    String token = m.path("token").asText("");
+                    sb.append("- **").append(label).append("**: ").append(desc).append(" (`").append(token).append("`)\n");
+                }
+                sb.append("\n");
+            }
+
+            JsonNode rulesNode = data.get("rules");
+            if (rulesNode != null && !rulesNode.isNull()) {
+                sb.append("## 03. 设计红线与约束 (Do's and Don'ts)\n");
+                JsonNode dosNode = rulesNode.get("dos");
+                if (dosNode != null && dosNode.isArray() && dosNode.size() > 0) {
+                    sb.append("### ✅ Do (必须执行)\n");
+                    for (JsonNode d : dosNode) {
+                        sb.append("- ").append(d.asText()).append("\n");
+                    }
+                    sb.append("\n");
+                }
+                JsonNode dontsNode = rulesNode.get("donts");
+                if (dontsNode != null && dontsNode.isArray() && dontsNode.size() > 0) {
+                    sb.append("### ❌ Don't (严禁行为)\n");
+                    for (JsonNode d : dontsNode) {
+                        sb.append("- ").append(d.asText()).append("\n");
+                    }
+                    sb.append("\n");
+                }
+            }
+
+            String result = sb.toString().trim();
+            return result.length() > 50 ? result : originalContent;
+        } catch (Exception e) {
+            log.warn("Failed to parse promptData for artwork {}", artwork.getId(), e);
+            return originalContent;
+        }
     }
 
     @Override
