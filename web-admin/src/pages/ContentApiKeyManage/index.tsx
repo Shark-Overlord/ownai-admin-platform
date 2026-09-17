@@ -47,9 +47,8 @@ const scopeOptions = [
   { label: '教程资产查询', value: 'tutorial:read' },
   { label: '教程资产新增', value: 'tutorial:add' },
   { label: '教程资产修改', value: 'tutorial:update' },
-  { label: '教程资产上传', value: 'tutorial:upload' },
-  { label: '分类与标签查询', value: 'taxonomy:read' },
-  { label: '作品分类与标签管理', value: 'category:manage' },
+  { label: '全站分类与标签查询（含教程/作品/社区只读字典）', value: 'taxonomy:read' },
+  { label: '作品分类与标签管理（增改分类及二级标签）', value: 'category:manage' },
 ];
 
 const scopeText: Record<string, string> = scopeOptions.reduce(
@@ -385,7 +384,12 @@ export default function ContentApiKeyManage() {
           <Form.Item name="keyName" label="密钥名称" rules={[{ required: true, message: '请输入密钥名称' }]}>
             <Input maxLength={100} placeholder="例如：视觉资产导入程序" />
           </Form.Item>
-          <Form.Item name="scopes" label="授权范围" rules={[{ required: true, message: '请选择授权范围' }]}>
+          <Form.Item
+            name="scopes"
+            label="授权范围"
+            rules={[{ required: true, message: '请选择授权范围' }]}
+            extra="说明：'全站分类与标签查询'为全站字典总览（只读，含教程、作品、社区）；如需允许 Agent 自主新增/修改作品分类及二级标签，请勾选'作品分类与标签管理'。"
+          >
             <Checkbox.Group options={scopeOptions} />
           </Form.Item>
           <Form.Item name="status" label="状态" rules={[{ required: true }]}>
