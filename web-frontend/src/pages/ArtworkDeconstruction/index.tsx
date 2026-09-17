@@ -394,35 +394,175 @@ function AssetsPane({
 }) {
   const icons = Array.isArray(assets.icons) ? assets.icons : [];
   const media = Array.isArray(assets.media) ? assets.media : [];
-  return <div className="dc-pane"><div className="dc-pane-title"><div><span className="dc-overline"># UI ASSETS · 设计素材库</span><p>展示右侧界面调用的全部矢量图标与图片视频资产，可一键收藏供 Agent 编码调用</p></div></div>
-    <section className="dc-assets-section"><div className="dc-subtitle"><b>01. 矢量图标 (Icons · {icons.length})</b><small>点击 Save 收藏，点击 Copy 获取代码</small></div>
-      <div className="dc-icon-grid">{icons.length ? icons.map((icon, index) => {
-        const iconKey = icon.name || `icon-${index}`;
-        const isFav = favoritedKeys.has(`icon:${iconKey}`);
-        return <article key={`${icon.name}-${index}`}>
-          <div className="dc-icon-preview"><SvgIcon name={icon.name || 'copy'} size={16} /></div>
-          <div className="dc-asset-text"><h3>{icon.name}<span>{icon.library || 'Lucide'}</span></h3><p>{icon.label || icon.desc}</p></div>
-          <div className="dc-card-actions" onClick={(e) => e.stopPropagation()}>
-            <FavoriteButton
-              compact
-              favorited={isFav}
-              onToggle={() => onToggleFavorite({
-                assetType: 'icon',
-                assetKey: iconKey,
-                title: icon.name || 'Icon',
-                tag: icon.library || 'Lucide',
-                description: icon.label || icon.desc || '',
-                content: icon.code || icon.svg || icon.name || '',
-              })}
-            />
-            <CopyButton compact text={icon.code || icon.name || ''} />
+  const [mediaFilter, setMediaFilter] = useState<'all' | 'video' | 'image'>('all');
+
+  const mediaWithIndex = useMemo(() => {
+    return media.map((item, originalIndex) => ({
+      ...item,
+      originalIndex,
+      assetKey: `media-${originalIndex}`,
+    }));
+  }, [media]);
+
+  const videoCount = useMemo(() => mediaWithIndex.filter((m) => m.type === 'video').length, [mediaWithIndex]);
+  const imageCount = useMemo(() => mediaWithIndex.filter((m) => m.type !== 'video').length, [mediaWithIndex]);
+
+  const filteredMedia = useMemo(() => {
+    if (mediaFilter === 'video') return mediaWithIndex.filter((m) => m.type === 'video');
+    if (mediaFilter === 'image') return mediaWithIndex.filter((m) => m.type !== 'video');
+    return mediaWithIndex;
+  }, [mediaWithIndex, mediaFilter]);
+
+  return (
+    <div className="dc-pane">
+      <div className="dc-pane-title">
+        <div>
+          <span className="dc-overline"># UI ASSETS · 设计素材库</span>
+          <p>展示右侧界面调用的全部矢量图标与图片视频资产，可一键收藏供 Agent 编码调用</p>
+        </div>
+      </div>
+      <section className="dc-assets-section">
+        <div className="dc-subtitle">
+          <b>01. 矢量图标 (Icons · {icons.length})</b>
+          <small>点击 Save 收藏，点击 Copy 获取代码</small>
+        </div>
+        <div className="dc-icon-grid">
+          {icons.length ? (
+            icons.map((icon, index) => {
+              const iconKey = icon.name || `icon-${index}`;
+              const isFav = favoritedKeys.has(`icon:${iconKey}`);
+              return (
+                <article key={`${icon.name}-${index}`}>
+                  <div className="dc-icon-preview">
+                    <SvgIcon name={icon.name || 'copy'} size={16} />
+                  </div>
+                  <div className="dc-asset-text">
+                    <h3>
+                      {icon.name}
+                      <span>{icon.library || 'Lucide'}</span>
+                    </h3>
+                    <p>{icon.label || icon.desc}</p>
+                  </div>
+                  <div className="dc-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <FavoriteButton
+                      compact
+                      favorited={isFav}
+                      onToggle={() =>
+                        onToggleFavorite({
+                          assetType: 'icon',
+                          assetKey: iconKey,
+                          title: icon.name || 'Icon',
+                          tag: icon.library || 'Lucide',
+                          description: icon.label || icon.desc || '',
+                          content: icon.code || icon.svg || icon.name || '',
+                        })
+                      }
+                    />
+                    <CopyButton compact text={icon.code || icon.name || ''} />
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <p className="dc-muted">暂无独立声明图标</p>
+          )}
+        </div>
+      </section>
+      <hr />
+      <section className="dc-assets-section">
+        <div className="dc-subtitle dc-media-header">
+          <b>02. 视频与图片素材 (Media · {media.length || 0})</b>
+          <small>支持大图检视、网格浏览与直链获取</small>
+        </div>
+
+        {media.length > 0 && (
+          <div className="dc-media-filter-bar">
+            <div className="dc-media-pills">
+              <button
+                type="button"
+                className={`dc-media-pill${mediaFilter === 'all' ? ' active' : ''}`}
+                onClick={() => setMediaFilter('all')}
+              >
+                <span>全部</span>
+                <span className="dc-pill-num">{media.length}</span>
+              </button>
+              <button
+                type="button"
+                className={`dc-media-pill${mediaFilter === 'video' ? ' active' : ''}`}
+                onClick={() => setMediaFilter('video')}
+              >
+                <span>视频</span>
+                <span className="dc-pill-num">{videoCount}</span>
+              </button>
+              <button
+                type="button"
+                className={`dc-media-pill${mediaFilter === 'image' ? ' active' : ''}`}
+                onClick={() => setMediaFilter('image')}
+              >
+                <span>图片</span>
+                <span className="dc-pill-num">{imageCount}</span>
+              </button>
+            </div>
           </div>
-        </article>;
-      }) : <p className="dc-muted">暂无独立声明图标</p>}</div>
-    </section>
-    <hr />
-    <section className="dc-assets-section"><div className="dc-subtitle"><b>02. 视频与图片素材 (Media &amp; Images · {media.length || '无'})</b>{media.length > 0 && <small>点击 Save 收藏，点击 Copy 获取链接</small>}</div>{media.length ? <div className="dc-media-list">{media.map((item, index) => <article key={`${item.url}-${index}`}>{item.type === 'video' ? <div className="dc-media-video">▶</div> : <img src={item.url} alt={item.title || ''} />}<div className="dc-asset-text"><h3>{item.title}<span>{item.type === 'video' ? 'Video' : 'Image'}</span></h3><code>{item.url}</code><p>{item.desc}</p></div><div className="dc-card-actions" onClick={(e) => e.stopPropagation()}><FavoriteButton compact favorited={favoritedKeys.has(`icon:media-${index}`)} onToggle={() => onToggleFavorite({ assetType: 'icon', assetKey: `media-${index}`, title: item.title || (item.type === 'video' ? '视频素材' : '图片素材'), tag: item.type === 'video' ? 'Video' : 'Image', description: item.desc || '', content: item.url || '' })} /><CopyButton compact text={item.url || ''} /></div></article>)}</div> : <div className="dc-no-media"><span>外部视频与图片素材</span><b>无</b></div>}</section>
-  </div>;
+        )}
+
+        {filteredMedia.length ? (
+          <div className="dc-media-grid">
+            {filteredMedia.map((item) => {
+              const isVideo = item.type === 'video';
+              const isFav = favoritedKeys.has(`icon:${item.assetKey}`);
+              return (
+                <article className="dc-media-card" key={item.assetKey}>
+                  <div className="dc-media-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <FavoriteButton
+                      compact
+                      favorited={isFav}
+                      onToggle={() =>
+                        onToggleFavorite({
+                          assetType: 'icon',
+                          assetKey: item.assetKey,
+                          title: item.title || (isVideo ? '视频素材' : '图片素材'),
+                          tag: isVideo ? 'Video' : 'Image',
+                          description: item.desc || '',
+                          content: item.url || '',
+                        })
+                      }
+                    />
+                    <CopyButton compact text={item.url || ''} />
+                  </div>
+                  <div className="dc-media-card-content">
+                    {isVideo ? (
+                      <video
+                        src={item.url}
+                        controls
+                        preload="metadata"
+                        playsInline
+                        className="dc-media-video-element"
+                      />
+                    ) : (
+                      <img
+                        src={item.url}
+                        alt={item.title || '设计素材'}
+                        className="dc-media-image-element"
+                        loading="lazy"
+                        onClick={() => item.url && window.open(item.url, '_blank')}
+                        title={item.title ? `${item.title} (点击在新标签页打开大图)` : '点击在新标签页打开大图'}
+                      />
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="dc-no-media">
+            <span>{media.length ? '暂无符合当前类型的素材' : '外部视频与图片素材'}</span>
+            <b>{media.length ? '0' : '无'}</b>
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }
 
 function CodePane({ code }: { code: string }) {
