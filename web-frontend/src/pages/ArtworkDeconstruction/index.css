@@ -96,7 +96,29 @@
 .dc-media-card-actions .dc-copy-button,.dc-media-card-actions .dc-favorite-button{background:rgba(0,0,0,.7)!important;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15)!important;color:#ffffff!important;border-radius:6px!important;box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);height:26px;padding:0 8px;font-size:11px;font-weight:500;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;transition:all .15s ease}
 .dc-media-card-actions .dc-copy-button:hover,.dc-media-card-actions .dc-favorite-button:hover{background:rgba(0,0,0,.9)!important;border-color:rgba(255,255,255,.3)!important;color:#ffffff!important}
 .dc-media-card-actions .dc-copy-button:active,.dc-media-card-actions .dc-favorite-button:active{transform:scale(.95)}
-.dc-media-card-actions .dc-favorite-button.is-favorited{background:rgba(225,29,72,.85)!important;color:#ffffff!important;border-color:rgba(255,255,255,.3)!important}
+.dc-media-card-actions .dc-favorite-button.is-favorited {
+  color: #e11d48 !important;
+  background: rgba(254, 205, 211, 0.92) !important;
+  border-color: #fda4af !important;
+}
+.dc-media-card-actions .dc-favorite-button.is-favorited:hover {
+  color: #be123c !important;
+  background: rgba(254, 205, 211, 1) !important;
+  border-color: #fb7185 !important;
+}
+.dc-workbench.dark .dc-media-card-actions .dc-favorite-button.is-favorited {
+  color: #fb7185 !important;
+  background: rgba(225, 29, 72, 0.3) !important;
+  border-color: rgba(244, 63, 94, 0.6) !important;
+}
+.dc-workbench.dark .dc-media-card-actions .dc-favorite-button.is-favorited:hover {
+  color: #fda4af !important;
+  background: rgba(225, 29, 72, 0.45) !important;
+  border-color: rgba(244, 63, 94, 0.8) !important;
+}
+.dc-media-card-actions .dc-favorite-button.is-favorited .dc-fav-icon svg {
+  fill: currentColor !important;
+}
 .dc-media-card-actions .dc-copy-button .dc-copy-icon-default,.dc-media-card-actions .dc-copy-button .dc-copy-icon-success{color:#ffffff!important}
 .dc-media-card-content{position:relative;width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .dc-media-video-element{width:100%;height:100%;object-fit:contain;background:#000;display:block}
