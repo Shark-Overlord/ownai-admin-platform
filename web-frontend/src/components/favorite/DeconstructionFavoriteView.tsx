@@ -23,6 +23,124 @@ interface DeconstructionFavoriteViewProps {
   onMessage?: (message: string) => void;
 }
 
+function RenderAssetIcon({ content, name }: { content?: string; name?: string }) {
+  const trimmed = (content || "").trim();
+  if (
+    trimmed.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) ||
+    (trimmed.startsWith("http") && !trimmed.includes("<") && !trimmed.match(/\.(mp4|webm)/i))
+  ) {
+    return (
+      <img
+        src={trimmed}
+        alt={name || "素材"}
+        className="h-full w-full rounded-[8px] object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  if (trimmed.match(/\.(mp4|webm|mov)(\?.*)?$/i)) {
+    return (
+      <div className="flex h-5 w-5 items-center justify-center text-[var(--chat-ink)]">
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="6 3 20 12 6 21 6 3" />
+        </svg>
+      </div>
+    );
+  }
+  if (trimmed.startsWith("<svg")) {
+    return (
+      <div
+        className="flex h-5 w-5 items-center justify-center text-[var(--chat-ink)] [&>svg]:h-full [&>svg]:w-full [&>svg]:stroke-current"
+        dangerouslySetInnerHTML={{ __html: trimmed }}
+      />
+    );
+  }
+
+  let iconName = (name || "").toLowerCase().trim();
+  const match = trimmed.match(/data-lucide=["']([^"']+)["']/i);
+  if (match) {
+    iconName = match[1].toLowerCase();
+  }
+
+  const common = {
+    className: "h-5 w-5 text-[var(--chat-ink)]",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (iconName === "copy") {
+    return (
+      <svg {...common}>
+        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+      </svg>
+    );
+  }
+  if (iconName === "play") {
+    return (
+      <svg {...common}>
+        <polygon points="6 3 20 12 6 21 6 3" />
+      </svg>
+    );
+  }
+  if (iconName === "check") {
+    return (
+      <svg {...common}>
+        <path d="m20 6-11 11-5-5" />
+      </svg>
+    );
+  }
+  if (iconName === "sparkles") {
+    return (
+      <svg {...common}>
+        <path d="m12 3-1.7 4.3L6 9l4.3 1.7L12 15l1.7-4.3L18 9l-4.3-1.7L12 3ZM5 16l-.8 2.2L2 19l2.2.8L5 22l.8-2.2L8 19l-2.2-.8L5 16ZM19 13l-.8 2.2L16 16l2.2.8L19 19l.8-2.2L22 16l-2.2-.8L19 13Z" />
+      </svg>
+    );
+  }
+  if (iconName === "moon") {
+    return (
+      <svg {...common}>
+        <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z" />
+      </svg>
+    );
+  }
+  if (iconName === "sun") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+      </svg>
+    );
+  }
+  if (iconName === "search") {
+    return (
+      <svg {...common}>
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </svg>
+    );
+  }
+  if (iconName === "heart") {
+    return (
+      <svg {...common}>
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M9 21V9" />
+    </svg>
+  );
+}
+
 export function DeconstructionFavoriteView({
   assetType,
   onMessage,
@@ -174,14 +292,10 @@ export function DeconstructionFavoriteView({
             return (
               <article className="fav-icon-card" key={item.id}>
                 <div className="fav-icon-preview">
-                  {isSvg ? (
-                    <div
-                      className="flex h-5 w-5 items-center justify-center [&>svg]:h-full [&>svg]:w-full"
-                      dangerouslySetInnerHTML={{ __html: item.content }}
-                    />
-                  ) : (
-                    <Sparkles className="h-5 w-5 text-blue-400" />
-                  )}
+                  <RenderAssetIcon
+                    content={item.content}
+                    name={item.assetKey || item.title}
+                  />
                 </div>
                 <h4 className="fav-icon-name" title={item.title}>
                   {item.title || item.assetKey}
