@@ -1,4 +1,4 @@
-﻿-- Idempotency externalId keys for prompt_asset and video_background.
+-- Idempotency externalId keys for prompt_asset and video_background.
 -- Safe to run repeatedly on MySQL versions without ADD COLUMN/INDEX IF NOT EXISTS.
 
 -- 1. prompt_asset.externalId
