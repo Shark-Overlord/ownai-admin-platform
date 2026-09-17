@@ -6,14 +6,20 @@ import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
 import com.yupi.springbootinit.exception.BusinessException;
+import com.yupi.springbootinit.model.dto.category.CategoryAddRequest;
+import com.yupi.springbootinit.model.dto.category.CategoryTagAddRequest;
+import com.yupi.springbootinit.model.dto.category.CategoryUpdateRequest;
 import com.yupi.springbootinit.model.dto.contentapi.ContentResourceQuery;
+import com.yupi.springbootinit.model.dto.contentapi.RemoteUploadRequest;
 import com.yupi.springbootinit.model.entity.ContentApiKey;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.FileUploadBizEnum;
+import com.yupi.springbootinit.model.vo.CategoryVO;
 import com.yupi.springbootinit.model.vo.contentapi.ContentResourceVO;
 import com.yupi.springbootinit.service.ContentApiKeyService;
 import com.yupi.springbootinit.service.ContentExternalService;
 import com.yupi.springbootinit.service.ContentFileUploadService;
+import com.yupi.springbootinit.service.RemoteImageImportService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import java.util.Arrays;
@@ -22,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -51,11 +59,13 @@ public class ContentExternalController {
             ContentApiKeyService.SCOPE_COMMUNITY_POST_UPDATE, ContentApiKeyService.SCOPE_COMMUNITY_POST_UPLOAD,
             ContentApiKeyService.SCOPE_TUTORIAL_READ, ContentApiKeyService.SCOPE_TUTORIAL_ADD,
             ContentApiKeyService.SCOPE_TUTORIAL_UPDATE, ContentApiKeyService.SCOPE_TUTORIAL_UPLOAD,
-            ContentApiKeyService.SCOPE_TAXONOMY_READ);
+            ContentApiKeyService.SCOPE_TAXONOMY_READ,
+            ContentApiKeyService.SCOPE_CATEGORY_MANAGE);
 
     @Resource private ContentApiKeyService contentApiKeyService;
     @Resource private ContentExternalService contentExternalService;
     @Resource private ContentFileUploadService contentFileUploadService;
+    @Resource private RemoteImageImportService remoteImageImportService;
 
     @GetMapping("/capabilities")
     @ApiOperation("查看当前密钥可以使用的内容能力")
@@ -84,7 +94,7 @@ public class ContentExternalController {
 
     @PostMapping("/resources/{type}")
     @OperationLog(module = "content_external", action = "add_draft")
-    @ApiOperation("使用密钥新增对应模块的内容草稿")
+    @ApiOperation("使用密钥新增对应模块的内容草稿（支持幂等新增）")
     public BaseResponse<ContentResourceVO> add(@PathVariable String type, @RequestBody JsonNode fields,
             HttpServletRequest request) {
         ContentApiKey key = authenticate(request, type, "add");
@@ -125,6 +135,79 @@ public class ContentExternalController {
         User operator = contentExternalService.requireOperator(key);
         return ResultUtils.success(contentFileUploadService.uploadTrusted(file, uploadBiz, operator, request));
     }
+
+    @PostMapping("/uploads/remote")
+    @OperationLog(module = "content_external", action = "upload_remote")
+    @ApiOperation("使用密钥导入远程图片素材")
+    public BaseResponse<String> uploadRemote(@RequestBody RemoteUploadRequest remoteUploadRequest,
+            HttpServletRequest request) {
+        if (remoteUploadRequest == null || StringUtils.isBlank(remoteUploadRequest.getUrl())
+                || StringUtils.isBlank(remoteUploadRequest.getBiz())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "url 和 biz 不能为空");
+        }
+        FileUploadBizEnum uploadBiz = FileUploadBizEnum.getEnumByValue(remoteUploadRequest.getBiz());
+        if (uploadBiz == null || !Arrays.asList(FileUploadBizEnum.ARTWORK_COVER, FileUploadBizEnum.PROMPT_ASSET_COVER,
+                FileUploadBizEnum.VIDEO_BACKGROUND_COVER, FileUploadBizEnum.BLOG_IMAGE).contains(uploadBiz)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "该 biz 不支持远程图片导入");
+        }
+        ContentApiKey key = contentApiKeyService.requireRequestKey(request, uploadScopes(uploadBiz));
+        User operator = contentExternalService.requireOperator(key);
+        return ResultUtils.success(remoteImageImportService.importForContent(
+                remoteUploadRequest.getUrl(), uploadBiz, operator.getId()));
+    }
+
+    // ── 分类与标签管理（供 Agent 管理作品分类）────────────────────────────────
+
+    @GetMapping("/categories")
+    @ApiOperation("使用密钥查询作品分类列表（含二级标签树）")
+    public BaseResponse<List<CategoryVO>> listCategories(HttpServletRequest request) {
+        contentApiKeyService.requireRequestKey(request,
+                Collections.singletonList(ContentApiKeyService.SCOPE_CATEGORY_MANAGE));
+        return ResultUtils.success(contentExternalService.listCategories());
+    }
+
+    @PostMapping("/categories")
+    @OperationLog(module = "content_external", action = "add_category")
+    @ApiOperation("使用密钥新增作品分类")
+    public BaseResponse<Long> addCategory(@RequestBody CategoryAddRequest categoryAddRequest,
+            HttpServletRequest request) {
+        contentApiKeyService.requireRequestKey(request,
+                Collections.singletonList(ContentApiKeyService.SCOPE_CATEGORY_MANAGE));
+        return ResultUtils.success(contentExternalService.addCategory(categoryAddRequest));
+    }
+
+    @PatchMapping("/categories/{id}")
+    @OperationLog(module = "content_external", action = "update_category")
+    @ApiOperation("使用密钥修改作品分类")
+    public BaseResponse<Boolean> updateCategory(@PathVariable Long id,
+            @RequestBody CategoryUpdateRequest categoryUpdateRequest, HttpServletRequest request) {
+        contentApiKeyService.requireRequestKey(request,
+                Collections.singletonList(ContentApiKeyService.SCOPE_CATEGORY_MANAGE));
+        return ResultUtils.success(contentExternalService.updateCategory(id, categoryUpdateRequest));
+    }
+
+    @PostMapping("/categories/{id}/tags")
+    @OperationLog(module = "content_external", action = "add_category_tag")
+    @ApiOperation("使用密钥为分类添加二级标签")
+    public BaseResponse<Boolean> addTagToCategory(@PathVariable Long id,
+            @RequestBody CategoryTagAddRequest tagAddRequest, HttpServletRequest request) {
+        contentApiKeyService.requireRequestKey(request,
+                Collections.singletonList(ContentApiKeyService.SCOPE_CATEGORY_MANAGE));
+        String tagName = tagAddRequest == null ? null : tagAddRequest.getTagName();
+        return ResultUtils.success(contentExternalService.addTagToCategory(id, tagName));
+    }
+
+    @DeleteMapping("/categories/{id}/tags/{tagId}")
+    @OperationLog(module = "content_external", action = "remove_category_tag")
+    @ApiOperation("使用密钥解绑分类下的二级标签")
+    public BaseResponse<Boolean> removeTagFromCategory(@PathVariable Long id,
+            @PathVariable Long tagId, HttpServletRequest request) {
+        contentApiKeyService.requireRequestKey(request,
+                Collections.singletonList(ContentApiKeyService.SCOPE_CATEGORY_MANAGE));
+        return ResultUtils.success(contentExternalService.removeTagFromCategory(id, tagId));
+    }
+
+    // ── 内部辅助方法 ─────────────────────────────────────────────────────────
 
     private ContentApiKey authenticate(HttpServletRequest request, String type, String operation) {
         return contentApiKeyService.requireRequestKey(request,

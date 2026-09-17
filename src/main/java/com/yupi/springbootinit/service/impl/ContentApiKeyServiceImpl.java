@@ -69,7 +69,8 @@ public class ContentApiKeyServiceImpl extends ServiceImpl<ContentApiKeyMapper, C
             SCOPE_TUTORIAL_ADD,
             SCOPE_TUTORIAL_UPDATE,
             SCOPE_TUTORIAL_UPLOAD,
-            SCOPE_TAXONOMY_READ
+            SCOPE_TAXONOMY_READ,
+            SCOPE_CATEGORY_MANAGE
     )));
 
     @Override

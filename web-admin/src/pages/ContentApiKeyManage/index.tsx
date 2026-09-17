@@ -49,6 +49,7 @@ const scopeOptions = [
   { label: '教程资产修改', value: 'tutorial:update' },
   { label: '教程资产上传', value: 'tutorial:upload' },
   { label: '分类与标签查询', value: 'taxonomy:read' },
+  { label: '作品分类与标签管理', value: 'category:manage' },
 ];
 
 const scopeText: Record<string, string> = scopeOptions.reduce(
