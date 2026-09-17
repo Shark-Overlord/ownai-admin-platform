@@ -1,4 +1,4 @@
-/* 解构收藏资产视图专用样式 - 列表与折叠优化 */
+﻿/* 解构收藏资产视图专用样式 - 极简纯纯索引列表 */
 .fav-assets-container {
   padding: 1.25rem 1.5rem 2rem;
 }
@@ -44,15 +44,15 @@
 .fav-assets-list {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 /* 列表行主体 */
 .fav-list-item {
   background: var(--chat-control-bg, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
-  transition: all 0.2s ease;
+  border-radius: 10px;
+  transition: all 0.15s ease;
   overflow: hidden;
 }
 
@@ -61,20 +61,13 @@
   background: var(--chat-control-hover, rgba(255, 255, 255, 0.04));
 }
 
-.fav-list-item.is-expanded {
-  border-color: var(--chat-border, rgba(255, 255, 255, 0.22));
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.2);
-}
-
-/* 列表行可点击头部 */
+/* 列表行主体内容 */
 .fav-list-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 1.15rem;
-  cursor: pointer;
+  padding: 0.75rem 1rem;
   gap: 1rem;
-  user-select: none;
 }
 
 .fav-list-left {
@@ -86,9 +79,9 @@
 }
 
 .fav-index-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -106,14 +99,12 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 
 .fav-list-title-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
 }
 
 .fav-list-title {
@@ -133,32 +124,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 650px;
-}
-
-.fav-asset-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 1.5px 6px;
-  border-radius: 5px;
-  background: var(--chat-control-soft, rgba(255, 255, 255, 0.06));
-  color: var(--chat-muted, #94a3b8);
-  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.08));
-}
-
-.fav-asset-badge.accent {
-  background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
-  border-color: rgba(59, 130, 246, 0.25);
+  max-width: 680px;
 }
 
 /* 列表行右侧操作区 */
 .fav-list-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
   flex-shrink: 0;
 }
 
@@ -204,49 +177,7 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
-.fav-expand-arrow {
-  color: var(--chat-muted, #94a3b8);
-  transition: transform 0.2s ease;
-}
-
-.fav-expand-arrow.is-expanded {
-  transform: rotate(180deg);
-}
-
-/* 展开代码/详情区域 */
-.fav-list-expand-box {
-  border-top: 1px solid var(--chat-border, rgba(255, 255, 255, 0.08));
-  background: rgba(0, 0, 0, 0.2);
-  padding: 1rem 1.15rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.fav-expand-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--chat-muted, #94a3b8);
-}
-
-.fav-asset-code-box {
-  background: #090d16;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 0.85rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-  color: #cbd5e1;
-  max-height: 280px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.55;
-}
-
-/* 图标素材网格 */
+/* 图标素材专属网格 */
 .fav-icon-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -267,7 +198,7 @@
 }
 
 .fav-icon-card:hover {
-  border-color: var(--chat-border-active, rgba(59, 130, 246, 0.4));
+  border-color: var(--chat-border, rgba(255, 255, 255, 0.18));
   transform: translateY(-2px);
 }
 
@@ -311,7 +242,7 @@
   .fav-list-row {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
   .fav-list-right {
     width: 100%;
