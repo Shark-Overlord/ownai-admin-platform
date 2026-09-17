@@ -1,16 +1,11 @@
 package com.yupi.springbootinit.service.impl;
 
-import cn.hutool.http.Header;
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
-import cn.hutool.json.JSONArray;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.constant.AiTaskConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
+import com.yupi.springbootinit.manager.SpringAiClientManager;
 import com.yupi.springbootinit.mapper.AiProviderConfigMapper;
 import com.yupi.springbootinit.mapper.AiTaskConfigMapper;
 import com.yupi.springbootinit.model.dto.ai.AiProviderConfigRequest;
@@ -22,7 +17,6 @@ import com.yupi.springbootinit.model.vo.ai.AiSystemConfigVO;
 import com.yupi.springbootinit.model.vo.ai.AiTaskConfigVO;
 import com.yupi.springbootinit.service.AiConfigService;
 import java.nio.charset.StandardCharsets;
-import java.net.SocketTimeoutException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -35,6 +29,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -79,6 +74,9 @@ public class AiConfigServiceImpl implements AiConfigService {
 
     @Resource
     private AiTaskConfigMapper taskMapper;
+
+    @Resource
+    private SpringAiClientManager springAiClientManager;
 
     @Value("${ai.config-secret:${prompt.asset.ai-tagging.config-secret:${image.generation.config-secret:}}}")
     private String configSecret;
@@ -139,6 +137,8 @@ public class AiConfigServiceImpl implements AiConfigService {
         }
         int changed = config.getId() == null ? providerMapper.insert(config) : providerMapper.updateById(config);
         ThrowUtils.throwIf(changed <= 0, ErrorCode.OPERATION_ERROR);
+        // 配置更新后清理缓存
+        springAiClientManager.clearCache();
         return config.getId();
     }
 
@@ -191,66 +191,59 @@ public class AiConfigServiceImpl implements AiConfigService {
     @Override
     public String executeTask(String taskCode, String userPrompt) {
         AiTaskConfig task = getEnabledTask(taskCode);
+        AiProviderConfig provider = getEnabledProvider(task.getProviderCode());
+        String decryptedKey = decryptApiKey(provider.getApiKeyEncrypted());
+        try {
+            ChatClient chatClient = springAiClientManager.getOrCreateChatClient(provider, decryptedKey);
+            String content = chatClient.prompt()
+                    .system(task.getSystemPrompt())
+                    .user(userPrompt)
+                    .call()
+                    .content();
+            if (StringUtils.isBlank(content)) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, provider.getProviderName() + " 响应内容为空");
+            }
+            return content;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw springAiClientManager.handleException(e, provider.getProviderName());
+        }
+    }
+
+    @Override
+    public <T> T executeTask(String taskCode, String userPrompt, Class<T> responseType) {
+        AiTaskConfig task = getEnabledTask(taskCode);
+        AiProviderConfig provider = getEnabledProvider(task.getProviderCode());
+        String decryptedKey = decryptApiKey(provider.getApiKeyEncrypted());
+        try {
+            ChatClient chatClient = springAiClientManager.getOrCreateChatClient(provider, decryptedKey);
+            T entity = chatClient.prompt()
+                    .system(task.getSystemPrompt())
+                    .user(userPrompt)
+                    .call()
+                    .entity(responseType);
+            if (entity == null) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, provider.getProviderName() + " 响应内容解析为空");
+            }
+            return entity;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw springAiClientManager.handleException(e, provider.getProviderName());
+        }
+    }
+
+    private AiProviderConfig getEnabledProvider(String providerCode) {
         AiProviderConfig provider = providerMapper.selectOne(new QueryWrapper<AiProviderConfig>()
-                .eq("providerCode", task.getProviderCode()).eq("status", ENABLED).eq("isDelete", 0).last("limit 1"));
+                .eq("providerCode", providerCode).eq("status", ENABLED).eq("isDelete", 0).last("limit 1"));
         if (provider == null) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "DeepSeek 服务未启用");
         }
         if (StringUtils.isBlank(provider.getApiKeyEncrypted())) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "DeepSeek API Key 未配置");
         }
-        JSONObject requestBody = JSONUtil.createObj()
-                .set("model", provider.getModelCode())
-                .set("temperature", 0.1)
-                .set("response_format", JSONUtil.createObj().set("type", "json_object"));
-        JSONArray messages = new JSONArray();
-        messages.add(JSONUtil.createObj().set("role", "system").set("content", task.getSystemPrompt()));
-        messages.add(JSONUtil.createObj().set("role", "user").set("content", userPrompt));
-        requestBody.set("messages", messages);
-        HttpRequest request = HttpRequest.post(buildChatUrl(provider))
-                .header(Header.CONTENT_TYPE, "application/json")
-                .header(Header.AUTHORIZATION, "Bearer " + decryptApiKey(provider.getApiKeyEncrypted()))
-                .timeout(resolveTimeout(provider))
-                .body(requestBody.toString());
-        try (HttpResponse response = request.execute()) {
-            String responseBody = response.body();
-            if (response.getStatus() < 200 || response.getStatus() >= 300) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR,
-                        "DeepSeek 调用失败：HTTP " + response.getStatus() + " " + StringUtils.left(responseBody, 500));
-            }
-            JSONObject responseJson = JSONUtil.parseObj(responseBody);
-            JSONArray choices = responseJson.getJSONArray("choices");
-            if (choices == null || choices.isEmpty()) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "DeepSeek 响应缺少 choices");
-            }
-            JSONObject message = JSONUtil.parseObj(JSONUtil.parseObj(choices.get(0)).get("message"));
-            String content = message.getStr("content");
-            if (StringUtils.isBlank(content)) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "DeepSeek 响应内容为空");
-            }
-            return content;
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            if (isTimeoutException(e)) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "DeepSeek 调用超时，请稍后重试");
-            }
-            throw new BusinessException(ErrorCode.OPERATION_ERROR,
-                    "DeepSeek 调用失败：" + StringUtils.defaultIfBlank(e.getMessage(), e.getClass().getSimpleName()));
-        }
-    }
-
-    private boolean isTimeoutException(Throwable error) {
-        Throwable current = error;
-        while (current != null) {
-            if (current instanceof SocketTimeoutException
-                    || StringUtils.containsIgnoreCase(current.getMessage(), "timed out")
-                    || StringUtils.containsIgnoreCase(current.getMessage(), "timeout")) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
+        return provider;
     }
 
     private void validateProvider(AiProviderConfigRequest request) {
@@ -333,16 +326,6 @@ public class AiConfigServiceImpl implements AiConfigService {
         } catch (BusinessException e) {
             return false;
         }
-    }
-
-    private String buildChatUrl(AiProviderConfig provider) {
-        String path = StringUtils.defaultIfBlank(provider.getChatPath(), DEFAULT_CHAT_PATH);
-        return StringUtils.removeEnd(provider.getBaseUrl(), "/") + (path.startsWith("/") ? path : "/" + path);
-    }
-
-    private int resolveTimeout(AiProviderConfig provider) {
-        int seconds = provider.getTimeoutSeconds() == null ? DEFAULT_TIMEOUT_SECONDS : provider.getTimeoutSeconds();
-        return Math.max(1, Math.min(seconds, 300)) * 1000;
     }
 
     private String encryptApiKey(String apiKey) {
