@@ -12,6 +12,7 @@ import type {
   BaseResponse,
   DeconstructionAssetFavoriteAddRequest,
   DeconstructionAssetFavoriteCancelRequest,
+  DeconstructionAssetFavoriteQueryRequest,
   DeconstructionAssetFavoriteVO,
   Page,
   SiteItem,
@@ -1034,4 +1035,29 @@ export async function cancelDeconstructionAssetFavorite(
     });
   }
   return Boolean(result.data);
+}
+
+export async function listMyDeconstructionAssetFavorites(
+  params: DeconstructionAssetFavoriteQueryRequest,
+  options?: { signal?: AbortSignal },
+): Promise<Page<DeconstructionAssetFavoriteVO>> {
+  const result = await postJson<Page<DeconstructionAssetFavoriteVO>>(
+    "/artwork/deconstruction/favorite/my/page",
+    params,
+    { signal: options?.signal },
+  );
+  if (result.code !== 0) {
+    throw new RequestError(result.message || "获取解构收藏失败", {
+      code: result.code,
+    });
+  }
+  return (
+    result.data ?? {
+      records: [],
+      total: 0,
+      size: params.pageSize || 20,
+      current: params.current || 1,
+      pages: 0,
+    }
+  );
 }

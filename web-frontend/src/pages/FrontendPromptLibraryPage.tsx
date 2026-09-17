@@ -28,6 +28,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { AuthenticatedUserMenu } from "@/components/home/AuthenticatedUserMenu";
 import { PromptMasonry } from "@/components/frontend-prompts/PromptMasonry";
+import { DeconstructionFavoriteView } from "@/components/favorite/DeconstructionFavoriteView";
 import { RequestErrorToast } from "@/components/ui/RequestErrorToast";
 import {
   Sheet,
@@ -2148,6 +2149,7 @@ export function FrontendPromptLibraryPage() {
   const [categories, setCategories] = useState<FrontendPromptCategory[]>([]);
   const [items, setItems] = useState<SiteItem[]>([]);
   const [favoriteItems, setFavoriteItems] = useState<SiteItem[]>([]);
+  const [favoriteSubTab, setFavoriteSubTab] = useState<"artwork" | "prompt" | "component" | "icon">("artwork");
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -2695,18 +2697,45 @@ export function FrontendPromptLibraryPage() {
           </div>
         ) : (
           <div className="min-h-full overflow-hidden rounded-[28px] bg-[var(--chat-panel-bg)] shadow-[var(--chat-panel-shadow)]">
-            <div className="flex h-14 shrink-0 items-center border-b border-transparent px-5 sm:px-6">
-              <div className="flex h-full items-center gap-6 text-[15px] font-semibold text-[var(--chat-ink)]">
-                <span className="relative flex h-full items-center">
-                  收藏
-                  <span className="absolute bottom-0 left-1/2 h-[2px] w-6 -translate-x-1/2 rounded-full bg-[var(--chat-ink)]" />
-                </span>
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--chat-border)] px-5 sm:px-6">
+              <div className="flex h-full items-center gap-6 text-[14px] font-semibold text-[var(--chat-ink)]">
+                {[
+                  { key: "artwork", label: "完整作品" },
+                  { key: "prompt", label: "提示词" },
+                  { key: "component", label: "组件" },
+                  { key: "icon", label: "图片视频图标素材" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setFavoriteSubTab(tab.key as typeof favoriteSubTab)}
+                    className={cn(
+                      "relative flex h-full cursor-pointer items-center transition-colors",
+                      favoriteSubTab === tab.key
+                        ? "font-bold text-[var(--chat-ink)]"
+                        : "text-[var(--chat-muted)] hover:text-[var(--chat-ink)]"
+                    )}
+                  >
+                    {tab.label}
+                    {favoriteSubTab === tab.key && (
+                      <span className="absolute bottom-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-[var(--chat-ink)]" />
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
-            {renderPromptList(favoriteItems, {
-              emptyMessage: "你还没有收藏前端提示词。",
-              isBusy: isFavoriteLoading,
-            })}
+
+            {favoriteSubTab === "artwork" ? (
+              renderPromptList(favoriteItems, {
+                emptyMessage: "你还没有收藏完整作品。",
+                isBusy: isFavoriteLoading,
+              })
+            ) : (
+              <DeconstructionFavoriteView
+                assetType={favoriteSubTab}
+                onMessage={setMessage}
+              />
+            )}
           </div>
         )}
       </main>

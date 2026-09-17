@@ -1,0 +1,273 @@
+﻿/* 解构收藏资产视图专用样式 */
+.fav-assets-container {
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.fav-assets-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.fav-assets-search-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--chat-control-soft, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.1));
+  border-radius: 9px;
+  padding: 0 0.75rem;
+  height: 36px;
+  min-width: 240px;
+  max-width: 360px;
+  color: var(--chat-ink, #fff);
+  font-size: 13px;
+}
+
+.fav-assets-search-input input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  width: 100%;
+  font-size: 13px;
+}
+
+.fav-assets-search-input input::placeholder {
+  color: var(--chat-muted, #94a3b8);
+}
+
+/* 提示词 & 组件网格 */
+.fav-prompt-grid,
+.fav-component-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .fav-prompt-grid,
+  .fav-component-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 资产通用卡片 */
+.fav-asset-card {
+  background: var(--chat-control-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.fav-asset-card:hover {
+  border-color: var(--chat-border-active, rgba(59, 130, 246, 0.4));
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.12);
+}
+
+.fav-asset-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.fav-asset-title-group {
+  min-width: 0;
+  flex: 1;
+}
+
+.fav-asset-title-group h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--chat-ink, #f1f5f9);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.fav-asset-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.fav-asset-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--chat-control-soft, rgba(255, 255, 255, 0.06));
+  color: var(--chat-muted, #94a3b8);
+  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.08));
+}
+
+.fav-asset-badge.accent {
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.fav-asset-desc {
+  font-size: 12px;
+  color: var(--chat-muted, #94a3b8);
+  margin: 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 代码与文本预览框 */
+.fav-asset-code-box {
+  background: #090d16;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: #cbd5e1;
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+  position: relative;
+}
+
+.fav-asset-code-box::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.fav-asset-code-box::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* 底部操作条 */
+.fav-asset-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--chat-border, rgba(255, 255, 255, 0.06));
+}
+
+.fav-asset-date {
+  font-size: 11px;
+  color: var(--chat-muted, #94a3b8);
+}
+
+.fav-asset-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 28px;
+  padding: 0 0.6rem;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 7px;
+  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.1));
+  background: var(--chat-control-bg, rgba(255, 255, 255, 0.04));
+  color: var(--chat-ink, #e2e8f0);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.fav-btn:hover {
+  background: var(--chat-control-hover, rgba(255, 255, 255, 0.08));
+  color: var(--chat-ink, #fff);
+}
+
+.fav-btn.danger {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.fav-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* 图标素材专属网格 */
+.fav-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.fav-icon-card {
+  background: var(--chat-control-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.fav-icon-card:hover {
+  border-color: var(--chat-border-active, rgba(59, 130, 246, 0.4));
+  transform: translateY(-2px);
+}
+
+.fav-icon-preview {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--chat-control-soft, rgba(255, 255, 255, 0.05));
+  border-radius: 10px;
+  color: var(--chat-ink, #fff);
+  border: 1px solid var(--chat-border, rgba(255, 255, 255, 0.08));
+}
+
+.fav-icon-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chat-ink, #fff);
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fav-icon-lib {
+  font-size: 11px;
+  color: var(--chat-muted, #94a3b8);
+  margin: 0;
+}
+
+.fav-icon-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
