@@ -1,4 +1,4 @@
-﻿/* 解构收藏资产视图专用样式 - 极简纯纯索引列表 */
+/* 解构收藏资产视图专用样式 - 极简纯纯索引列表 */
 .fav-assets-container {
   padding: 1.25rem 1.5rem 2rem;
 }
@@ -347,12 +347,22 @@
 }
 
 .fav-media-footer {
-  margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--chat-control-bg, rgba(255, 255, 255, 0.02));
   border-top: 1px solid var(--chat-border, rgba(255, 255, 255, 0.06));
+}
+
+.fav-btn.fav-btn-icon-only {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
 }
 
 .fav-section-title {

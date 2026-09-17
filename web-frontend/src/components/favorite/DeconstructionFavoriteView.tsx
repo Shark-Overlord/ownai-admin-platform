@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { Link } from "react-router-dom";
 import {
   Check,
@@ -312,52 +312,31 @@ export function DeconstructionFavoriteView({
                           />
                         )}
                       </div>
-                      <div className="fav-media-body">
-                        <h4 title={item.title}>{item.title}</h4>
-                        {item.description && (
-                          <p title={item.description}>{item.description}</p>
-                        )}
-                        <div className="fav-media-footer">
-                          <span className="text-[11px] text-[var(--chat-muted)]">
-                            {item.createTime ? item.createTime.slice(0, 10) : "素材"}
-                          </span>
-                          <div className="fav-list-actions">
-                            <button
-                              type="button"
-                              className="fav-btn"
-                              onClick={() => handleCopy(item.id, item.content)}
-                              title="复制资源链接"
-                            >
-                              {isCopied ? (
-                                <>
-                                  <Check className="h-3 w-3 text-emerald-400" />
-                                  <span>已复制</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-3 w-3" />
-                                  <span>复制直链</span>
-                                </>
-                              )}
-                            </button>
-                            <Link
-                              to={`/artwork/deconstruction/${item.artworkId}`}
-                              className="fav-btn"
-                              target="_blank"
-                              rel="noreferrer"
-                              title="查看原作品解构"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </Link>
-                            <button
-                              type="button"
-                              className="fav-btn danger"
-                              onClick={() => handleRemove(item)}
-                              title="取消收藏"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
+                      <div className="fav-media-footer">
+                        <span className="text-[11px] text-[var(--chat-muted)]">
+                          {item.createTime ? item.createTime.slice(0, 10) : "素材"}
+                        </span>
+                        <div className="fav-list-actions">
+                          <button
+                            type="button"
+                            className="fav-btn fav-btn-icon-only"
+                            onClick={() => handleCopy(item.id, item.content)}
+                            title={isCopied ? "已复制" : "复制资源链接"}
+                          >
+                            {isCopied ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="fav-btn danger fav-btn-icon-only"
+                            onClick={() => handleRemove(item)}
+                            title="取消收藏"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
                     </article>
