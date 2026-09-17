@@ -1,11 +1,13 @@
-import React, { useEffect, useState, useTransition } from "react";
+﻿import React, { useEffect, useState, useTransition } from "react";
 import { Link } from "react-router-dom";
 import {
   Check,
   Code2,
   Copy,
   ExternalLink,
+  Image as ImageIcon,
   LoaderCircle,
+  Play,
   Search,
   Sparkles,
   Trash2,
@@ -25,28 +27,6 @@ interface DeconstructionFavoriteViewProps {
 
 function RenderAssetIcon({ content, name }: { content?: string; name?: string }) {
   const trimmed = (content || "").trim();
-  if (
-    trimmed.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) ||
-    (trimmed.startsWith("http") && !trimmed.includes("<") && !trimmed.match(/\.(mp4|webm)/i))
-  ) {
-    return (
-      <img
-        src={trimmed}
-        alt={name || "素材"}
-        className="h-full w-full rounded-[8px] object-cover"
-        loading="lazy"
-      />
-    );
-  }
-  if (trimmed.match(/\.(mp4|webm|mov)(\?.*)?$/i)) {
-    return (
-      <div className="flex h-5 w-5 items-center justify-center text-[var(--chat-ink)]">
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-          <polygon points="6 3 20 12 6 21 6 3" />
-        </svg>
-      </div>
-    );
-  }
   if (trimmed.startsWith("<svg")) {
     return (
       <div
@@ -222,7 +202,7 @@ export function DeconstructionFavoriteView({
   const emptyDescriptions = {
     prompt: "还没有收藏解构提示词。在作品解构页的【提示词规范】面板点击 Save 即可收藏。",
     component: "还没有收藏解构零件组件。在作品解构页的【零件拆解】面板点击 Save 即可收藏。",
-    icon: "还没有收藏解构素材。在作品解构页的【设计素材】面板点击 Save 即可收藏。",
+    icon: "还没有收藏素材。在作品解构页的【设计素材】面板点击 Save 即可收藏。",
   };
 
   const getCopyContent = (item: DeconstructionAssetFavoriteVO) => {
@@ -239,6 +219,18 @@ export function DeconstructionFavoriteView({
     return item.content;
   };
 
+  // 素材自动区分多媒体（图片/视频）与小图标
+  const mediaItems = items.filter((it) => {
+    const c = (it.content || "").trim();
+    return (
+      it.tag === "Image" ||
+      it.tag === "Video" ||
+      c.match(/\.(jpeg|jpg|gif|png|webp|mp4|webm|mov)(\?.*)?$/i) ||
+      (c.startsWith("http") && !c.includes("<"))
+    );
+  });
+  const iconItems = items.filter((it) => !mediaItems.includes(it));
+
   return (
     <div className="fav-assets-container">
       {/* 搜索与统计栏 */}
@@ -252,7 +244,7 @@ export function DeconstructionFavoriteView({
                 ? "搜索已收藏提示词规范..."
                 : assetType === "component"
                 ? "搜索已收藏零件组件..."
-                : "搜索已收藏图标与素材..."
+                : "搜索已收藏图片、视频与图标素材..."
             }
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
@@ -284,57 +276,158 @@ export function DeconstructionFavoriteView({
           </p>
         </div>
       ) : assetType === "icon" ? (
-        /* 图标素材网格视图 */
-        <div className="fav-icon-grid">
-          {items.map((item) => {
-            const isCopied = copiedId === item.id;
-            const isSvg = item.content && item.content.trim().startsWith("<svg");
-            return (
-              <article className="fav-icon-card" key={item.id}>
-                <div className="fav-icon-preview">
-                  <RenderAssetIcon
-                    content={item.content}
-                    name={item.assetKey || item.title}
-                  />
-                </div>
-                <h4 className="fav-icon-name" title={item.title}>
-                  {item.title || item.assetKey}
-                </h4>
-                <span className="fav-icon-lib">{item.tag || "Lucide Icon"}</span>
+        /* 素材视图：大画幅媒体卡片 + 紧凑矢量图标网格 */
+        <div>
+          {/* 1. 图片与视频素材区 */}
+          {mediaItems.length > 0 && (
+            <div>
+              <div className="fav-section-title">
+                <ImageIcon className="h-4 w-4" />
+                <span>图片与视频素材 ({mediaItems.length})</span>
+              </div>
+              <div className="fav-media-grid">
+                {mediaItems.map((item) => {
+                  const isCopied = copiedId === item.id;
+                  const isVideo =
+                    item.tag === "Video" ||
+                    (item.content || "").match(/\.(mp4|webm|mov)(\?.*)?$/i);
+                  return (
+                    <article className="fav-media-card" key={item.id}>
+                      <div className="fav-media-thumb">
+                        <span className="fav-media-badge">
+                          {isVideo ? "VIDEO" : "IMAGE"}
+                        </span>
+                        {isVideo ? (
+                          <video
+                            src={item.content}
+                            controls
+                            preload="metadata"
+                            poster=""
+                          />
+                        ) : (
+                          <img
+                            src={item.content}
+                            alt={item.title}
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                      <div className="fav-media-body">
+                        <h4 title={item.title}>{item.title}</h4>
+                        {item.description && (
+                          <p title={item.description}>{item.description}</p>
+                        )}
+                        <div className="fav-media-footer">
+                          <span className="text-[11px] text-[var(--chat-muted)]">
+                            {item.createTime ? item.createTime.slice(0, 10) : "素材"}
+                          </span>
+                          <div className="fav-list-actions">
+                            <button
+                              type="button"
+                              className="fav-btn"
+                              onClick={() => handleCopy(item.id, item.content)}
+                              title="复制资源链接"
+                            >
+                              {isCopied ? (
+                                <>
+                                  <Check className="h-3 w-3 text-emerald-400" />
+                                  <span>已复制</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3 w-3" />
+                                  <span>复制直链</span>
+                                </>
+                              )}
+                            </button>
+                            <Link
+                              to={`/artwork/deconstruction/${item.artworkId}`}
+                              className="fav-btn"
+                              target="_blank"
+                              rel="noreferrer"
+                              title="查看原作品解构"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                            <button
+                              type="button"
+                              className="fav-btn danger"
+                              onClick={() => handleRemove(item)}
+                              title="取消收藏"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-                <div className="fav-icon-actions">
-                  <button
-                    type="button"
-                    className="fav-btn"
-                    onClick={() => handleCopy(item.id, item.content || item.title)}
-                    title={isCopied ? "已复制" : "复制 SVG / 图标名"}
-                  >
-                    {isCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                  </button>
-                  <Link
-                    to={`/artwork/deconstruction/${item.artworkId}`}
-                    className="fav-btn"
-                    title="查看原作品解构"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
-                  <button
-                    type="button"
-                    className="fav-btn danger"
-                    onClick={() => handleRemove(item)}
-                    title="取消收藏"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+          {/* 2. 矢量图标素材区 */}
+          {iconItems.length > 0 && (
+            <div>
+              {mediaItems.length > 0 && (
+                <div className="fav-section-title">
+                  <Sparkles className="h-4 w-4" />
+                  <span>矢量图标素材 ({iconItems.length})</span>
                 </div>
-              </article>
-            );
-          })}
+              )}
+              <div className="fav-icon-grid">
+                {iconItems.map((item) => {
+                  const isCopied = copiedId === item.id;
+                  return (
+                    <article className="fav-icon-card" key={item.id}>
+                      <div className="fav-icon-preview">
+                        <RenderAssetIcon
+                          content={item.content}
+                          name={item.assetKey || item.title}
+                        />
+                      </div>
+                      <h4 className="fav-icon-name" title={item.title}>
+                        {item.title || item.assetKey}
+                      </h4>
+                      <span className="fav-icon-lib">{item.tag || "Lucide Icon"}</span>
+
+                      <div className="fav-icon-actions">
+                        <button
+                          type="button"
+                          className="fav-btn"
+                          onClick={() => handleCopy(item.id, item.content || item.title)}
+                          title={isCopied ? "已复制" : "复制 SVG / 图标名"}
+                        >
+                          {isCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                        </button>
+                        <Link
+                          to={`/artwork/deconstruction/${item.artworkId}`}
+                          className="fav-btn"
+                          title="查看原作品解构"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Link>
+                        <button
+                          type="button"
+                          className="fav-btn danger"
+                          onClick={() => handleRemove(item)}
+                          title="取消收藏"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
-        /* 提示词 & 组件：极简高效索引列表（无大块展开，专注快速复制与跳转） */
+        /* 提示词 & 组件：极简高效索引列表 */
         <div className="fav-assets-list">
           {items.map((item, index) => {
             const isCopied = copiedId === item.id;
