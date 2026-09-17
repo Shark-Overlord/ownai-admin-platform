@@ -374,28 +374,19 @@ export function DeconstructionFavoriteView({
                       <div className="fav-icon-actions">
                         <button
                           type="button"
-                          className="fav-btn"
+                          className="fav-btn fav-btn-icon-only"
                           onClick={() => handleCopy(item.id, item.content || item.title)}
                           title={isCopied ? "已复制" : "复制 SVG / 图标名"}
                         >
-                          {isCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                          {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
-                        <Link
-                          to={`/artwork/deconstruction/${item.artworkId}`}
-                          className="fav-btn"
-                          title="查看原作品解构"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </Link>
                         <button
                           type="button"
-                          className="fav-btn danger"
+                          className="fav-btn danger fav-btn-icon-only"
                           onClick={() => handleRemove(item)}
                           title="取消收藏"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </article>
