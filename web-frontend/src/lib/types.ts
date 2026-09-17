@@ -447,3 +447,35 @@ export interface MemberOrder {
   userId?: number;
   userName?: string;
 }
+
+export interface DeconstructionAssetFavoriteAddRequest {
+  artworkId: number | string;
+  assetType: "prompt" | "component" | "icon";
+  assetKey: string;
+  title?: string;
+  tag?: string;
+  description?: string;
+  content: string;
+  metaData?: string;
+}
+
+export interface DeconstructionAssetFavoriteCancelRequest {
+  artworkId: number | string;
+  assetType: "prompt" | "component" | "icon";
+  assetKey: string;
+}
+
+export interface DeconstructionAssetFavoriteVO {
+  id: string;
+  userId: string;
+  artworkId: string;
+  artworkTitle?: string;
+  assetType: "prompt" | "component" | "icon";
+  assetKey: string;
+  title: string;
+  tag: string;
+  description?: string;
+  content: string;
+  metaData?: string;
+  createTime: string;
+}

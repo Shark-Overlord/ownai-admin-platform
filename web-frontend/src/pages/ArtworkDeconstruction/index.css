@@ -88,5 +88,20 @@
 .dc-window-frame iframe { width:100%; flex:1; min-height:0; border:0; background:transparent; }
 .dc-workbench.dark { --bg:#171717;--panel:#171717;--canvas:#101010;--line:#303030;--soft:#212121;--soft2:#282828;--text:#ededed;--muted:#a3a3a3;--faint:#737373;--hover:#202838;--blue:#60a5fa; }
 .dc-workbench.dark .dc-header { border-bottom-color:#282828;box-shadow:none; }.dc-workbench.dark .dc-sidebar{box-shadow:12px 0 30px -10px rgba(0,0,0,.65)}.dc-workbench.dark .dc-copy-button{color:#a3a3a3}.dc-workbench.dark .dc-copy-button:hover{color:#fff;background:#2a2a2a;border-color:#454545}.dc-workbench.dark .dc-copy-icon-default,.dc-workbench.dark .dc-copy-icon-success{color:#888}.dc-workbench.dark .dc-device-switcher{background:#212121;border-color:#303030}.dc-workbench.dark .dc-device-indicator{background:#2d2d2d;border:1px solid #3a3a3a}.dc-workbench.dark .dc-device-switcher button{color:#888;transition-duration:.15s}.dc-workbench.dark .dc-device-switcher button:hover{color:#ededed}.dc-workbench.dark .dc-device-switcher button.active{color:#fff}.dc-workbench.dark .dc-window-frame{background:#1f1f1f;border-color:#333;box-shadow:0 20px 50px rgba(0,0,0,.45)}.dc-workbench.dark .dc-titlebar{background:#171717;border-color:#282828}.dc-workbench.dark .dc-titlebar>span{color:#888;background:#212121;border-color:#303030}.dc-workbench.dark .dc-theme-switch i{background:#ededed}.dc-workbench.dark .dc-token i{border-color:rgba(255,255,255,.2)}
-.dc-status-page { width:100vw;height:100vh;display:grid;place-items:center;background:#f4f5f8;color:#111827;font-family:Inter,sans-serif}.dc-status-page.dark{background:#101010;color:#ededed}.dc-status-card{min-width:280px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:10px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.1)}.dc-status-page.dark .dc-status-card{background:#171717;border-color:#303030}.dc-status-card p{margin:0;color:#6b7280}.dc-status-card a{color:#2563eb}.dc-spinner{width:22px;height:22px;border:2px solid #d1d5db;border-top-color:#2563eb;border-radius:50%;animation:dc-spin .8s linear infinite}@keyframes dc-spin{to{transform:rotate(360deg)}}
 @media(max-width:900px){.dc-main{overflow:auto;display:block}.dc-sidebar{width:100%;min-width:0;max-width:none;height:54vh;box-shadow:none;border-right:0;border-bottom:1px solid var(--line)}.dc-canvas{height:calc(100vh - 48px);min-height:600px}.dc-icon-grid{grid-template-columns:1fr}}
+
+.dc-pane-actions, .dc-card-actions { display:inline-flex; align-items:center; gap:6px; flex:none; }
+.dc-favorite-button { height:28px; padding:0 10px; flex:none; display:inline-flex; align-items:center; gap:6px; color:#4b5563; background:var(--panel); border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,.03); font-size:12px; font-weight:500; cursor:pointer; transition:all .15s ease; }
+.dc-favorite-button:hover { background:var(--soft); color:#e11d48; border-color:#fca5a5; }
+.dc-favorite-button:active { transform:scale(.95); }
+.dc-favorite-button.is-compact { height:25px; padding:0 8px; font-size:11px; gap:4px; }
+.dc-favorite-button.is-favorited { color:#e11d48; background:rgba(254,205,211,.35); border-color:#fda4af; }
+.dc-favorite-button.is-favorited:hover { color:#be123c; background:rgba(254,205,211,.6); border-color:#fb7185; }
+.dc-favorite-button.is-loading { opacity:.6; cursor:wait; }
+.dc-fav-icon { display:inline-flex; align-items:center; justify-content:center; flex:none; }
+.dc-fav-icon svg { transition:transform .2s cubic-bezier(.34,1.56,.64,1); }
+.dc-favorite-button:hover .dc-fav-icon svg { transform:scale(1.2); }
+.dc-workbench.dark .dc-favorite-button { color:#9ca3af; border-color:#374151; background:#18181b; }
+.dc-workbench.dark .dc-favorite-button:hover { color:#fb7185; border-color:#9f1239; background:#27272a; }
+.dc-workbench.dark .dc-favorite-button.is-favorited { color:#fb7185; background:rgba(225,29,72,.2); border-color:rgba(244,63,94,.5); }
+.dc-workbench.dark .dc-favorite-button.is-favorited:hover { color:#fda4af; background:rgba(225,29,72,.3); border-color:rgba(244,63,94,.7); }

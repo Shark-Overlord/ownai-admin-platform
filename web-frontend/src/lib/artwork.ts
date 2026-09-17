@@ -10,6 +10,9 @@ import type {
   ArtworkQueryRequest,
   ArtworkVO,
   BaseResponse,
+  DeconstructionAssetFavoriteAddRequest,
+  DeconstructionAssetFavoriteCancelRequest,
+  DeconstructionAssetFavoriteVO,
   Page,
   SiteItem,
   TagVO,
@@ -984,4 +987,51 @@ export async function getArtworkDeconstruction(
   }
 
   return result.data;
+}
+
+export async function getDeconstructionAssetFavoriteKeys(
+  artworkId: number | string,
+  options?: { signal?: AbortSignal },
+): Promise<string[]> {
+  const result = await getJson<string[]>(
+    "/artwork/deconstruction/favorite/keys",
+    {
+      query: { artworkId },
+      signal: options?.signal,
+    },
+  );
+  if (result.code !== 0 || !Array.isArray(result.data)) {
+    return [];
+  }
+  return result.data;
+}
+
+export async function addDeconstructionAssetFavorite(
+  payload: DeconstructionAssetFavoriteAddRequest,
+): Promise<boolean> {
+  const result = await postJson<boolean>(
+    "/artwork/deconstruction/favorite/add",
+    payload,
+  );
+  if (result.code !== 0) {
+    throw new RequestError(result.message || "收藏失败", {
+      code: result.code,
+    });
+  }
+  return Boolean(result.data);
+}
+
+export async function cancelDeconstructionAssetFavorite(
+  payload: DeconstructionAssetFavoriteCancelRequest,
+): Promise<boolean> {
+  const result = await postJson<boolean>(
+    "/artwork/deconstruction/favorite/cancel",
+    payload,
+  );
+  if (result.code !== 0) {
+    throw new RequestError(result.message || "取消收藏失败", {
+      code: result.code,
+    });
+  }
+  return Boolean(result.data);
 }
