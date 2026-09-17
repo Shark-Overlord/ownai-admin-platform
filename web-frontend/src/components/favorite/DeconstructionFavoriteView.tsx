@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { Link } from "react-router-dom";
 import {
   Check,
@@ -222,9 +222,13 @@ export function DeconstructionFavoriteView({
       ) : (
         /* 提示词 & 组件：高效可折叠列表视图 (Accordion List) */
         <div className="fav-assets-list">
-          {items.map((item) => {
+          {items.map((item, index) => {
             const isCopied = copiedId === item.id;
             const isExpanded = expandedIds.has(item.id);
+            const displayTitle =
+              assetType === "prompt"
+                ? `${item.artworkTitle || item.title || "作品"} · 设计规范`
+                : item.title || item.assetKey;
             return (
               <article
                 className={`fav-list-item${isExpanded ? " is-expanded" : ""}`}
@@ -236,25 +240,12 @@ export function DeconstructionFavoriteView({
                   onClick={() => toggleExpand(item.id)}
                 >
                   <div className="fav-list-left">
-                    <div className="fav-type-badge-icon">
-                      {assetType === "prompt" ? (
-                        <Sparkles className="h-4 w-4" />
-                      ) : (
-                        <Code2 className="h-4 w-4" />
-                      )}
+                    <div className="fav-index-badge">
+                      {String(index + 1).padStart(2, "0")}
                     </div>
                     <div className="fav-list-meta">
                       <div className="fav-list-title-row">
-                        <h4 className="fav-list-title">
-                          {item.title || (assetType === "prompt" ? "解构设计规范" : item.assetKey)}
-                        </h4>
-                        {item.tag && <span className="fav-asset-badge accent">{item.tag}</span>}
-                        <span className="fav-asset-badge">
-                          {assetType === "prompt" ? "System Prompt" : "UI Part"}
-                        </span>
-                        {item.artworkTitle && (
-                          <span className="fav-asset-badge">出处: {item.artworkTitle}</span>
-                        )}
+                        <h4 className="fav-list-title">{displayTitle}</h4>
                       </div>
                       {item.description && (
                         <p className="fav-list-desc" title={item.description}>

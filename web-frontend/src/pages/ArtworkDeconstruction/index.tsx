@@ -55,6 +55,73 @@ function parsePrompt(value: unknown): PromptData {
   return asRecord(value) as PromptData;
 }
 
+function buildFullPromptMarkdown(prompt: PromptData, fallback: string): string {
+  if (prompt.rawMarkdown && prompt.rawMarkdown.trim().length > 30) {
+    return prompt.rawMarkdown;
+  }
+  const sections: string[] = [];
+  sections.push('# SYSTEM_PROMPT & 视觉设计规范\n');
+
+  if (prompt.role) {
+    sections.push(`## 角色与核心任务 (Role & Objective)\n${prompt.role}\n`);
+  } else if (fallback) {
+    sections.push(`## 角色与核心任务 (Role & Objective)\n${fallback}\n`);
+  }
+
+  if (prompt.layout) {
+    sections.push(`## 01. 界面布局与视觉风格\n**整体布局**：${prompt.layout}\n`);
+  }
+
+  if (prompt.viewports && prompt.viewports.length > 0) {
+    sections.push(`### 画板基准与设备视口 (Viewport Specs)`);
+    prompt.viewports.forEach((v) => {
+      sections.push(`- **${v.name}** (${v.size}): ${v.note || ''}`);
+    });
+    sections.push('');
+  }
+
+  if (prompt.colors && prompt.colors.length > 0) {
+    sections.push(`### 色彩系统 (Color Palette)`);
+    prompt.colors.forEach((c) => {
+      sections.push(`- \`${c.value}\` **${c.label || ''}**: ${c.note || ''}`);
+    });
+    sections.push('');
+  }
+
+  if (prompt.typography && prompt.typography.length > 0) {
+    sections.push(`### 文字排版与资产 (Typography)`);
+    prompt.typography.forEach((t) => {
+      sections.push(`- **${t.role || t.label || ''}**: \`${t.value || ''}\` (${t.note || ''})`);
+    });
+    sections.push('');
+  }
+
+  if (prompt.motions && prompt.motions.length > 0) {
+    sections.push(`## 02. 交互控件与动效参数 (Motion Specs)`);
+    prompt.motions.forEach((m) => {
+      sections.push(`- **${m.label}**: ${m.desc || ''} (\`${m.token || ''}\`)`);
+    });
+    sections.push('');
+  }
+
+  if (prompt.rules) {
+    sections.push(`## 03. 设计红线与约束 (Do's and Don'ts)`);
+    if (prompt.rules.dos && prompt.rules.dos.length > 0) {
+      sections.push(`### ✅ Do (必须执行)`);
+      prompt.rules.dos.forEach((d) => sections.push(`- ${d}`));
+      sections.push('');
+    }
+    if (prompt.rules.donts && prompt.rules.donts.length > 0) {
+      sections.push(`### ❌ Don't (严禁行为)`);
+      prompt.rules.donts.forEach((d) => sections.push(`- ${d}`));
+      sections.push('');
+    }
+  }
+
+  const result = sections.join('\n');
+  return result.trim().length > 20 ? result : fallback;
+}
+
 function parseParts(value: unknown): PartData[] {
   return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') as PartData[] : [];
 }
@@ -228,7 +295,7 @@ function PromptPane({
   favoritedKeys: Set<string>;
   onToggleFavorite: (item: FavoriteItemParam) => void;
 }) {
-  const rawPrompt = prompt.rawMarkdown || fallback;
+  const rawPrompt = buildFullPromptMarkdown(prompt, fallback);
   const layout = (prompt.layout || '').replace(/^整体布局[：:]\s*/, '');
   const isFavorited = favoritedKeys.has('prompt:full');
   return <div className="dc-pane dc-prompt-pane">
