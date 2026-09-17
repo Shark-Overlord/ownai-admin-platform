@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { Link } from "react-router-dom";
 import {
   Check,
@@ -105,6 +105,20 @@ export function DeconstructionFavoriteView({
     prompt: "还没有收藏解构提示词。在作品解构页的【提示词规范】面板点击 Save 即可收藏。",
     component: "还没有收藏解构零件组件。在作品解构页的【零件拆解】面板点击 Save 即可收藏。",
     icon: "还没有收藏解构素材。在作品解构页的【设计素材】面板点击 Save 即可收藏。",
+  };
+
+  const getCopyContent = (item: DeconstructionAssetFavoriteVO) => {
+    if (assetType === "component") {
+      const header = [item.title, item.tag ? `[${item.tag}]` : ""].filter(Boolean).join(" ");
+      const desc = item.description ? item.description.trim() : "";
+      const code = (item.content || "").trim();
+      if (code.startsWith("<")) {
+        return `<!--\n  组件：${header}\n  说明：${desc || "暂无说明"}\n-->\n${code}`;
+      } else {
+        return `/**\n * 组件：${header}\n * 说明：${desc || "暂无说明"}\n */\n${code}`;
+      }
+    }
+    return item.content;
   };
 
   return (
@@ -242,8 +256,8 @@ export function DeconstructionFavoriteView({
                       <button
                         type="button"
                         className="fav-btn"
-                        onClick={() => handleCopy(item.id, item.content)}
-                        title={assetType === "prompt" ? "复制完整设计规范 Markdown" : "复制组件代码"}
+                        onClick={() => handleCopy(item.id, getCopyContent(item))}
+                        title={assetType === "prompt" ? "复制完整设计规范 Markdown" : "复制组件代码及说明"}
                       >
                         {isCopied ? (
                           <>

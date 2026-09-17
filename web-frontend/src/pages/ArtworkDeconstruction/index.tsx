@@ -350,24 +350,34 @@ function PartsPane({
   return <div className="dc-pane"><div className="dc-pane-title"><div><span className="dc-overline"># UI PARTS · 核心结构零件</span><p>点击结构块在右侧即时动态高亮对应区域，点击 Save 收藏至资产库，点击 Copy 复制代码</p></div></div>
     <div className="dc-parts-list">{parts.length ? parts.map((part) => {
       const isFav = favoritedKeys.has(`component:${part.id}`);
-      return <article className={`dc-part-card${selected === part.id ? ' active' : ''}`} key={part.id} onClick={() => onSelect(part)}>
-        <div><h3>{part.title || part.id}<span>{part.tag || 'Part'}</span></h3><p>{part.desc}</p></div>
-        <div className="dc-card-actions" onClick={(e) => e.stopPropagation()}>
-          <FavoriteButton
-            compact
-            favorited={isFav}
-            onToggle={() => onToggleFavorite({
-              assetType: 'component',
-              assetKey: part.id,
-              title: part.title || part.id,
-              tag: part.tag || 'Part',
-              description: part.desc || '',
-              content: part.code || '',
-            })}
-          />
-          <CopyButton compact text={part.code || ''} />
-        </div>
-      </article>;
+          const componentCopyText = (() => {
+            const header = [part.title || part.id, part.tag ? `[${part.tag}]` : ''].filter(Boolean).join(' ');
+            const desc = part.desc ? part.desc.trim() : '';
+            const code = (part.code || '').trim();
+            if (code.startsWith('<')) {
+              return `<!--\n  组件：${header}\n  说明：${desc || '暂无说明'}\n-->\n${code}`;
+            } else {
+              return `/**\n * 组件：${header}\n * 说明：${desc || '暂无说明'}\n */\n${code}`;
+            }
+          })();
+          return <article className={`dc-part-card${selected === part.id ? ' active' : ''}`} key={part.id} onClick={() => onSelect(part)}>
+            <div><h3>{part.title || part.id}<span>{part.tag || 'Part'}</span></h3><p>{part.desc}</p></div>
+            <div className="dc-card-actions" onClick={(e) => e.stopPropagation()}>
+              <FavoriteButton
+                compact
+                favorited={isFav}
+                onToggle={() => onToggleFavorite({
+                  assetType: 'component',
+                  assetKey: part.id,
+                  title: part.title || part.id,
+                  tag: part.tag || 'Part',
+                  description: part.desc || '',
+                  content: part.code || '',
+                })}
+              />
+              <CopyButton compact text={componentCopyText} />
+            </div>
+          </article>;
     }) : <div className="dc-empty">暂无零件切片数据</div>}</div>
     <RecommendedUsage mode="parts" />
   </div>;
