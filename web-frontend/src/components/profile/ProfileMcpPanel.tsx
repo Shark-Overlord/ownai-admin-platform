@@ -273,107 +273,67 @@ export function ProfileMcpPanel({ profile }: ProfileMcpPanelProps) {
 
             {/* 方式一内容：AI 自动配置 */}
             {configMode === "ai" && (
-              <div className="space-y-2.5 pt-1">
-                <div className="rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-[var(--hero-muted)] flex items-center gap-1.5">
-                      <Bot className="h-3.5 w-3.5 text-[var(--hero-ink)]" />
-                      <span>复制此提示词，直接发送给你 IDE 里的 AI 对话框（如 Cursor Composer）：</span>
+              <div className="pt-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-3 sm:px-4">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Bot className="h-4 w-4 text-[var(--hero-ink)] shrink-0" />
+                    <span className="text-[12px] text-[var(--hero-muted)]">
+                      复制指令发给你的 AI（Cursor Composer / Claude），即可全自动完成配置
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(aiConfigPrompt, "ai-prompt")}
-                      className="inline-flex items-center gap-1 rounded-[6px] bg-[var(--hero-ink)] px-2.5 py-1 text-[11px] font-medium text-[var(--hero-bg)] transition-opacity hover:opacity-90"
-                    >
-                      {copiedId === "ai-prompt" ? (
-                        <>
-                          <Check className="h-3 w-3 text-emerald-600" />
-                          <span>已复制指令</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3" />
-                          <span>一键复制 AI 配置指令</span>
-                        </>
-                      )}
-                    </button>
                   </div>
-                  <div className="rounded-[8px] border border-[var(--hero-border)] bg-[var(--hero-surface)]/60 p-2.5 font-mono text-[11px] text-[var(--hero-ink)]/80 max-h-[96px] overflow-y-auto leading-relaxed select-all">
-                    {aiConfigPrompt}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(aiConfigPrompt, "ai-prompt")}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-[6px] bg-[var(--hero-ink)] px-3 py-1.5 text-[11px] font-medium text-[var(--hero-bg)] transition-opacity hover:opacity-90"
+                  >
+                    {copiedId === "ai-prompt" ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>已复制指令</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>一键复制 AI 配置指令</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             )}
 
             {/* 方式二内容：手动配置 */}
             {configMode === "manual" && (
-              <div className="space-y-3 pt-1">
-                <div className="rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-[var(--hero-muted)]">
-                      命令行极速启动 / 测试：
+              <div className="space-y-2.5 pt-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-3 sm:px-4">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Terminal className="h-4 w-4 text-[var(--hero-ink)] shrink-0" />
+                    <span className="text-[12px] text-[var(--hero-muted)] truncate">
+                      终端测试命令：<code className="font-mono text-[var(--hero-ink)] bg-[var(--hero-surface)] px-1.5 py-0.5 rounded border border-[var(--hero-border)]">npx -y @ownai/mcp-bridge</code>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard("npx -y @ownai/mcp-bridge", "cmd-only")}
-                      className="inline-flex items-center gap-1 rounded-[6px] border border-[var(--hero-border)] bg-[var(--hero-surface)] px-2.5 py-1 text-[11px] text-[var(--hero-ink)] hover:bg-[var(--hero-ink)]/[0.04]"
-                    >
-                      {copiedId === "cmd-only" ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                      <span>{copiedId === "cmd-only" ? "已复制" : "复制命令"}</span>
-                    </button>
                   </div>
-                  <code className="block font-mono text-[12px] text-[var(--hero-ink)] bg-[var(--hero-surface)] p-2 rounded-[6px] border border-[var(--hero-border)] select-all">
-                    npx -y @ownai/mcp-bridge
-                  </code>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard("npx -y @ownai/mcp-bridge", "cmd-only")}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-[6px] border border-[var(--hero-border)] bg-[var(--hero-surface)] px-3 py-1.5 text-[11px] font-medium text-[var(--hero-ink)] hover:bg-[var(--hero-ink)]/[0.04] transition-colors"
+                  >
+                    {copiedId === "cmd-only" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedId === "cmd-only" ? "已复制" : "复制命令"}</span>
+                  </button>
+                </div>
 
-                  <div className="pt-1 border-t border-[var(--hero-border)]">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] text-[var(--hero-muted)]">客户端配置文件片段：</span>
-                      <div className="flex items-center gap-1">
-                        {(["cursor", "claude", "codex", "antigravity"] as const).map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => setManualClient(c)}
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-[4px] px-2 py-0.5 text-[10px] font-medium transition-colors",
-                              manualClient === c
-                                ? "bg-[var(--hero-ink)] text-[var(--hero-bg)]"
-                                : "text-[var(--hero-muted)] hover:text-[var(--hero-ink)]"
-                            )}
-                          >
-                            <ToolIcon
-                              name={c === "cursor" ? "Cursor" : c === "claude" ? "Claude" : c === "codex" ? "Codex" : "Antigravity"}
-                              className="h-2.5 w-2.5"
-                            />
-                            <span className="capitalize">{c}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {manualClient === "cursor" ? (
-                      <div className="text-[11px] font-mono text-[var(--hero-muted)] bg-[var(--hero-surface)] p-2.5 rounded-[6px] border border-[var(--hero-border)] space-y-1">
-                        <div>Name: <span className="text-[var(--hero-ink)]">ownai-design</span></div>
-                        <div>Type: <span className="text-[var(--hero-ink)]">command</span></div>
-                        <div>Command: <span className="text-[var(--hero-ink)]">npx -y @ownai/mcp-bridge</span></div>
-                      </div>
-                    ) : (
-                      <div className="relative">
-                        <pre className="font-mono text-[11px] text-[var(--hero-ink)] bg-[var(--hero-surface)] p-2.5 rounded-[6px] border border-[var(--hero-border)] overflow-x-auto select-all">
-                          {standardConfigJson}
-                        </pre>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(standardConfigJson, "manual-json")}
-                          className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-[var(--hero-ink)] text-[var(--hero-bg)] text-[10px] font-medium"
-                        >
-                          {copiedId === "manual-json" ? <Check className="h-2.5 w-2.5" /> : <Copy className="h-2.5 w-2.5" />}
-                          <span>{copiedId === "manual-json" ? "已复制" : "复制 JSON"}</span>
-                        </button>
-                      </div>
-                    )}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-3 sm:px-4">
+                  <div className="flex items-center gap-2 text-[12px] text-[var(--hero-muted)]">
+                    <span>客户端标准配置文件 (JSON)：</span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(standardConfigJson, "manual-json")}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-[6px] border border-[var(--hero-border)] bg-[var(--hero-surface)] px-3 py-1.5 text-[11px] font-medium text-[var(--hero-ink)] hover:bg-[var(--hero-ink)]/[0.04] transition-colors"
+                  >
+                    {copiedId === "manual-json" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedId === "manual-json" ? "已复制配置" : "复制标准配置文件 JSON"}</span>
+                  </button>
                 </div>
               </div>
             )}
