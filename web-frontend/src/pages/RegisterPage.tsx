@@ -228,12 +228,12 @@ export function RegisterPage() {
       switchCta={copy.switchCta}
       switchTo="/auth/login"
     >
-      <div className="mx-auto w-full max-w-[410px] rounded-[22px] border border-[var(--auth-card-border)] bg-[var(--auth-card-bg)] p-5 shadow-[var(--auth-card-shadow)] backdrop-blur-md sm:p-6">
-        <div className="text-center">
+      <div className="w-full rounded-[20px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-6 sm:p-8 shadow-xs">
+        <div className="mb-6 space-y-1 text-left">
           <h2 className="text-[22px] font-semibold tracking-[-0.035em] text-[var(--hero-ink)]">
             {copy.title}
           </h2>
-          <p className={cn("mt-2", compactBodyText)}>
+          <p className="text-[13px] text-[var(--hero-muted)] leading-relaxed">
             {copy.subtitle}
           </p>
         </div>
