@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   OwnAI 部署脚本 - 按模块备份并部署到生产服务器
 
@@ -35,6 +35,14 @@ $BACKEND_PATH = '/opt/springboot-init'
 $ADMIN_PATH   = '/www/wwwroot/springboot-init-admin'
 $FRONTEND_PATH= '/www/wwwroot/ownai'
 $BACKEND_API  = 'http://127.0.0.1:8011/api/user/get/login'
+
+# 自动探测并设置 JAVA_HOME
+if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\java.exe")) {
+    if (Test-Path "C:\Program Files\Java\jdk-17\bin\java.exe") {
+        $env:JAVA_HOME = "C:\Program Files\Java\jdk-17"
+        $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+    }
+}
 
 # 校验参数
 if (-not ($Backend -or $Admin -or $Frontend)) {
@@ -81,7 +89,7 @@ if ($Backend) {
 if ($Admin) {
     Write-Host "  构建 web-admin..."
     Push-Location web-admin
-    try { npm run build; if ($LASTEXITCODE -ne 0) { throw "构建失败" } }
+    try { cmd.exe /c "npm run build"; if ($LASTEXITCODE -ne 0) { throw "构建失败" } }
     finally { Pop-Location }
     Write-Host "  ✓ web-admin 构建完成" -ForegroundColor Green
 }
@@ -89,7 +97,7 @@ if ($Admin) {
 if ($Frontend) {
     Write-Host "  构建 web-frontend..."
     Push-Location web-frontend
-    try { npm run build; if ($LASTEXITCODE -ne 0) { throw "构建失败" } }
+    try { cmd.exe /c "npm run build"; if ($LASTEXITCODE -ne 0) { throw "构建失败" } }
     finally { Pop-Location }
     Write-Host "  ✓ web-frontend 构建完成" -ForegroundColor Green
 }
@@ -126,16 +134,52 @@ exit 1
 
 if ($Admin) {
     Write-Host "  部署 web-admin..."
-    rsync -r --no-perms --no-owner --no-group --exclude=index.html web-admin/dist/ "${SSH_ALIAS}:${ADMIN_PATH}/"
-    scp web-admin/dist/index.html "${SSH_ALIAS}:${ADMIN_PATH}/index.html"
-    Write-Host "  ✓ web-admin 部署完成" -ForegroundColor Green
+    $tarPath = [System.IO.Path]::Combine($env:TEMP, "admin_dist_$timestamp.tar.gz")
+    try {
+        & tar -czf $tarPath -C web-admin/dist .
+        scp $tarPath "${SSH_ALIAS}:/tmp/admin_dist.tar.gz"
+        $deployAdminScript = @"
+set -euo pipefail
+mkdir -p /tmp/admin_unpack
+tar -xzf /tmp/admin_dist.tar.gz -C /tmp/admin_unpack
+cp -rf /tmp/admin_unpack/* '$ADMIN_PATH/' 2>/dev/null || true
+find '$ADMIN_PATH' -type d -exec chmod 755 {} + 2>/dev/null || true
+find '$ADMIN_PATH' -type f -exec chmod 644 {} + 2>/dev/null || true
+rm -rf /tmp/admin_unpack /tmp/admin_dist.tar.gz
+"@
+        ssh $SSH_ALIAS $deployAdminScript
+        Write-Host "  ✓ web-admin 部署完成" -ForegroundColor Green
+    } finally {
+        if (Test-Path $tarPath) { Remove-Item -Force $tarPath }
+    }
 }
 
 if ($Frontend) {
     Write-Host "  部署 web-frontend..."
-    rsync -r --no-perms --no-owner --no-group --exclude=index.html web-frontend/dist/ "${SSH_ALIAS}:${FRONTEND_PATH}/"
-    scp web-frontend/dist/index.html "${SSH_ALIAS}:${FRONTEND_PATH}/index.html"
-    Write-Host "  ✓ web-frontend 部署完成" -ForegroundColor Green
+    $tarPath = [System.IO.Path]::Combine($env:TEMP, "frontend_dist_$timestamp.tar.gz")
+    try {
+        & tar -czf $tarPath -C web-frontend/dist .
+        scp $tarPath "${SSH_ALIAS}:/tmp/frontend_dist.tar.gz"
+        $deployFrontendScript = @"
+set -euo pipefail
+mkdir -p /tmp/frontend_unpack
+tar -xzf /tmp/frontend_dist.tar.gz -C /tmp/frontend_unpack
+cp -rf /tmp/frontend_unpack/assets '$FRONTEND_PATH/' 2>/dev/null || true
+if [ -f /tmp/frontend_unpack/index.html ]; then
+  cp -f /tmp/frontend_unpack/index.html '$FRONTEND_PATH/index.html.next'
+  chmod 644 '$FRONTEND_PATH/index.html.next'
+  mv '$FRONTEND_PATH/index.html.next' '$FRONTEND_PATH/index.html'
+fi
+cp -rf /tmp/frontend_unpack/* '$FRONTEND_PATH/' 2>/dev/null || true
+find '$FRONTEND_PATH' -type d -exec chmod 755 {} + 2>/dev/null || true
+find '$FRONTEND_PATH' -type f -exec chmod 644 {} + 2>/dev/null || true
+rm -rf /tmp/frontend_unpack /tmp/frontend_dist.tar.gz
+"@
+        ssh $SSH_ALIAS $deployFrontendScript
+        Write-Host "  ✓ web-frontend 部署完成" -ForegroundColor Green
+    } finally {
+        if (Test-Path $tarPath) { Remove-Item -Force $tarPath }
+    }
 }
 Write-Host ""
 
