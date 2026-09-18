@@ -1,6 +1,6 @@
 {
   "name": "@ownaii/mcp-bridge",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "OwnAI Design Assistant MCP Server Bridge with Browser One-Click OAuth",
   "main": "bin/index.js",
   "bin": {

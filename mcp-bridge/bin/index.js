@@ -145,6 +145,42 @@ function requestBrowserAuth() {
   });
 }
 
+let currentMessageEndpoint = null;
+let currentToken = null;
+const pendingMessages = [];
+let isRlSetup = false;
+
+function flushPendingMessages() {
+  if (!currentMessageEndpoint || !currentToken) return;
+  while (pendingMessages.length > 0) {
+    const msg = pendingMessages.shift();
+    sendJsonRpcMessage(currentMessageEndpoint, currentToken, msg);
+  }
+}
+
+function setupStdinHandler() {
+  if (isRlSetup) return;
+  isRlSetup = true;
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    terminal: false,
+  });
+
+  rl.on("line", (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    if (!currentMessageEndpoint || !currentToken) {
+      log("已缓冲标准输入消息，待 MCP 通道就绪后自动发送…");
+      pendingMessages.push(trimmed);
+      return;
+    }
+
+    sendJsonRpcMessage(currentMessageEndpoint, currentToken, trimmed);
+  });
+}
+
 /**
  * 建立与后端的 SSE 连接并桥接标准输入输出
  */
@@ -152,7 +188,9 @@ async function startMcpBridge(token) {
   log("正在连接 OwnAI 后端 MCP 服务…");
 
   const sseUrl = `${API_BASE_URL}/sse`;
-  let messageEndpoint = null;
+
+  currentToken = token;
+  currentMessageEndpoint = null;
 
   // 使用原生 http/https 模块建立 SSE 长连接
   const urlObj = new URL(sseUrl);
@@ -196,16 +234,17 @@ async function startMcpBridge(token) {
           const trimmed = line.trim();
           if (!trimmed) continue;
 
-          if (trimmed.startsWith("event: endpoint")) {
-            // 下一行通常为 data: /mcp/message?sessionId=xxx
-          } else if (trimmed.startsWith("data: ")) {
-            const dataStr = trimmed.slice(6).trim();
+          if (trimmed.startsWith("event:")) {
+            // event: endpoint 等
+          } else if (trimmed.startsWith("data:")) {
+            const dataStr = trimmed.replace(/^data:\s*/, "");
             if (dataStr.startsWith("/") || dataStr.startsWith("http")) {
               // 收到 message 发送端点
-              messageEndpoint = dataStr.startsWith("http")
+              currentMessageEndpoint = dataStr.startsWith("http")
                 ? dataStr
                 : `${urlObj.protocol}//${urlObj.host}${dataStr.startsWith("/api") ? "" : "/api"}${dataStr}`;
-              log(`已获取 MCP Message 端点: ${messageEndpoint}`);
+              log(`已获取 MCP Message 端点: ${currentMessageEndpoint}`);
+              flushPendingMessages();
             } else {
               // 收到 JSON-RPC 消息包，推给 stdout
               process.stdout.write(dataStr + "\n");
@@ -216,6 +255,7 @@ async function startMcpBridge(token) {
 
       res.on("end", () => {
         log("SSE 连接断开，准备重连…");
+        currentMessageEndpoint = null;
         setTimeout(() => startMcpBridge(token), 3000);
       });
     }
@@ -223,28 +263,12 @@ async function startMcpBridge(token) {
 
   req.on("error", (err) => {
     log(`SSE 连接出错: ${err.message}，3秒后重连…`);
+    currentMessageEndpoint = null;
     setTimeout(() => startMcpBridge(token), 3000);
   });
 
   req.end();
-
-  // 监听 stdin，将来自 Cursor / Claude 的 JSON-RPC 请求发往后端的 messageEndpoint
-  const rl = readline.createInterface({
-    input: process.stdin,
-    terminal: false,
-  });
-
-  rl.on("line", (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-
-    if (!messageEndpoint) {
-      log("警告: messageEndpoint 尚未就绪，消息已缓冲暂未发送");
-      return;
-    }
-
-    sendJsonRpcMessage(messageEndpoint, token, trimmed);
-  });
+  setupStdinHandler();
 }
 
 function sendJsonRpcMessage(endpointUrl, token, jsonStr) {

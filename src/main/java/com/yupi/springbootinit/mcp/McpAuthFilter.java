@@ -55,6 +55,9 @@ public class McpAuthFilter extends OncePerRequestFilter {
 
         McpUserContext.set(user);
         try {
+            // 针对 SSE / 流式端点，告知反向代理（如 Nginx）立即禁用响应缓冲，实现首包毫秒级直达
+            response.setHeader("X-Accel-Buffering", "no");
+            response.setHeader("Cache-Control", "no-cache, no-transform");
             filterChain.doFilter(request, response);
         } finally {
             McpUserContext.clear();
