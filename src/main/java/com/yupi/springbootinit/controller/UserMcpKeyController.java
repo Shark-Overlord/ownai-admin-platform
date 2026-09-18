@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 用户 MCP API Key 管理
  */
 @RestController
-@RequestMapping("/api/mcp/key")
+@RequestMapping("/mcp/key")
 @Api(tags = "MCP Key 管理")
 public class UserMcpKeyController {
 

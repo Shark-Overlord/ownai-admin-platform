@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/mcp/oauth")
+@RequestMapping("/mcp/oauth")
 @Api(tags = "MCP 网页授权")
 public class McpAuthController {
 
