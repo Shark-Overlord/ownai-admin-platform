@@ -474,6 +474,10 @@ export function Navbar() {
     }
   };
 
+  const handleMcpClick = () => {
+    navigate("/profile?tab=mcp");
+  };
+
   return (
     <>
       {location.pathname !== "/" ? (
@@ -574,6 +578,28 @@ export function Navbar() {
                 </span>
               </button>
             ) : null}
+
+            {/* ⚡ MCP 助手 NEW 全站随时可见常驻入口 */}
+            <button
+              type="button"
+              onClick={handleMcpClick}
+              aria-label="打开 MCP 助手"
+              className="group relative inline-flex items-center gap-1.5 rounded-full border border-amber-500/35 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 px-2.5 py-1 text-[12px] font-medium text-[var(--hero-ink)] shadow-[0_2px_10px_rgba(245,158,11,0.06)] transition-all duration-200 hover:-translate-y-[1px] hover:border-amber-500/60 hover:shadow-[0_4px_16px_rgba(245,158,11,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30 sm:px-3 sm:py-1.5"
+            >
+              <span className="flex items-center gap-1">
+                <span className="text-amber-500 text-[13px] animate-pulse">⚡</span>
+                <span className="font-semibold tracking-tight">MCP 助手</span>
+              </span>
+              <span className="relative flex h-3.5 items-center sm:h-4">
+                <span className="inline-flex items-center rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-1.5 py-0.5 text-[8.5px] font-black tracking-wider text-white shadow-xs uppercase leading-none">
+                  NEW
+                </span>
+                <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                </span>
+              </span>
+            </button>
+
             {loginUser ? (
               <AuthenticatedUserMenu
                 hasUnreadAnnouncements={hasUnreadAnnouncements}
@@ -756,6 +782,23 @@ export function Navbar() {
                 ) : null}
 
                 <div className="flex flex-col items-stretch gap-1.5">
+                  <div className="mb-1">
+                    <SheetClose asChild>
+                      <button
+                        type="button"
+                        onClick={handleMcpClick}
+                        className="group flex w-full items-center justify-between rounded-[8px] border border-amber-500/35 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 px-3 py-2 text-left text-[12px] font-medium text-[var(--hero-ink)] transition-all hover:border-amber-500/60"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-amber-500 text-[13px] animate-pulse">⚡</span>
+                          <span className="font-semibold">MCP 助手</span>
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-1.5 py-0.5 text-[8.5px] font-bold text-white shadow-xs">
+                          NEW
+                        </span>
+                      </button>
+                    </SheetClose>
+                  </div>
                   {desktopNavItems.map((item) => {
                     if (item.id === "frontendPrompts") return renderPromptLibrarySelect(true);
                     const Icon = item.icon;

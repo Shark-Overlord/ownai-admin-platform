@@ -25,6 +25,15 @@ export interface McpAuthorizeVO {
   state?: string;
 }
 
+export interface McpKeyVO {
+  id: number;
+  keyName: string;
+  keyPrefix: string;
+  status: number;
+  lastUsedTime?: string;
+  createTime: string;
+}
+
 export async function checkMcpAuthStatus(): Promise<McpAuthCheckVO> {
   const res = await getJson<McpAuthCheckVO>("/mcp/oauth/check", {
     includeAuthToken: true,
@@ -39,4 +48,19 @@ export async function authorizeMcp(
     includeAuthToken: true,
   });
   return res.data;
+}
+
+export async function listMyMcpKeys(): Promise<McpKeyVO[]> {
+  const res = await getJson<McpKeyVO[]>("/mcp/key/my", {
+    includeAuthToken: true,
+  });
+  return res.data || [];
+}
+
+export async function revokeMcpKey(id: number): Promise<boolean> {
+  const res = await postJson<boolean>("/mcp/key/revoke", null, {
+    includeAuthToken: true,
+    query: { id },
+  });
+  return Boolean(res.data);
 }

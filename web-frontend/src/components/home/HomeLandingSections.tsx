@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ArrowRight, Database, GraduationCap, ImageOff } from "lucide-react";
 import type { HomeContentVO, HomeVideoItem } from "@/lib/home-content";
+import { HomeMcpSection } from "@/components/home/HomeMcpSection";
 
 function createCoverLanes(videos: HomeVideoItem[]) {
   const covers =
@@ -200,6 +201,8 @@ export function HomeLandingSections({ content }: { content: HomeContentVO }) {
           </div>
         </div>
       </section>
+
+      <HomeMcpSection />
 
       <section className="px-4 py-12 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
         <div className="mx-auto max-w-[1120px]">
