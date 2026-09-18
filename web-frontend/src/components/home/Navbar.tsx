@@ -579,24 +579,17 @@ export function Navbar() {
               </button>
             ) : null}
 
-            {/* ⚡ MCP 助手 NEW 全站随时可见常驻入口 */}
+            {/* ⚡ MCP 助手常驻入口 - 高端极简极客胶囊 */}
             <button
               type="button"
               onClick={handleMcpClick}
               aria-label="打开 MCP 助手"
-              className="group relative inline-flex items-center gap-1.5 rounded-full border border-amber-500/35 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 px-2.5 py-1 text-[12px] font-medium text-[var(--hero-ink)] shadow-[0_2px_10px_rgba(245,158,11,0.06)] transition-all duration-200 hover:-translate-y-[1px] hover:border-amber-500/60 hover:shadow-[0_4px_16px_rgba(245,158,11,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30 sm:px-3 sm:py-1.5"
+              className="group relative inline-flex items-center gap-1.5 rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)]/80 px-2.5 py-1 text-[12px] font-medium text-[var(--hero-ink)] transition-all duration-200 hover:-translate-y-[1px] hover:border-[var(--hero-ink)]/25 hover:bg-[var(--hero-ink)]/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--hero-ink)]/15 sm:px-3 sm:py-1.5"
             >
-              <span className="flex items-center gap-1">
-                <span className="text-amber-500 text-[13px] animate-pulse">⚡</span>
-                <span className="font-semibold tracking-tight">MCP 助手</span>
-              </span>
-              <span className="relative flex h-3.5 items-center sm:h-4">
-                <span className="inline-flex items-center rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-1.5 py-0.5 text-[8.5px] font-black tracking-wider text-white shadow-xs uppercase leading-none">
-                  NEW
-                </span>
-                <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                </span>
+              <Sparkles className="h-3 w-3 opacity-80 transition-transform duration-300 group-hover:scale-110" />
+              <span className="tracking-tight">MCP 助手</span>
+              <span className="rounded-full bg-[var(--hero-ink)] px-1.5 py-[1px] font-mono text-[9px] font-medium tracking-wide text-[var(--hero-bg)] uppercase">
+                NEW
               </span>
             </button>
 
@@ -787,13 +780,13 @@ export function Navbar() {
                       <button
                         type="button"
                         onClick={handleMcpClick}
-                        className="group flex w-full items-center justify-between rounded-[8px] border border-amber-500/35 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 px-3 py-2 text-left text-[12px] font-medium text-[var(--hero-ink)] transition-all hover:border-amber-500/60"
+                        className="group flex w-full items-center justify-between rounded-[8px] border border-[var(--hero-border)] bg-[var(--hero-surface)] px-2.5 py-2 text-left text-[12px] font-medium text-[var(--hero-ink)] transition-colors hover:bg-[var(--hero-ink)]/[0.04]"
                       >
                         <span className="flex items-center gap-2">
-                          <span className="text-amber-500 text-[13px] animate-pulse">⚡</span>
-                          <span className="font-semibold">MCP 助手</span>
+                          <Sparkles className="h-3.5 w-3.5 opacity-80" />
+                          <span>MCP 助手</span>
                         </span>
-                        <span className="inline-flex items-center rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-1.5 py-0.5 text-[8.5px] font-bold text-white shadow-xs">
+                        <span className="rounded-full bg-[var(--hero-ink)] px-1.5 py-[1px] font-mono text-[9px] font-medium text-[var(--hero-bg)] uppercase">
                           NEW
                         </span>
                       </button>
