@@ -7,6 +7,7 @@ import {
   Copy,
   FolderArchive,
   Laptop,
+  Layers,
   Lock,
   Play,
   RotateCcw,
@@ -228,7 +229,7 @@ export function HomeMcpSection() {
           </h2>
 
           <p className="mx-auto mt-3 max-w-[660px] text-[14px] leading-7 text-[var(--hero-muted)]">
-            把 600+ 顶尖前端设计资产装进你的 IDE。无需跳出沉浸工作流，终端一句自然语言，高保真 TSX 切片与完整工程源码秒级唤起。
+            还在忍受 AI 写的代码充满千篇一律的廉价感？直接把 600+ 顶尖设计工程装进 IDE，一句自然语言告别“AI味”，秒级直出工业级质感与高保真动效。
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
@@ -409,45 +410,45 @@ export function HomeMcpSection() {
           </div>
         </div>
 
-        {/* 底部四项特性简介（紧凑网格） */}
+        {/* 底部四项特性简介（直击痛点） */}
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-4">
             <div className="flex items-center gap-2 text-[14px] font-medium text-[var(--hero-ink)]">
-              <Search className="h-4 w-4 text-[var(--hero-muted)]" />
-              <span>五维语义检索</span>
+              <Sparkles className="h-4 w-4 text-[var(--hero-muted)]" />
+              <span>彻底告别廉价“AI味”</span>
             </div>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
-              按场景、载体、风格、构件与动效在 IDE 中自然语言召回。
+              厌倦了模型生成的粗糙布局与千篇一律？直连 600+ 顶尖解构源码，自带 Apple / Linear 级工业审美。
+            </p>
+          </div>
+
+          <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-4">
+            <div className="flex items-center gap-2 text-[14px] font-medium text-[var(--hero-ink)]">
+              <Layers className="h-4 w-4 text-[var(--hero-muted)]" />
+              <span>拒绝僵死生硬的动效</span>
+            </div>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
+              AI 只会写死板的线性 CSS？原生携带打磨成熟的 Framer Motion 弹簧阻尼与物理微交互，帧帧丝滑。
             </p>
           </div>
 
           <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-4">
             <div className="flex items-center gap-2 text-[14px] font-medium text-[var(--hero-ink)]">
               <ShieldCheck className="h-4 w-4 text-[var(--hero-muted)]" />
-              <span>浏览器一键授权</span>
+              <span>告别报错与拼接地狱</span>
             </div>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
-              终端启动自动调起系统浏览器，零手动输入 API Key。
+              还在反复调试 AI 幻觉缺失的类名与依赖？所有构件经 TS + Tailwind 严格验证，直接落盘即可交付。
             </p>
           </div>
 
           <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-4">
             <div className="flex items-center gap-2 text-[14px] font-medium text-[var(--hero-ink)]">
-              <FolderArchive className="h-4 w-4 text-[var(--hero-muted)]" />
-              <span>600+ 工业级资产直通</span>
+              <Terminal className="h-4 w-4 text-[var(--hero-muted)]" />
+              <span>免除繁琐 Prompt 调教</span>
             </div>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
-              涵盖 600+ 前沿解构作品、物理弹簧动效规范与工程 ZIP 源码直连。
-            </p>
-          </div>
-
-          <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-4">
-            <div className="flex items-center gap-2 text-[14px] font-medium text-[var(--hero-ink)]">
-              <Laptop className="h-4 w-4 text-[var(--hero-muted)]" />
-              <span>多 IDE 客户端支持</span>
-            </div>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
-              原生支持 Cursor、Claude、Codex 与 Antigravity。
+              无需撰写数百字复杂设计规范提示词。在终端一句自然语言，600+ 完整工程 ZIP 与 TSX 秒级直达。
             </p>
           </div>
         </div>
