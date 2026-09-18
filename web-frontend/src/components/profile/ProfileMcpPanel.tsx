@@ -130,7 +130,7 @@ export function ProfileMcpPanel({ profile }: ProfileMcpPanelProps) {
      "mcpServers": {
        "ownai-design": {
          "command": "npx",
-         "args": ["-y", "@ownai/mcp-bridge"]
+         "args": ["-y", "@ownaii/mcp-bridge"]
        }
      }
    }
@@ -139,7 +139,7 @@ export function ProfileMcpPanel({ profile }: ProfileMcpPanelProps) {
    请在配置文件（Windows: %APPDATA%\\Claude\\claude_desktop_config.json / macOS: ~/Library/Application Support/Claude/claude_desktop_config.json）中的 mcpServers 下添加上述同名 ownai-design 配置。
 
 3. 如果是其他客户端（如 Codex / Antigravity / Windsurf）：
-   同样添加 command 为 "npx"，args 为 ["-y", "@ownai/mcp-bridge"] 的 stdio 服务。
+   同样添加 command 为 "npx"，args 为 ["-y", "@ownaii/mcp-bridge"] 的 stdio 服务。
 
 配置完成后，初次启动或调用时会自动在默认浏览器打开授权确认页，点击允许即可在 IDE 中直接召回 600+ 顶尖设计切片。`;
 
@@ -149,7 +149,7 @@ export function ProfileMcpPanel({ profile }: ProfileMcpPanelProps) {
       mcpServers: {
         "ownai-design": {
           command: "npx",
-          args: ["-y", "@ownai/mcp-bridge"],
+          args: ["-y", "@ownaii/mcp-bridge"],
         },
       },
     },
@@ -309,12 +309,12 @@ export function ProfileMcpPanel({ profile }: ProfileMcpPanelProps) {
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Terminal className="h-4 w-4 text-[var(--hero-ink)] shrink-0" />
                     <span className="text-[12px] text-[var(--hero-muted)] truncate">
-                      终端测试命令：<code className="font-mono text-[var(--hero-ink)] bg-[var(--hero-surface)] px-1.5 py-0.5 rounded border border-[var(--hero-border)]">npx -y @ownai/mcp-bridge</code>
+                      终端测试命令：<code className="font-mono text-[var(--hero-ink)] bg-[var(--hero-surface)] px-1.5 py-0.5 rounded border border-[var(--hero-border)]">npx -y @ownaii/mcp-bridge</code>
                     </span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard("npx -y @ownai/mcp-bridge", "cmd-only")}
+                    onClick={() => copyToClipboard("npx -y @ownaii/mcp-bridge", "cmd-only")}
                     className="shrink-0 inline-flex items-center gap-1.5 rounded-[6px] border border-[var(--hero-border)] bg-[var(--hero-surface)] px-3 py-1.5 text-[11px] font-medium text-[var(--hero-ink)] hover:bg-[var(--hero-ink)]/[0.04] transition-colors"
                   >
                     {copiedId === "cmd-only" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}

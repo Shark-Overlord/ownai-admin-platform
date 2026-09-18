@@ -16,9 +16,9 @@ const os = require("os");
 const { exec } = require("child_process");
 const readline = require("readline");
 
-// 配置项（可通过环境变量覆盖）
-const API_BASE_URL = process.env.OWNAI_API_URL || "http://127.0.0.1:8011/api";
-const WEB_BASE_URL = process.env.OWNAI_WEB_URL || "http://127.0.0.1:5187";
+// 配置项（生产环境默认指向线上，本地可通过环境变量覆盖）
+const API_BASE_URL = process.env.OWNAI_API_URL || "https://ownai.icu/api";
+const WEB_BASE_URL = process.env.OWNAI_WEB_URL || "https://ownai.icu";
 const CONFIG_DIR = path.join(os.homedir(), ".ownai");
 const CONFIG_FILE = path.join(CONFIG_DIR, "mcp-auth.json");
 

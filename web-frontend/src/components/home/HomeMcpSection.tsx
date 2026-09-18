@@ -157,7 +157,7 @@ export function HomeMcpSection() {
   const [typedSnippet, setTypedSnippet] = useState("");
   const [isTyping, setIsTyping] = useState(true);
 
-  const installCmd = "npx -y @ownai/mcp-bridge";
+  const installCmd = "npx -y @ownaii/mcp-bridge";
   const scenario = DEMO_SCENARIOS[scenarioIndex];
 
   const handleCopy = () => {
