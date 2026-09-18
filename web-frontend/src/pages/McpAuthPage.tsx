@@ -131,6 +131,25 @@ export function McpAuthPage() {
               <LoaderCircle className="w-6 h-6 animate-spin text-amber-500" />
               <span>正在检查会员与账号信息…</span>
             </div>
+          ) : errorMsg && !authStatus ? (
+            /* 接口异常状态 */
+            <div className="text-center py-6 space-y-6">
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-left flex items-start gap-3">
+                <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-rose-300">获取授权信息失败</p>
+                  <p className="text-[var(--hero-muted,#8a8f98)] text-xs mt-1">
+                    {errorMsg}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full py-3 px-4 rounded-xl font-medium text-sm bg-white/10 hover:bg-white/15 text-white transition"
+              >
+                刷新重试
+              </button>
+            </div>
           ) : !localUser ? (
             /* 未登录状态 */
             <div className="text-center py-6 space-y-6">
