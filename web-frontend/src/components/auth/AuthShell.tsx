@@ -1,7 +1,12 @@
-import type { ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Check, Code2, Layers, ShieldCheck, Sparkles, Terminal } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { DiagonalVideoGallery } from "@/components/home/HomeLandingSections";
+import {
+  getHomeContent,
+  DEFAULT_HOME_CONTENT,
+  type HomeVideoItem,
+} from "@/lib/home-content";
 
 interface AuthShellProps {
   switchLabel: string;
@@ -10,140 +15,323 @@ interface AuthShellProps {
   children: ReactNode;
 }
 
+const STATIC_AUTH_COVERS: HomeVideoItem[] = [
+  {
+    id: "hero-video-1",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/zJgmZZw4-ownai-ecovolta-v2-hero.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/L3mHf2tM-ownai-ecovolta-v2-hero.png",
+    alt: "前端界面演示 1",
+    sort: 1,
+  },
+  {
+    id: "hero-video-2",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/hEMk8maf-ownai-lumina-bloom.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/nxN8xBVQ-cover.png",
+    alt: "前端界面演示 2",
+    sort: 2,
+  },
+  {
+    id: "hero-video-3",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/t3r8Whg4-ownai-commerce-pulse.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/FTVqI28w-cover.png",
+    alt: "前端界面演示 3",
+    sort: 3,
+  },
+  {
+    id: "hero-video-4",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/3GDV3VYs-sea-serenade.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/Zb0Nzz2h-sea-serenade.jpg",
+    alt: "前端界面演示 4",
+    sort: 4,
+  },
+  {
+    id: "hero-video-5",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/ZM8BhgQo-prompt-hero.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/j6yfwlCz-prompt-hero.jpg",
+    alt: "前端界面演示 5",
+    sort: 5,
+  },
+  {
+    id: "hero-video-6",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/GWpxBRBO-mythic-vpn.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/tSV0snaj-mythic-vpn.jpg",
+    alt: "前端界面演示 6",
+    sort: 6,
+  },
+  {
+    id: "hero-video-7",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/6a6UBNqi-ownai-qixi-romance-static.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/zaOsgkeD-ownai-qixi-romance-static.png",
+    alt: "前端界面演示 7",
+    sort: 7,
+  },
+  {
+    id: "hero-video-8",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/9tRjOg39-PixPin_2026-08-07_19-35-53.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/R9EsuRSb-PixPin_2026-08-07_20-05-37.png",
+    alt: "前端界面演示 8",
+    sort: 8,
+  },
+  {
+    id: "hero-video-9",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/w2pKJsKU-fun-404-page.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/vbWMSO2r-fun-404-page.jpg",
+    alt: "前端界面演示 9",
+    sort: 9,
+  },
+  {
+    id: "hero-video-10",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/OSnIuGG6-performance-run.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/8loYy4o7-performance-run.jpg",
+    alt: "前端界面演示 10",
+    sort: 10,
+  },
+  {
+    id: "hero-video-11",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/5tERukoI-pixel-muse.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/j9TUBvuJ-pixel-muse.jpg",
+    alt: "前端界面演示 11",
+    sort: 11,
+  },
+  {
+    id: "hero-video-12",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_video/1/GrCxqMq3-oyla.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/artwork_cover/1/hKtw95OO-oyla.jpg",
+    alt: "前端界面演示 12",
+    sort: 12,
+  },
+  {
+    id: "bg-video-13",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/HHOS4qB4-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820622196858881-cover.jpg",
+    alt: "Bio Age Dashboard",
+    sort: 13,
+  },
+  {
+    id: "bg-video-14",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/ZKASz6A4-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820600797519873-cover.jpg",
+    alt: "Aurora Onboard",
+    sort: 14,
+  },
+  {
+    id: "bg-video-15",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/5uZux1k5-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820584586534914-cover.jpg",
+    alt: "AI Automation",
+    sort: 15,
+  },
+  {
+    id: "bg-video-16",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/4gwROcbt-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820567394082817-cover.jpg",
+    alt: "Aerocore Tech",
+    sort: 16,
+  },
+  {
+    id: "bg-video-17",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/YnZpzcsg-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820550616866818-cover.jpg",
+    alt: "Cobalt Hero",
+    sort: 17,
+  },
+  {
+    id: "bg-video-18",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/jmO4h1yu-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820509034536961-cover.jpg",
+    alt: "Print Archive",
+    sort: 18,
+  },
+  {
+    id: "bg-video-19",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/s4RqdL6V-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820345616064514-cover.jpg",
+    alt: "3D Studio Pricing",
+    sort: 19,
+  },
+  {
+    id: "bg-video-20",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/XsYJ4CPJ-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820330730479618-cover.jpg",
+    alt: "3D Story Space",
+    sort: 20,
+  },
+  {
+    id: "bg-video-21",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/Nx1edQft-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820317098991618-cover.jpg",
+    alt: "Cargo Logistics",
+    sort: 21,
+  },
+  {
+    id: "bg-video-22",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/oNHj60D4-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820305048756226-cover.jpg",
+    alt: "Build With Us",
+    sort: 22,
+  },
+  {
+    id: "bg-video-23",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/V3Vzq5aG-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820281053143042-cover.jpg",
+    alt: "Bionova Dark",
+    sort: 23,
+  },
+  {
+    id: "bg-video-24",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/0vrR6SKO-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820267904000001-cover.jpg",
+    alt: "Bionova Light",
+    sort: 24,
+  },
+  {
+    id: "bg-video-25",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/vKxPL5Dg-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820258072551425-cover.jpg",
+    alt: "Bionova Motion",
+    sort: 25,
+  },
+  {
+    id: "bg-video-26",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/Y4apB9su-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820244793384962-cover.jpg",
+    alt: "Bio Active",
+    sort: 26,
+  },
+  {
+    id: "bg-video-27",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/f9Ta5X1R-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820215353565186-cover.jpg",
+    alt: "Benefits Features",
+    sort: 27,
+  },
+  {
+    id: "bg-video-28",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/dd97efCW-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820201344589826-cover.jpg",
+    alt: "Beauty Categories",
+    sort: 28,
+  },
+  {
+    id: "bg-video-29",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/O3M7kUir-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820183057424386-cover.jpg",
+    alt: "Auramail UI",
+    sort: 29,
+  },
+  {
+    id: "bg-video-30",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/Rkn4NViV-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820135967973378-cover.jpg",
+    alt: "ASME Hero",
+    sort: 30,
+  },
+  {
+    id: "bg-video-31",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/JEdcKcHY-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820113469726721-cover.jpg",
+    alt: "AI Workflow",
+    sort: 31,
+  },
+  {
+    id: "bg-video-32",
+    videoUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_preview/1/OEZVQuO5-preview.mp4",
+    posterUrl: "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2086820092871499778-cover.jpg",
+    alt: "AI Designer Agency",
+    sort: 32,
+  },
+];
+
 export function AuthShell({
   switchLabel,
   switchCta,
   switchTo,
   children,
 }: AuthShellProps) {
-  return (
-    <div className="relative min-h-[100svh] bg-[var(--hero-bg)] text-[var(--hero-ink)]">
-      {/* 全屏左右分栏网格：左侧宣传沉浸区 (>= 1024px) | 右侧表单操作区 */}
-      <div className="min-h-[100svh] flex flex-col lg:grid lg:grid-cols-12">
-        {/* 左侧：高转化品牌与平台价值宣传面板（仅在桌面端显示，在移动端转为极简 Header） */}
-        <aside className="relative hidden lg:flex lg:col-span-6 xl:col-span-7 flex-col justify-between border-r border-[var(--hero-border)] bg-[var(--hero-surface)] p-8 xl:p-12 overflow-hidden select-none">
-          {/* 背景微光与几何网格 */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute left-[-15%] top-[-10%] h-[380px] w-[380px] rounded-full bg-[var(--hero-ink)]/[0.03] blur-3xl" />
-            <div className="absolute right-[-10%] bottom-[-10%] h-[420px] w-[420px] rounded-full bg-[var(--hero-ink)]/[0.025] blur-3xl" />
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:64px_64px] opacity-40" />
-          </div>
+  // 丰富视频库池：默认 32 个真实高清视频与封面，4 轨正交轮播，永不相邻重复
+  const [videos, setVideos] = useState<HomeVideoItem[]>(STATIC_AUTH_COVERS);
 
-          {/* 顶部：品牌 Logo 与平台定位 */}
-          <div className="relative z-10">
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void getHomeContent(controller.signal)
+      .then((res) => {
+        if (res?.hero?.videoList && res.hero.videoList.length > 0) {
+          // 安全合并最新数据，避免池子缩水
+          setVideos((current) => {
+            const map = new Map<string, HomeVideoItem>();
+            current.forEach((item) => map.set(item.id, item));
+            res.hero.videoList.forEach((item) => map.set(item.id, item));
+            return Array.from(map.values());
+          });
+        }
+      })
+      .catch(() => {
+        // 网络异常时稳定保持内置 32 个作品列表
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <div className="relative min-h-[100svh] bg-[var(--hero-bg)] text-[var(--hero-ink)] overflow-x-hidden">
+      {/* 全屏左右分栏网格：左侧极简纯粹动态作品画廊 (>= 1024px) | 右侧表单操作区 */}
+      <div className="min-h-[100svh] flex flex-col lg:grid lg:grid-cols-12">
+        {/* 左侧：首页同款倾斜 24° 动态交错无限滚动画廊 + 经典居中文案 */}
+        <aside className="relative hidden lg:flex lg:col-span-6 xl:col-span-7 flex-col items-center justify-center border-r border-[var(--hero-border)] bg-[#050505] p-8 xl:p-12 overflow-hidden select-none">
+          {/* 首页同款倾斜动态网格画廊 */}
+          <DiagonalVideoGallery hero videos={videos} />
+
+          {/* 轻透暗夜遮罩：通透明亮，让精美封面清晰生动 */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-[1] bg-black/35"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.55)_100%)]"
+          />
+
+          {/* 左上角品牌 Logo 与 OwnAI 标识（无磨砂底色，32*32 大图标，首页同款连笔字） */}
+          <div className="absolute top-8 xl:top-10 left-8 xl:left-10 z-10">
             <Link
               to="/"
-              className="inline-flex items-center gap-3 transition-opacity hover:opacity-90 focus-visible:outline-none"
+              className="inline-flex items-center gap-2.5 transition-opacity hover:opacity-85 focus-visible:outline-none drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]"
+              aria-label="返回首页"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-1.5 shadow-xs">
-                <img
-                  src="/images/ownai-logo.webp"
-                  alt="OwnAI"
-                  className="h-full w-full object-contain"
-                  draggable={false}
-                />
-              </div>
-              <div>
-                <span className="text-[15px] font-semibold tracking-tight text-[var(--hero-ink)]">
-                  OwnAI
-                </span>
-                <span className="block text-[11px] font-mono tracking-wider uppercase text-[var(--hero-muted)]">
-                  DESIGN & ENGINEERING ASSETS
-                </span>
-              </div>
+              <img
+                src="/images/ownai-logo.webp"
+                alt="OwnAI"
+                className="h-8 w-8 object-contain shrink-0"
+                style={{ width: "32px", height: "32px" }}
+                draggable={false}
+              />
+              <span className="home-ownai-wordmark text-[28px] text-white leading-none">
+                ownai
+              </span>
             </Link>
           </div>
 
-          {/* 中间核心：高转化文案与动效代码切片演示 */}
-          <div className="relative z-10 my-auto py-8 max-w-[580px] space-y-6">
-            {/* 顶标 */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--hero-border)] bg-[var(--hero-bg)] px-3 py-1 text-[11px] font-medium text-[var(--hero-muted)]">
-              <Sparkles className="h-3.5 w-3.5 text-[var(--hero-ink)]" />
-              <span>600+ 顶尖解构工程 · 本地 IDE 深度直连</span>
-            </div>
+          {/* 居中文案（大幅加大字号，气势磅礴，立体投影确保对比度） */}
+          <div className="relative z-[2] mx-auto flex w-full max-w-[800px] flex-col items-center text-center drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)] px-6">
+            <p className="font-semibold tracking-[0.2em] uppercase text-white/90 text-[16px] xl:text-[19px]">
+              制作 · 收集 · 整理
+            </p>
 
-            {/* 大标题 */}
-            <div className="space-y-2.5">
-              <h1 className="text-[28px] xl:text-[34px] font-semibold tracking-[-0.04em] leading-[1.22] text-[var(--hero-ink)]">
-                告别千人一面的粗糙“AI味”<br />
-                把 600+ 顶尖设计工程装进你的 IDE
-              </h1>
-              <p className="text-[13px] xl:text-[14px] leading-relaxed text-[var(--hero-muted)]">
-                无需在网页与编辑器之间反复横跳。在终端一句自然语言，秒级直出工业级 TSX 切片、物理弹簧动效与商业级完整项目源码。
-              </p>
-            </div>
+            <h1 className="mt-5 text-center text-[44px] xl:text-[58px] 2xl:text-[68px] font-extrabold leading-[1.08] tracking-[-0.03em] text-white">
+              500+ 精美前端提示词
+            </h1>
 
-            {/* 仿 macOS / IDE 高冷切片代码窗口预览 */}
-            <div className="overflow-hidden rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-bg)] shadow-[0_16px_50px_-16px_rgba(0,0,0,0.4)]">
-              <div className="flex h-9 items-center justify-between border-b border-[var(--hero-border)] bg-[var(--hero-surface)]/70 px-3.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f56]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#ffbd2e]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#27c93f]" />
-                  <span className="ml-2 font-mono text-[10px] text-[var(--hero-muted)]">PromoModalDark.tsx</span>
-                </div>
-                <span className="rounded bg-[var(--hero-bg)] border border-[var(--hero-border)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--hero-muted)]">
-                  Framer Motion Spring
-                </span>
-              </div>
-              <pre className="p-3.5 font-mono text-[11px] leading-5 text-[var(--hero-ink)]/85 overflow-x-auto">
-                <code>{`// 构件切片: PromoModalDark.tsx (开箱即交付)
-export function PromoModal({ isOpen, onClose }: Props) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.94, y: 16 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 360, damping: 26 }}
-      className="rounded-2xl border border-white/10 bg-[#09090b] p-6"
-    >
-      <CountdownTimer duration={300} onEnd={onClose} />
-      {/* 600+ 工业级设计工程全量直通，零报错交付 */}
-    </motion.div>
-  );
-}`}</code>
-              </pre>
-              <div className="flex items-center justify-between border-t border-[var(--hero-border)] bg-[var(--hero-surface)]/40 px-3.5 py-2 text-[11px] text-[var(--hero-muted)]">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  <span>支持 Cursor · Claude · Codex · Antigravity</span>
-                </span>
-                <span className="font-mono text-[10px] text-[var(--hero-ink)]/70">100% TSX + Tailwind</span>
-              </div>
-            </div>
-
-            {/* 4 项核心价值徽章 */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              <div className="flex items-center gap-2 rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] px-3 py-2 text-[12px]">
-                <Layers className="h-3.5 w-3.5 text-[var(--hero-muted)] shrink-0" />
-                <span className="font-medium text-[var(--hero-ink)]">600+ 工业级解构资产</span>
-              </div>
-              <div className="flex items-center gap-2 rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] px-3 py-2 text-[12px]">
-                <Terminal className="h-3.5 w-3.5 text-[var(--hero-muted)] shrink-0" />
-                <span className="font-medium text-[var(--hero-ink)]">本地 IDE MCP 助手直调</span>
-              </div>
-              <div className="flex items-center gap-2 rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] px-3 py-2 text-[12px]">
-                <Code2 className="h-3.5 w-3.5 text-[var(--hero-muted)] shrink-0" />
-                <span className="font-medium text-[var(--hero-ink)]">真实弹簧物理微动效</span>
-              </div>
-              <div className="flex items-center gap-2 rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)] px-3 py-2 text-[12px]">
-                <ShieldCheck className="h-3.5 w-3.5 text-[var(--hero-muted)] shrink-0" />
-                <span className="font-medium text-[var(--hero-ink)]">自包含零报错直接交付</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 底部口碑引用 */}
-          <div className="relative z-10 pt-4 border-t border-[var(--hero-border)]">
-            <p className="text-[12px] italic leading-relaxed text-[var(--hero-muted)]">
-              “真正让前端交互告别了 AI 的廉价感与拼接地狱，从设计解构到代码落盘一气呵成。”
+            <p className="mt-5 max-w-[660px] text-center text-[17px] xl:text-[21px] leading-relaxed font-normal tracking-[0.02em] text-white/90">
+              覆盖页面、组件与动效交互，为界面复刻与产品开发提供创作起点
             </p>
           </div>
         </aside>
 
-        {/* 右侧：表单操作区 */}
-        <div className="lg:col-span-6 xl:col-span-5 flex flex-col justify-between min-h-[100svh] p-4 sm:p-6 lg:p-10">
-          {/* 右侧顶栏：移动端 Logo + 返回首页 + 登录/注册快速切换 */}
-          <header className="flex items-center justify-between gap-3 w-full max-w-[480px] mx-auto pb-4">
+        {/* 右侧：表单操作区（纯粹嵌入式排版，使用指定的 #171717 背景色） */}
+        <div className="lg:col-span-6 xl:col-span-5 flex flex-col justify-between min-h-[100svh] bg-[#171717] text-white p-6 sm:p-8 lg:p-12">
+          {/* 右侧顶栏：移动端 Logo + 返回首页 + 极简登录/注册切换 */}
+          <header className="flex items-center justify-between gap-4 w-full max-w-[400px] mx-auto pb-4">
             {/* 移动端 Logo (桌面端隐藏) */}
             <div className="lg:hidden">
               <Link to="/" className="flex items-center gap-2">
@@ -165,35 +353,34 @@ export function PromoModal({ isOpen, onClose }: Props) {
             <div className="hidden lg:block">
               <Link
                 to="/"
-                className="inline-flex items-center gap-1.5 text-xs text-[var(--hero-muted)] hover:text-[var(--hero-ink)] transition-colors"
+                className="inline-flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>返回首页</span>
               </Link>
             </div>
 
-            {/* 切换登录/注册胶囊按钮 */}
-            <div className="flex items-center gap-1.5 rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)] px-1.5 py-1 text-xs shadow-xs">
-              <span className="hidden px-2 text-[var(--hero-muted)] sm:inline">
+            {/* 极简切换链接：自然融入排版，不单独用突兀高亮色块 */}
+            <div className="flex items-center gap-1.5 text-[13px]">
+              <span className="hidden sm:inline text-zinc-400">
                 {switchLabel}
               </span>
               <Link
                 to={switchTo}
-                className="inline-flex items-center gap-1 rounded-full bg-[var(--hero-ink)] px-2.5 py-1 font-medium text-[var(--hero-bg)] transition-opacity hover:opacity-90"
+                className="font-medium text-white underline underline-offset-4 transition-opacity hover:opacity-80"
               >
-                <span>{switchCta}</span>
-                <ArrowRight className="h-3 w-3" />
+                {switchCta}
               </Link>
             </div>
           </header>
 
-          {/* 表单主体（居中对齐） */}
-          <main className="my-auto w-full max-w-[440px] mx-auto py-6">
+          {/* 表单主体（垂直居中，完全嵌入） */}
+          <main className="my-auto w-full max-w-[400px] mx-auto py-8">
             {children}
           </main>
 
           {/* 底部极简声明 */}
-          <footer className="w-full max-w-[480px] mx-auto pt-4 text-center text-[11px] text-[var(--hero-muted)]">
+          <footer className="w-full max-w-[400px] mx-auto pt-4 text-center text-[11px] text-zinc-500">
             <span>© OwnAI · 工业级前端工程与设计解构平台</span>
           </footer>
         </div>

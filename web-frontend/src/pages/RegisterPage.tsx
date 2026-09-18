@@ -4,10 +4,7 @@ import { X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { registerUserByEmail, sendRegisterEmailCode } from "@/lib/auth";
-import { compactButtonBase, compactButtonPrimary } from "@/lib/buttonStyles";
 import { usePreferredLocale } from "@/lib/locale";
-import { compactBodyText } from "@/lib/textStyles";
-import { cn } from "@/lib/utils";
 
 const REGISTER_PAGE_COPY = {
   "en-US": {
@@ -228,19 +225,19 @@ export function RegisterPage() {
       switchCta={copy.switchCta}
       switchTo="/auth/login"
     >
-      <div className="w-full rounded-[20px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-6 sm:p-8 shadow-xs">
-        <div className="mb-6 space-y-1 text-left">
-          <h2 className="text-[22px] font-semibold tracking-[-0.035em] text-[var(--hero-ink)]">
+      <div className="w-full max-w-[400px] mx-auto">
+        <div className="mb-8 space-y-2 text-left">
+          <h2 className="text-[28px] sm:text-[32px] font-semibold tracking-[-0.04em] text-white leading-[1.2]">
             {copy.title}
           </h2>
-          <p className="text-[13px] text-[var(--hero-muted)] leading-relaxed">
+          <p className="text-[13px] sm:text-[14px] text-zinc-400 leading-relaxed">
             {copy.subtitle}
           </p>
         </div>
 
-        <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-[var(--hero-ink)]">
+            <span className="mb-2 block text-[13px] font-medium text-zinc-200">
               {copy.emailLabel}
             </span>
             <input
@@ -254,15 +251,15 @@ export function RegisterPage() {
                 }))
               }
               placeholder={copy.emailPlaceholder}
-              className="h-10 w-full rounded-[10px] border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] px-3.5 text-[14px] text-[var(--hero-ink)] outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-[var(--hero-muted)] focus:border-[var(--hero-border-strong)] focus:ring-2 focus:ring-[var(--hero-ink)]/8"
+              className="h-11 w-full rounded-[10px] border border-white/12 bg-white/[0.04] px-3.5 text-[14px] text-white outline-none transition-all duration-150 placeholder:text-zinc-500 focus:border-white/35 focus:bg-white/[0.06] focus:ring-2 focus:ring-white/10"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-[var(--hero-ink)]">
+            <span className="mb-2 block text-[13px] font-medium text-zinc-200">
               {copy.emailCodeLabel}
             </span>
-            <div className="grid grid-cols-[minmax(0,1fr)_116px] gap-2.5">
+            <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2.5">
               <input
                 type="text"
                 autoComplete="one-time-code"
@@ -274,13 +271,13 @@ export function RegisterPage() {
                   }))
                 }
                 placeholder={copy.emailCodePlaceholder}
-                className="h-10 w-full rounded-[10px] border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] px-3.5 text-[14px] text-[var(--hero-ink)] outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-[var(--hero-muted)] focus:border-[var(--hero-border-strong)] focus:ring-2 focus:ring-[var(--hero-ink)]/8"
+                className="h-11 w-full rounded-[10px] border border-white/12 bg-white/[0.04] px-3.5 text-[14px] text-white outline-none transition-all duration-150 placeholder:text-zinc-500 focus:border-white/35 focus:bg-white/[0.06] focus:ring-2 focus:ring-white/10"
               />
               <button
                 type="button"
                 onClick={handleSendEmailCode}
                 disabled={isSendingCode || emailCodeCountdown > 0}
-                className="h-10 rounded-[10px] border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] px-3 text-[12px] font-medium text-[var(--hero-ink)] transition-colors hover:border-[var(--hero-border-strong)] hover:bg-[var(--hero-ink)]/5 disabled:cursor-not-allowed disabled:text-[var(--hero-muted)]"
+                className="h-11 rounded-[10px] border border-white/12 bg-white/[0.04] px-3 text-[12px] font-medium text-zinc-200 transition-colors hover:border-white/30 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:text-zinc-500"
               >
                 {isSendingCode
                   ? copy.sendingCode
@@ -292,7 +289,7 @@ export function RegisterPage() {
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-[var(--hero-ink)]">
+            <span className="mb-2 block text-[13px] font-medium text-zinc-200">
               {copy.passwordLabel}
             </span>
             <input
@@ -306,12 +303,12 @@ export function RegisterPage() {
                 }))
               }
               placeholder={copy.passwordPlaceholder}
-              className="h-10 w-full rounded-[10px] border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] px-3.5 text-[14px] text-[var(--hero-ink)] outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-[var(--hero-muted)] focus:border-[var(--hero-border-strong)] focus:ring-2 focus:ring-[var(--hero-ink)]/8"
+              className="h-11 w-full rounded-[10px] border border-white/12 bg-white/[0.04] px-3.5 text-[14px] text-white outline-none transition-all duration-150 placeholder:text-zinc-500 focus:border-white/35 focus:bg-white/[0.06] focus:ring-2 focus:ring-white/10"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-[var(--hero-ink)]">
+            <span className="mb-2 block text-[13px] font-medium text-zinc-200">
               {copy.confirmPasswordLabel}
             </span>
             <input
@@ -325,17 +322,17 @@ export function RegisterPage() {
                 }))
               }
               placeholder={copy.confirmPasswordPlaceholder}
-              className="h-10 w-full rounded-[10px] border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] px-3.5 text-[14px] text-[var(--hero-ink)] outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-[var(--hero-muted)] focus:border-[var(--hero-border-strong)] focus:ring-2 focus:ring-[var(--hero-ink)]/8"
+              className="h-11 w-full rounded-[10px] border border-white/12 bg-white/[0.04] px-3.5 text-[14px] text-white outline-none transition-all duration-150 placeholder:text-zinc-500 focus:border-white/35 focus:bg-white/[0.06] focus:ring-2 focus:ring-white/10"
             />
           </label>
 
           {error ? (
-            <p className="rounded-[10px] border border-[var(--auth-error-border)] bg-[var(--auth-error-bg)] px-3.5 py-2.5 text-[13px] leading-5 text-[var(--auth-error-text)]">
+            <p className="rounded-[10px] border border-rose-500/20 bg-rose-500/10 px-3.5 py-2.5 text-[13px] leading-5 text-rose-300">
               {error}
             </p>
           ) : null}
           {success ? (
-            <p className="rounded-[10px] border border-[var(--auth-success-border)] bg-[var(--auth-success-bg)] px-3.5 py-2.5 text-[13px] leading-5 text-[var(--auth-success-text)]">
+            <p className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-2.5 text-[13px] leading-5 text-emerald-300">
               {success}
             </p>
           ) : null}
@@ -343,17 +340,17 @@ export function RegisterPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={cn(compactButtonBase, compactButtonPrimary, "h-10 w-full rounded-[10px] text-[14px]")}
+            className="h-11 w-full rounded-[10px] bg-white text-black text-[14px] font-semibold tracking-tight transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 shadow-md"
           >
             {isSubmitting ? copy.submitting : copy.submit}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-[13px] text-[var(--hero-muted)]">
+        <p className="mt-6 text-center text-[13px] text-zinc-400">
           {copy.footerLabel}{" "}
           <Link
             to="/auth/login"
-            className="font-medium text-[var(--hero-ink)] underline underline-offset-4 transition-opacity hover:opacity-80"
+            className="font-medium text-white underline underline-offset-4 transition-opacity hover:opacity-80"
           >
             {copy.footerCta}
           </Link>
