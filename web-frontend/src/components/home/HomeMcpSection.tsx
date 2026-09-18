@@ -189,28 +189,24 @@ export function HomeMcpSection() {
       if (pIndex >= fullPrompt.length) {
         clearInterval(promptTimer);
 
-        // 第二阶段：暂停 400ms 后调起工具调用指示
+        // 提问完成后稍作停顿，直接流式返回结果代码切片
         setTimeout(() => {
           if (cancelled) return;
           setShowToolCall(true);
 
-          // 第三阶段：暂停 500ms 后逐字输出代码
-          setTimeout(() => {
+          let sIndex = 0;
+          const snippetTimer = setInterval(() => {
             if (cancelled) return;
-            let sIndex = 0;
-            const snippetTimer = setInterval(() => {
-              if (cancelled) return;
-              sIndex += 4; // 每次输出几个字符提升节奏感
-              setTypedSnippet(fullSnippet.slice(0, sIndex));
-              if (sIndex >= fullSnippet.length) {
-                clearInterval(snippetTimer);
-                setIsTyping(false);
-              }
-            }, 16);
-          }, 450);
-        }, 350);
+            sIndex += 4;
+            setTypedSnippet(fullSnippet.slice(0, sIndex));
+            if (sIndex >= fullSnippet.length) {
+              clearInterval(snippetTimer);
+              setIsTyping(false);
+            }
+          }, 16);
+        }, 280);
       }
-    }, 38);
+    }, 36);
 
     return () => {
       cancelled = true;
@@ -379,7 +375,7 @@ export function HomeMcpSection() {
               </div>
             </div>
 
-            {/* MCP 工具调度指示区 */}
+            {/* AI 响应切片结果直接展示（跳过冗余 json 搜索块） */}
             {showToolCall && (
               <div className="flex items-start gap-3 animate-in fade-in duration-300">
                 <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)] p-1 shadow-xs overflow-hidden">
@@ -391,46 +387,31 @@ export function HomeMcpSection() {
                   />
                 </div>
                 <div className="flex-1 space-y-2">
-                  <div className="rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)]/60 p-2.5 sm:p-3 text-[11px]">
-                    <div className="flex items-center justify-between font-semibold text-[var(--hero-ink)]">
-                      <span className="flex items-center gap-1.5">
+                  <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-3.5 sm:p-4 space-y-2.5 shadow-sm">
+                    <div className="flex items-center justify-between text-[11px] border-b border-[var(--hero-border)] pb-2 text-[var(--hero-muted)]">
+                      <div className="flex items-center gap-1.5 font-medium text-[var(--hero-ink)]">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        <span>⚡ Dispatched: ownai_design_tools.find_design_components</span>
+                        <span>✓ {scenario.responseFile}</span>
+                      </div>
+                      <span className="text-[10px] rounded bg-[var(--hero-surface)] border border-[var(--hero-border)] px-1.5 py-0.5">
+                        {scenario.badge}
                       </span>
-                      <span className="text-[10px] text-[var(--hero-muted)] font-normal">SSE 8011 Stream</span>
                     </div>
-                    <pre className="mt-1.5 overflow-x-auto text-[11px] text-[var(--hero-muted)] leading-5">
-                      {scenario.toolCall}
+
+                    <pre className="overflow-x-auto text-[11px] leading-5 font-mono py-1 text-[var(--hero-ink)]/90">
+                      <code>{typedSnippet}</code>
+                      {isTyping ? (
+                        <span className="inline-block w-2 h-3.5 ml-0.5 bg-[var(--hero-ink)] animate-pulse align-middle" />
+                      ) : null}
                     </pre>
-                  </div>
 
-                  {/* 结果流式逐字输出区 */}
-                  {typedSnippet && (
-                    <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-3.5 sm:p-4 space-y-2.5 shadow-sm">
-                      <div className="flex items-center justify-between text-[11px] border-b border-[var(--hero-border)] pb-2 text-[var(--hero-muted)]">
-                        <span className="font-medium text-[var(--hero-ink)]">
-                          ✓ {scenario.responseFile}
-                        </span>
-                        <span className="text-[10px] rounded bg-[var(--hero-surface)] border border-[var(--hero-border)] px-1.5 py-0.5">
-                          {scenario.badge}
-                        </span>
-                      </div>
-
-                      <pre className="overflow-x-auto text-[11px] leading-5 font-mono py-1 text-[var(--hero-ink)]/90">
-                        <code>{typedSnippet}</code>
-                        {isTyping && showToolCall ? (
-                          <span className="inline-block w-2 h-3.5 ml-0.5 bg-[var(--hero-ink)] animate-pulse align-middle" />
-                        ) : null}
-                      </pre>
-
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[var(--hero-border)] text-[11px] text-[var(--hero-muted)]">
-                        <span>✓ 140+ 经典作品动效规范与工程 ZIP 直链提取完毕</span>
-                        <span className="font-sans font-medium text-[var(--hero-ink)]">
-                          直接粘贴即可交付使用
-                        </span>
-                      </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[var(--hero-border)] text-[11px] text-[var(--hero-muted)]">
+                      <span>✓ 140+ 经典作品动效规范与工程 ZIP 直链提取完毕</span>
+                      <span className="font-sans font-medium text-[var(--hero-ink)]">
+                        直接粘贴即可交付使用
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
