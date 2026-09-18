@@ -382,14 +382,19 @@ export function HomeMcpSection() {
             {/* MCP 工具调度指示区 */}
             {showToolCall && (
               <div className="flex items-start gap-3 animate-in fade-in duration-300">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)] text-[var(--hero-ink)] shadow-xs">
-                  <Sparkles className="h-3.5 w-3.5" />
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)] p-1 shadow-xs overflow-hidden">
+                  <img
+                    src="/images/ownai-logo.webp"
+                    alt="OwnAI"
+                    className="h-full w-full object-contain"
+                    draggable={false}
+                  />
                 </div>
                 <div className="flex-1 space-y-2">
                   <div className="rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-bg)]/60 p-2.5 sm:p-3 text-[11px]">
                     <div className="flex items-center justify-between font-semibold text-[var(--hero-ink)]">
                       <span className="flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         <span>⚡ Dispatched: ownai_design_tools.find_design_components</span>
                       </span>
                       <span className="text-[10px] text-[var(--hero-muted)] font-normal">SSE 8011 Stream</span>
