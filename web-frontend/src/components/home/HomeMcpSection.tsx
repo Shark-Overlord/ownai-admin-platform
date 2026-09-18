@@ -221,26 +221,17 @@ export function HomeMcpSection() {
   return (
     <section className="border-t border-[var(--hero-border)] bg-[var(--hero-bg)] px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20 text-[var(--hero-ink)]">
       <div className="mx-auto max-w-[1120px]">
-        {/* 顶部标题区 */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 border-b border-[var(--hero-border)]">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-medium tracking-[0.16em] uppercase text-[var(--hero-muted)]">
-                DEVELOPER ECOSYSTEM · MCP SERVER
-              </span>
-              <span className="rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)] px-2 py-0.5 font-mono text-[9px] font-medium uppercase text-[var(--hero-muted)]">
-                SPRING AI 1.0.0
-              </span>
-            </div>
-            <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.045em] sm:text-[38px] text-[var(--hero-ink)]">
-              本地 IDE 直连 · 设计资产呼之即来
-            </h2>
-            <p className="mt-3 max-w-[620px] text-[14px] leading-7 text-[var(--hero-muted)]">
-              告别在浏览器与编辑器之间反复横跳。在终端自然语言唤起全站 TSX 切片、动效参数与 140+ 经典作品源包。
-            </p>
-          </div>
+        {/* 顶部标题区 - 优雅大居中对齐 */}
+        <div className="mx-auto max-w-[760px] text-center pb-10 border-b border-[var(--hero-border)]">
+          <h2 className="text-[28px] font-semibold tracking-[-0.045em] sm:text-[38px] text-[var(--hero-ink)]">
+            本地 IDE 直连 · 设计资产呼之即来
+          </h2>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <p className="mx-auto mt-3 max-w-[620px] text-[14px] leading-7 text-[var(--hero-muted)]">
+            告别在浏览器与编辑器之间反复横跳。在终端自然语言唤起全站 TSX 切片、动效参数与 140+ 经典作品源包。
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
             <button
               type="button"
               onClick={handleGoProfile}
@@ -266,7 +257,7 @@ export function HomeMcpSection() {
         </div>
 
         {/* 支持的 AI 工具展示行（使用解构页真实 SVG 图标） */}
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2 text-[12px] text-[var(--hero-muted)]">
             <span className="font-mono text-[11px] uppercase tracking-wider">SUPPORTED CLIENTS:</span>
           </div>
