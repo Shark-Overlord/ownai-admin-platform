@@ -236,14 +236,9 @@ export function ProfileMcpPanel({ profile }: ProfileMcpPanelProps) {
 
           <div className="flex-1 space-y-3 pt-0.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div>
-                <h3 className="text-[14px] font-medium text-[var(--hero-ink)]">
-                  选择安装配置方式
-                </h3>
-                <p className="text-[12px] text-[var(--hero-muted)]">
-                  推荐使用 AI 自动配置，直接将指令丢给 AI 即可全自动完成写入。
-                </p>
-              </div>
+              <h3 className="text-[14px] font-medium text-[var(--hero-ink)]">
+                选择安装配置方式
+              </h3>
 
               {/* 两种方式分段控制器 */}
               <div className="inline-flex rounded-[8px] border border-[var(--hero-border)] bg-[var(--hero-bg)] p-0.5 text-xs shrink-0">
