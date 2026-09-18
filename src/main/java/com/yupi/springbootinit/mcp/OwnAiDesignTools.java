@@ -164,11 +164,14 @@ public class OwnAiDesignTools {
             @ToolParam(description = "模糊作品名称或关键词，如: Claude, 灵动岛, 极简播放器", required = false) String keyword) {
 
         QueryWrapper<Artwork> qw = new QueryWrapper<>();
-        qw.eq("isDeconstructed", 1).eq("status", 1);
+        qw.eq("status", 1);
 
         String text = StringUtils.defaultIfBlank(keyword, StringUtils.defaultIfBlank(scenario, style));
         if (StringUtils.isNotBlank(text)) {
-            qw.and(w -> w.like("title", text).or().like("summary", text).or().like("deconstructedPrompt", text));
+            qw.and(w -> w.like("title", text)
+                    .or().like("summary", text)
+                    .or().like("promptContent", text)
+                    .or().like("deconstructedPrompt", text));
         }
         if (StringUtils.isNotBlank(device)) {
             String normDevice = device.trim().toLowerCase(Locale.ROOT);
@@ -178,12 +181,13 @@ public class OwnAiDesignTools {
                 qw.eq("deviceFrame", "website");
             }
         }
-        qw.orderByDesc("updateTime").last("LIMIT 1");
+        // 优先匹配已深度解构的，其次按更新时间
+        qw.orderByDesc("isDeconstructed").orderByDesc("updateTime").last("LIMIT 1");
         Artwork target = artworkService.getOne(qw);
 
         if (target == null) {
             target = artworkService.getOne(new QueryWrapper<Artwork>()
-                    .eq("isDeconstructed", 1).eq("status", 1).orderByDesc("sort").last("LIMIT 1"));
+                    .eq("status", 1).orderByDesc("isDeconstructed").orderByDesc("sort").last("LIMIT 1"));
         }
         if (target == null) {
             return null;
@@ -216,7 +220,9 @@ public class OwnAiDesignTools {
 
         String promptContent = StringUtils.isNotBlank(target.getDeconstructedPrompt())
                 ? target.getDeconstructedPrompt()
-                : (promptData != null && promptData.hasNonNull("rawMarkdown") ? promptData.path("rawMarkdown").asText() : target.getPromptContent());
+                : (promptData != null && promptData.hasNonNull("rawMarkdown")
+                        ? promptData.path("rawMarkdown").asText()
+                        : target.getPromptContent());
 
         return new DesignSystemSpec(
                 target.getId(),
@@ -226,7 +232,9 @@ public class OwnAiDesignTools {
                 typography,
                 layout,
                 motionTokens,
-                promptContent
+                promptContent,
+                target.getSourceZipUrl(),
+                Integer.valueOf(1).equals(target.getIsDeconstructed())
         );
     }
 
@@ -320,14 +328,18 @@ public class OwnAiDesignTools {
         queryRequest.setPageSize(safeLimit);
 
         Page<ArtworkVO> page = artworkService.listArtworkVOByPage(queryRequest, user, false);
-        return page.getRecords().stream().map(vo -> new ArtworkSearchResult(
-                vo.getId(),
-                vo.getTitle(),
-                resolveDeviceType(vo.getDeviceFrame()),
-                vo.getSummary(),
-                vo.getCoverUrl(),
-                vo.getIsDeconstructed() != null && vo.getIsDeconstructed() == 1
-        )).collect(Collectors.toList());
+        return page.getRecords().stream().map(vo -> {
+            Artwork raw = artworkService.getById(vo.getId());
+            return new ArtworkSearchResult(
+                    vo.getId(),
+                    vo.getTitle(),
+                    resolveDeviceType(vo.getDeviceFrame()),
+                    vo.getSummary(),
+                    vo.getCoverUrl(),
+                    vo.getIsDeconstructed() != null && vo.getIsDeconstructed() == 1,
+                    raw != null ? raw.getSourceZipUrl() : null
+            );
+        }).collect(Collectors.toList());
     }
 
     // =========================================================================
@@ -476,25 +488,37 @@ public class OwnAiDesignTools {
     }
 
     private List<MotionItem> extractMotionsFromArtwork(Artwork artwork) {
-        if (artwork == null || StringUtils.isBlank(artwork.getPromptData())) {
+        if (artwork == null) {
             return Collections.emptyList();
         }
-        try {
-            JsonNode root = objectMapper.readTree(artwork.getPromptData());
-            JsonNode motionsNode = root.path("motions");
-            if (motionsNode.isArray()) {
-                List<MotionItem> list = new ArrayList<>();
-                for (JsonNode m : motionsNode) {
-                    list.add(new MotionItem(
-                            m.path("label").asText(),
-                            m.path("desc").asText(),
-                            m.path("token").asText()
-                    ));
+        List<MotionItem> list = new ArrayList<>();
+        if (StringUtils.isNotBlank(artwork.getPromptData())) {
+            try {
+                JsonNode root = objectMapper.readTree(artwork.getPromptData());
+                JsonNode motionsNode = root.path("motions");
+                if (motionsNode.isArray()) {
+                    for (JsonNode m : motionsNode) {
+                        list.add(new MotionItem(
+                                m.path("label").asText(),
+                                m.path("desc").asText(),
+                                m.path("token").asText()
+                        ));
+                    }
+                    if (!list.isEmpty()) {
+                        return list;
+                    }
                 }
-                return list;
+            } catch (Exception ignored) {}
+        }
+        // 从老作品的 promptContent 中提取动效特征规范
+        if (StringUtils.isNotBlank(artwork.getPromptContent())) {
+            String pc = artwork.getPromptContent();
+            if (pc.contains("cubic-bezier") || pc.contains("动效规范") || pc.contains("transition")) {
+                String token = "cubic-bezier(0.22, 1, 0.36, 1) 150ms-250ms";
+                list.add(new MotionItem("交互动效规范", "源自作品设计系统", token));
             }
-        } catch (Exception ignored) {}
-        return Collections.emptyList();
+        }
+        return list;
     }
 
     private MotionPresetResult buildMotionResult(String label, String desc, String token, String sourceTitle) {
@@ -585,7 +609,9 @@ public class OwnAiDesignTools {
             String typography,
             String layout,
             List<MotionItem> motionTokens,
-            String systemPrompt
+            String systemPrompt,
+            String sourceZipUrl,
+            boolean isDeconstructed
     ) implements Serializable {}
 
     public record MotionPresetResult(
@@ -604,7 +630,8 @@ public class OwnAiDesignTools {
             String device,
             String summary,
             String coverUrl,
-            boolean isDeconstructed
+            boolean isDeconstructed,
+            String sourceZipUrl
     ) implements Serializable {}
 
     public record PromptTemplateResult(
