@@ -425,7 +425,7 @@ export function HomeMcpSection() {
           <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-4">
             <div className="flex items-center gap-2 text-[14px] font-medium text-[var(--hero-ink)]">
               <Layers className="h-4 w-4 text-[var(--hero-muted)]" />
-              <span>拒绝僵死生硬的动效</span>
+              <span>拒绝生硬动效</span>
             </div>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
               AI 只会写死板的线性 CSS？原生携带打磨成熟的 Framer Motion 弹簧阻尼与物理微交互，帧帧丝滑。
