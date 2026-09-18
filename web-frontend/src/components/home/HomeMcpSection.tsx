@@ -260,7 +260,7 @@ export function HomeMcpSection() {
         {/* 支持的 AI 工具展示行（使用解构页真实 SVG 图标） */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2 text-[12px] text-[var(--hero-muted)]">
-            <span className="font-mono text-[11px] uppercase tracking-wider">SUPPORTED CLIENTS:</span>
+            <span className="font-medium">支持</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
