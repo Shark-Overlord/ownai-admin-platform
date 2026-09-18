@@ -716,7 +716,7 @@ export function ProfilePage() {
     { id: "interactions", label: "我的互动", icon: MessageCircle, active: activeTab === "interactions", onClick: () => setActiveTab("interactions") },
     { id: "profile", label: copy.tabProfile, icon: UserRound, active: activeTab === "profile", onClick: () => setActiveTab("profile") },
     { id: "orders", label: copy.tabOrders, icon: ReceiptText, active: activeTab === "orders", onClick: () => setActiveTab("orders") },
-    { id: "mcp", label: locale === "zh-CN" ? "⚡ MCP 助手" : "⚡ MCP Assistant", icon: Sparkles, active: activeTab === "mcp", onClick: () => setActiveTab("mcp") },
+    { id: "mcp", label: locale === "zh-CN" ? "MCP 助手" : "MCP Assistant", icon: Sparkles, active: activeTab === "mcp", onClick: () => setActiveTab("mcp") },
   ];
   const activeLabel = sidebarItems.find((item) => item.active)?.label;
   const isProfileUnavailable = !profile && (isLoading || Boolean(loadError));
