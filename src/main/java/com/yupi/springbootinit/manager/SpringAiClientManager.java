@@ -14,7 +14,6 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -24,8 +23,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Slf4j
 public class SpringAiClientManager {
 
-    private static final String DEFAULT_CHAT_PATH = "/v1/chat/completions";
-    private static final String DEFAULT_EMBEDDINGS_PATH = "/v1/embeddings";
     private static final int DEFAULT_TIMEOUT_SECONDS = 60;
 
     private final ConcurrentMap<String, ChatClient> clientCache = new ConcurrentHashMap<>();
@@ -83,27 +80,23 @@ public class SpringAiClientManager {
         RestClient.Builder restClientBuilder = RestClient.builder().requestFactory(requestFactory);
 
         String baseUrl = StringUtils.removeEnd(provider.getBaseUrl(), "/");
-        String chatPath = StringUtils.defaultIfBlank(provider.getChatPath(), DEFAULT_CHAT_PATH);
-        if (!chatPath.startsWith("/")) {
-            chatPath = "/" + chatPath;
-        }
 
-        OpenAiApi openAiApi = new OpenAiApi(
-                baseUrl,
-                decryptedApiKey,
-                chatPath,
-                DEFAULT_EMBEDDINGS_PATH,
-                restClientBuilder,
-                WebClient.builder(),
-                new DefaultResponseErrorHandler()
-        );
-
-        OpenAiChatOptions chatOptions = OpenAiChatOptions.builder()
-                .withModel(provider.getModelCode())
-                .withTemperature(0.1f)
+        OpenAiApi openAiApi = OpenAiApi.builder()
+                .apiKey(decryptedApiKey)
+                .baseUrl(baseUrl)
+                .restClientBuilder(restClientBuilder)
+                .webClientBuilder(WebClient.builder())
                 .build();
 
-        OpenAiChatModel chatModel = new OpenAiChatModel(openAiApi, chatOptions);
+        OpenAiChatOptions chatOptions = OpenAiChatOptions.builder()
+                .model(provider.getModelCode())
+                .temperature(0.1)
+                .build();
+
+        OpenAiChatModel chatModel = OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(chatOptions)
+                .build();
         log.info("构建新 Spring AI ChatClient 成功: baseUrl={}, model={}", baseUrl, provider.getModelCode());
         return ChatClient.builder(chatModel).build();
     }

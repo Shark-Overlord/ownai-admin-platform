@@ -17,7 +17,7 @@
     <name>springboot-init</name>
     <properties>
         <java.version>17</java.version>
-        <spring-ai.version>1.0.0-M2</spring-ai.version>
+        <spring-ai.version>1.0.0</spring-ai.version>
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <knife4j.version>4.5.0</knife4j.version>
     </properties>
@@ -55,7 +55,13 @@
         <!-- Spring AI -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+
+        <!-- Spring AI MCP Server (SSE over WebMVC) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
         </dependency>
 
         <!-- mybatis-plus for Spring Boot 3 -->

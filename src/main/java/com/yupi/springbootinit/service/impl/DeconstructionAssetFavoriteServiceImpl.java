@@ -44,7 +44,7 @@ public class DeconstructionAssetFavoriteServiceImpl
         extends ServiceImpl<DeconstructionAssetFavoriteMapper, DeconstructionAssetFavorite>
         implements DeconstructionAssetFavoriteService {
 
-    private static final Set<String> SUPPORTED_ASSET_TYPES = Set.of("prompt", "component", "icon");
+    private static final Set<String> SUPPORTED_ASSET_TYPES = Set.of("prompt", "component", "icon", "media");
 
     @Resource
     private DeconstructionAssetFavoriteMapper favoriteMapper;

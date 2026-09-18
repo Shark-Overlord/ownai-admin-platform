@@ -1,0 +1,12 @@
+{
+  "name": "@ownai/mcp-server",
+  "version": "1.0.0",
+  "description": "OwnAI Design Assistant MCP Server Bridge with Browser One-Click OAuth",
+  "bin": {
+    "ownai-mcp": "./bin/index.js"
+  },
+  "type": "commonjs",
+  "keywords": ["mcp", "ownai", "cursor", "claude-desktop", "design-assistant"],
+  "author": "OwnAI Team",
+  "license": "MIT"
+}
