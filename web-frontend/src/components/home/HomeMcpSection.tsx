@@ -88,7 +88,7 @@ export function PromoModal({ isOpen, onClose }: Props) {
       className="rounded-2xl border border-white/10 bg-[#09090b] p-6 shadow-2xl"
     >
       <CountdownTimer duration={300} onEnd={onClose} />
-      {/* 包含 140+ 作品提示词规范与整包 ZIP 下载直链 */}
+      {/* 包含 600+ 顶尖设计作品规范与完整工程 ZIP 直链 */}
     </motion.div>
   );
 }`,
@@ -227,8 +227,8 @@ export function HomeMcpSection() {
             本地 IDE 直连 · 设计资产呼之即来
           </h2>
 
-          <p className="mx-auto mt-3 max-w-[620px] text-[14px] leading-7 text-[var(--hero-muted)]">
-            告别在浏览器与编辑器之间反复横跳。在终端自然语言唤起全站 TSX 切片、动效参数与 140+ 经典作品源包。
+          <p className="mx-auto mt-3 max-w-[660px] text-[14px] leading-7 text-[var(--hero-muted)]">
+            把 600+ 顶尖前端设计资产装进你的 IDE。无需跳出沉浸工作流，终端一句自然语言，高保真 TSX 切片与完整工程源码秒级唤起。
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
@@ -397,7 +397,7 @@ export function HomeMcpSection() {
                     </pre>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[var(--hero-border)] text-[11px] text-[var(--hero-muted)]">
-                      <span>✓ 140+ 经典作品动效规范与工程 ZIP 直链提取完毕</span>
+                      <span>✓ 600+ 顶尖设计作品规范与工程 ZIP 直链提取完毕</span>
                       <span className="font-sans font-medium text-[var(--hero-ink)]">
                         直接粘贴即可交付使用
                       </span>
@@ -434,10 +434,10 @@ export function HomeMcpSection() {
           <div className="rounded-[14px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-4">
             <div className="flex items-center gap-2 text-[14px] font-medium text-[var(--hero-ink)]">
               <FolderArchive className="h-4 w-4 text-[var(--hero-muted)]" />
-              <span>140+ 作品全量适配</span>
+              <span>600+ 工业级资产直通</span>
             </div>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
-              经典老作品动效与 Lucide 图标规范自动解构，直通 ZIP。
+              涵盖 600+ 前沿解构作品、物理弹簧动效规范与工程 ZIP 源码直连。
             </p>
           </div>
 
