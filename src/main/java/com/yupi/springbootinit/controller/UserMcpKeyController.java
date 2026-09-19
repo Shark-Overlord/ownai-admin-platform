@@ -47,15 +47,19 @@ public class UserMcpKeyController {
         return ResultUtils.success(result);
     }
 
-    @PostMapping("/revoke/{id}")
+    @PostMapping({"/revoke", "/revoke/{id}"})
     @ApiOperation("吊销 MCP API Key")
-    public BaseResponse<Boolean> revokeKey(@PathVariable Long id, HttpServletRequest httpRequest) {
+    public BaseResponse<Boolean> revokeKey(@PathVariable(value = "id", required = false) Long pathId,
+                                           @org.springframework.web.bind.annotation.RequestParam(value = "id", required = false) Long queryId,
+                                           HttpServletRequest httpRequest) {
+        Long targetId = pathId != null ? pathId : queryId;
+        ThrowUtils.throwIf(targetId == null || targetId <= 0, ErrorCode.PARAMS_ERROR, "Key ID 不能为空");
         User loginUser = userService.getLoginUser(httpRequest);
-        boolean result = userMcpKeyService.revokeKey(id, loginUser);
+        boolean result = userMcpKeyService.revokeKey(targetId, loginUser);
         return ResultUtils.success(result);
     }
 
-    @GetMapping("/list")
+    @GetMapping({"/list", "/my"})
     @ApiOperation("列出当前用户的所有 MCP Key")
     public BaseResponse<List<McpKeyVO>> listMyKeys(HttpServletRequest httpRequest) {
         User loginUser = userService.getLoginUser(httpRequest);

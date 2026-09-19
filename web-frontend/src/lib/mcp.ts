@@ -51,14 +51,25 @@ export async function authorizeMcp(
 }
 
 export async function listMyMcpKeys(): Promise<McpKeyVO[]> {
-  const res = await getJson<McpKeyVO[]>("/mcp/key/my", {
-    includeAuthToken: true,
-  });
-  return res.data || [];
+  try {
+    const res = await getJson<McpKeyVO[]>("/mcp/key/list", {
+      includeAuthToken: true,
+    });
+    return res.data || [];
+  } catch (e) {
+    try {
+      const fallback = await getJson<McpKeyVO[]>("/mcp/key/my", {
+        includeAuthToken: true,
+      });
+      return fallback.data || [];
+    } catch {
+      return [];
+    }
+  }
 }
 
 export async function revokeMcpKey(id: number): Promise<boolean> {
-  const res = await postJson<boolean>("/mcp/key/revoke", null, {
+  const res = await postJson<boolean>(`/mcp/key/revoke/${id}`, null, {
     includeAuthToken: true,
     query: { id },
   });
