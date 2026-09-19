@@ -83,6 +83,36 @@ function ClientIcon({
   return <Terminal className={className} />;
 }
 
+// 容错用户头像组件（避免破图）
+function UserAvatarDisplay({
+  src,
+  name,
+}: {
+  src?: string | null;
+  name?: string | null;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  if (src && !hasError) {
+    return (
+      <img
+        src={src}
+        alt={name || "用户头像"}
+        onError={() => setHasError(true)}
+        className="h-9 w-9 rounded-full object-cover border border-white/20 bg-white/5"
+      />
+    );
+  }
+
+  const initial = name?.trim() ? name.trim().charAt(0).toUpperCase() : "U";
+
+  return (
+    <div className="h-9 w-9 rounded-full border border-white/20 bg-white/10 text-white flex items-center justify-center text-[12px] font-semibold select-none shrink-0">
+      {initial}
+    </div>
+  );
+}
+
 export function McpAuthPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -210,7 +240,7 @@ export function McpAuthPage() {
             授权接入 OwnAI MCP 服务
           </h1>
           <p className="mt-1 text-[13px] text-zinc-400 leading-normal">
-            连接本地 <span className="text-white font-medium">{clientName}</span>，实时调用 600+ 顶尖设计切片与 Prompt 规范
+            连接本地 Agent，实时调用 600+ 顶尖设计切片与 Prompt 规范
           </p>
         </div>
 
@@ -316,17 +346,10 @@ export function McpAuthPage() {
           <div className="space-y-4">
             {/* 用户身份简报 */}
             <div className="flex items-center gap-3 p-3 rounded-[10px] border border-white/10 bg-white/[0.03]">
-              {authStatus?.userAvatar ? (
-                <img
-                  src={authStatus.userAvatar}
-                  alt={authStatus.userName || ""}
-                  className="h-9 w-9 rounded-full object-cover border border-white/10"
-                />
-              ) : (
-                <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center text-xs text-white">
-                  {authStatus?.userName?.[0] || "U"}
-                </div>
-              )}
+              <UserAvatarDisplay
+                src={authStatus?.userAvatar}
+                name={authStatus?.userName || authStatus?.userAccount}
+              />
               <div className="flex-1 min-w-0 text-left">
                 <div className="text-[13px] font-medium text-white truncate">
                   {authStatus?.userName || authStatus?.userAccount}
@@ -375,24 +398,17 @@ export function McpAuthPage() {
           <div className="space-y-4">
             {/* 用户账号与会员状态卡片 */}
             <div className="flex items-center gap-3 p-3 rounded-[10px] border border-white/10 bg-white/[0.03]">
-              {authStatus.userAvatar ? (
-                <img
-                  src={authStatus.userAvatar}
-                  alt={authStatus.userName || ""}
-                  className="h-9 w-9 rounded-full object-cover border border-amber-500/30"
-                />
-              ) : (
-                <div className="h-9 w-9 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-semibold">
-                  {authStatus.userName?.[0] || "U"}
-                </div>
-              )}
+              <UserAvatarDisplay
+                src={authStatus.userAvatar}
+                name={authStatus.userName || authStatus.userAccount}
+              />
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-medium text-white truncate">
                     {authStatus.userName || authStatus.userAccount}
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                    <Crown className="w-2.5 h-2.5" />
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/10 border border-white/20 text-white">
+                    <Crown className="w-2.5 h-2.5 text-white/90" />
                     {authStatus.isLifetime
                       ? "永久尊享会员"
                       : authStatus.remainingDays != null
@@ -445,7 +461,7 @@ export function McpAuthPage() {
                 ) : (
                   <>
                     <ShieldCheck className="w-4 h-4 text-black" />
-                    <span>确认授权给 {clientName}</span>
+                    <span>确认授权并连接</span>
                   </>
                 )}
               </button>
