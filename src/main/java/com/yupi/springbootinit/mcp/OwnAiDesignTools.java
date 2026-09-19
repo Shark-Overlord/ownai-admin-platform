@@ -153,7 +153,7 @@ public class OwnAiDesignTools {
         candidates.sort(Comparator.comparingInt((ScoredComponent c) -> c.score).reversed());
 
         return candidates.stream().limit(safeLimit).map(c -> new DesignComponentResult(
-                c.id, c.title, c.componentType, c.device, c.code, c.desc, c.matchedMotions, c.isFavorite, c.artworkTitle, c.artworkId, c.coverUrl
+                c.title, c.componentType, c.device, c.code, c.desc, c.matchedMotions, c.isFavorite, c.artworkTitle, c.coverUrl
         )).collect(Collectors.toList());
     }
 
@@ -230,7 +230,6 @@ public class OwnAiDesignTools {
                         : target.getPromptContent());
 
         return new DesignSystemSpec(
-                target.getId(),
                 target.getTitle(),
                 resolveDeviceType(target.getDeviceFrame()),
                 colors,
@@ -341,7 +340,6 @@ public class OwnAiDesignTools {
         return page.getRecords().stream().map(vo -> {
             Artwork raw = rawMap.get(vo.getId());
             return new ArtworkSearchResult(
-                    vo.getId(),
                     vo.getTitle(),
                     resolveDeviceType(vo.getDeviceFrame()),
                     vo.getSummary(),
@@ -379,7 +377,6 @@ public class OwnAiDesignTools {
                     ? vo.getTagList().stream().map(com.yupi.springbootinit.model.vo.TagVO::getName).collect(Collectors.joining(","))
                     : vo.getAssetTagText();
             return new PromptTemplateResult(
-                    vo.getId(),
                     vo.getTitle(),
                     vo.getSummary(),
                     vo.getPromptContent(),
@@ -402,18 +399,19 @@ public class OwnAiDesignTools {
         return find_design_components(null, null, null, null, null, keyword, true, "favorites", limit);
     }
 
-    @Tool(description = "获取指定收藏资产的完整内容（兼容别名）。")
+    @Tool(description = "获取指定收藏资产的完整内容（兼容别名，支持按资产标题或关键词检索）。")
     public DesignComponentResult get_favorite_detail(
-            @ToolParam(description = "收藏记录 ID") Long favoriteId) {
+            @ToolParam(description = "收藏资产标题或关键词") String keyword) {
         Long userId = McpUserContext.getUserId();
-        if (userId == null || favoriteId == null) return null;
-        DeconstructionAssetFavorite fav = favoriteService.getById(favoriteId);
-        if (fav == null || !fav.getUserId().equals(userId)) return null;
+        if (userId == null || StringUtils.isBlank(keyword)) return null;
+        List<DeconstructionAssetFavorite> favs = favoriteService.listFavoritesForMcp(userId, null, keyword, 1);
+        if (favs.isEmpty()) return null;
+        DeconstructionAssetFavorite fav = favs.get(0);
         Artwork linkedAw = fav.getArtworkId() != null ? artworkService.getById(fav.getArtworkId()) : null;
         return new DesignComponentResult(
-                fav.getAssetKey() != null ? fav.getAssetKey() : String.valueOf(fav.getId()),
-                fav.getTitle(), fav.getTag(), "unknown", fav.getContent(), fav.getDescription(),
-                Collections.emptyList(), true, linkedAw != null ? linkedAw.getTitle() : "我的收藏", fav.getArtworkId(),
+                fav.getTitle(), fav.getTag(), resolveDeviceType(linkedAw != null ? linkedAw.getDeviceFrame() : null),
+                fav.getContent(), fav.getDescription(),
+                Collections.emptyList(), true, linkedAw != null ? linkedAw.getTitle() : "我的收藏",
                 linkedAw != null ? linkedAw.getCoverUrl() : null
         );
     }
@@ -603,7 +601,6 @@ public class OwnAiDesignTools {
     public record MotionItem(String label, String desc, String token) implements Serializable {}
 
     public record DesignComponentResult(
-            String id,
             String title,
             String componentType,
             String device,
@@ -612,12 +609,10 @@ public class OwnAiDesignTools {
             List<MotionItem> matchedMotions,
             boolean isFavorite,
             String artworkTitle,
-            Long artworkId,
             String coverUrl
     ) implements Serializable {}
 
     public record DesignSystemSpec(
-            Long artworkId,
             String title,
             String device,
             Map<String, String> colorPalette,
@@ -641,7 +636,6 @@ public class OwnAiDesignTools {
     ) implements Serializable {}
 
     public record ArtworkSearchResult(
-            Long id,
             String title,
             String device,
             String summary,
@@ -651,7 +645,6 @@ public class OwnAiDesignTools {
     ) implements Serializable {}
 
     public record PromptTemplateResult(
-            Long id,
             String title,
             String summary,
             String promptContent,

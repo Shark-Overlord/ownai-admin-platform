@@ -63,6 +63,7 @@ class OwnAiDesignToolsTest {
         sampleArtwork.setPartsData("[{\"id\":\"status-bar\",\"title\":\"iOS 状态栏与灵动岛\",\"tag\":\"StatusBar\",\"code\":\"export const StatusBar = () => <header className=\\\"h-11 flex\\\" />\",\"desc\":\"顶部信号电量与动态弹簧胶囊\"}]");
 
         when(artworkService.getById(2083L)).thenReturn(sampleArtwork);
+        when(artworkService.listByIds(any())).thenReturn(List.of(sampleArtwork));
         when(artworkService.getOne(any())).thenReturn(sampleArtwork);
         when(artworkService.list(any(QueryWrapper.class))).thenReturn(List.of(sampleArtwork));
     }
@@ -94,7 +95,8 @@ class OwnAiDesignToolsTest {
         assertNotNull(results);
         assertFalse(results.isEmpty());
         OwnAiDesignTools.DesignComponentResult first = results.get(0);
-        assertEquals("status-bar", first.id());
+        assertNotNull(first.title());
+        assertTrue(first.title().contains("iOS"));
         assertEquals("app", first.device());
         assertTrue(first.code().contains("StatusBar"));
         assertNotNull(first.matchedMotions());
@@ -108,7 +110,8 @@ class OwnAiDesignToolsTest {
         );
 
         assertNotNull(spec);
-        assertEquals(2083L, spec.artworkId());
+        assertNotNull(spec.title());
+        assertTrue(spec.title().contains("Claude"));
         assertEquals("app", spec.device());
         assertNotNull(spec.colorPalette());
         assertTrue(spec.colorPalette().containsKey("primary"));
