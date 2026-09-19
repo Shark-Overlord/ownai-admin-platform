@@ -20,10 +20,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -312,42 +314,121 @@ public class OwnAiDesignTools {
     }
 
     // =========================================================================
-    // Tool 4: find_design_artworks (按场景与设备搜设计作品案例)
+    // Tool 4: find_design_artworks (【第一步】按场景与设备推荐 5 个作品供挑选，支持换一批)
     // =========================================================================
 
-    @Tool(description = "按业务场景、终端设备载体与视觉风格检索 OwnAI 平台界面设计作品案例库。返回结果包含 coverUrl 界面设计封面截图（可使用 ![界面图](coverUrl) 直接向用户展示视觉效果）。")
+    @Tool(description = "【第一步：推荐设计作品】按场景、设备与风格推荐 5 个候选设计作品供用户挑选预览（包含作品名、封面截图、设计摘要与构件列表，不返回源码）。AI 必须使用 ![作品名](coverUrl) 向用户呈现图片。若用户表示不满意、要求「换一批」或「看其他」，必须将 page 自增并传入 excludeTitles 重新检索，绝不返回重复内容。当用户选中某个作品后，请调用 get_artwork_code 工具获取该作品的具体前端源码。")
     public List<ArtworkSearchResult> find_design_artworks(
-            @ToolParam(description = "业务场景，如: 电商, 社交, 仪表盘, 官网, 音乐", required = false) String scenario,
+            @ToolParam(description = "业务场景，如: 电商, 社交/聊天, SaaS仪表盘, 官网, 音乐, 个人博客", required = false) String scenario,
             @ToolParam(description = "设备载体: app (移动端) 或 website (网页端)", required = false) String device,
-            @ToolParam(description = "视觉风格: 极简, 暗黑, 玻璃拟态, 渐变, 扁平", required = false) String style,
+            @ToolParam(description = "视觉风格: 极简, 暗黑, 玻璃拟态, 渐变霓虹, 粗野主义", required = false) String style,
             @ToolParam(description = "自由搜索词", required = false) String keyword,
+            @ToolParam(description = "页码/批次（默认 1。当用户说「换一批」、「看其他的」时，请递增此参数为 2、3 等）", required = false) Integer page,
+            @ToolParam(description = "需要排除的作品名称列表（逗号分隔。避免重复推荐用户已看过的作品）", required = false) String excludeTitles,
             @ToolParam(description = "返回条数，默认 5", required = false) Integer limit) {
 
         User user = McpUserContext.get();
-        int safeLimit = (limit == null || limit <= 0) ? 5 : Math.min(limit, 20);
+        int safeLimit = (limit == null || limit <= 0) ? 5 : Math.min(limit, 10);
+        int currentPage = (page == null || page <= 0) ? 1 : page;
+
+        Set<String> excludedSet = new HashSet<>();
+        if (StringUtils.isNotBlank(excludeTitles)) {
+            for (String t : excludeTitles.split("[,，|]")) {
+                if (StringUtils.isNotBlank(t)) {
+                    excludedSet.add(t.trim().toLowerCase(Locale.ROOT));
+                }
+            }
+        }
 
         ArtworkQueryRequest queryRequest = new ArtworkQueryRequest();
         String text = StringUtils.defaultIfBlank(keyword, StringUtils.defaultIfBlank(scenario, style));
         queryRequest.setSearchText(StringUtils.trimToNull(text));
-        queryRequest.setCurrent(1);
-        queryRequest.setPageSize(safeLimit);
+        queryRequest.setCurrent(currentPage);
+        queryRequest.setPageSize(safeLimit + excludedSet.size());
 
-        Page<ArtworkVO> page = artworkService.listArtworkVOByPage(queryRequest, user, false);
-        List<Long> ids = page.getRecords().stream().map(ArtworkVO::getId).filter(Objects::nonNull).collect(Collectors.toList());
+        Page<ArtworkVO> voPage = artworkService.listArtworkVOByPage(queryRequest, user, false);
+        List<Long> ids = voPage.getRecords().stream().map(ArtworkVO::getId).filter(Objects::nonNull).collect(Collectors.toList());
         Map<Long, Artwork> rawMap = ids.isEmpty() ? Collections.emptyMap() :
                 artworkService.listByIds(ids).stream().collect(Collectors.toMap(Artwork::getId, a -> a, (k1, k2) -> k1));
 
-        return page.getRecords().stream().map(vo -> {
+        List<ArtworkSearchResult> results = new ArrayList<>();
+        for (ArtworkVO vo : voPage.getRecords()) {
+            if (vo.getTitle() != null && excludedSet.contains(vo.getTitle().trim().toLowerCase(Locale.ROOT))) {
+                continue;
+            }
             Artwork raw = rawMap.get(vo.getId());
-            return new ArtworkSearchResult(
+            List<String> components = extractComponentTitles(raw);
+            boolean hasProto = raw != null && StringUtils.isNotBlank(raw.getStandaloneHtml());
+
+            results.add(new ArtworkSearchResult(
                     vo.getTitle(),
                     resolveDeviceType(vo.getDeviceFrame()),
                     vo.getSummary(),
                     vo.getCoverUrl(),
                     vo.getIsDeconstructed() != null && vo.getIsDeconstructed() == 1,
-                    raw != null ? raw.getSourceZipUrl() : null
-            );
-        }).collect(Collectors.toList());
+                    components,
+                    hasProto
+            ));
+            if (results.size() >= safeLimit) {
+                break;
+            }
+        }
+
+        return results;
+    }
+
+    // =========================================================================
+    // Tool 5: get_artwork_code (【第二步】用户挑选作品后，按需精准拉取前端原型与切片源码)
+    // =========================================================================
+
+    @Tool(description = "【第二步：获取前端源码】用户在推荐列表中挑选了某个作品后，调用此工具获取该作品的完整前端原型源码（可独立运行的单页 HTML/Tailwind）以及各个细粒度组件切片 TSX 源码。AI 获取后可直接在用户本地工程中写入文件或重构落地。")
+    public ArtworkCodeResult get_artwork_code(
+            @ToolParam(description = "用户选中的作品名称或关键词，例如：Claude iOS 聊天客户端、Bio Age Dashboard") String artworkTitle,
+            @ToolParam(description = "代码提取偏好: all (默认全部), prototype (优先完整单页独立原型), components (优先切片组件代码)", required = false) String codeType) {
+
+        if (StringUtils.isBlank(artworkTitle)) {
+            return null;
+        }
+
+        QueryWrapper<Artwork> qw = new QueryWrapper<>();
+        qw.eq("status", 1);
+        qw.and(w -> w.like("title", artworkTitle.trim())
+                .or().like("summary", artworkTitle.trim()));
+        qw.orderByDesc("isDeconstructed").orderByDesc("updateTime").last("LIMIT 1");
+
+        Artwork target = artworkService.getOne(qw);
+        if (target == null) {
+            return null;
+        }
+
+        List<ComponentCodeItem> componentList = new ArrayList<>();
+        if (StringUtils.isNotBlank(target.getPartsData())) {
+            try {
+                JsonNode partsNode = objectMapper.readTree(target.getPartsData());
+                if (partsNode.isArray()) {
+                    for (JsonNode p : partsNode) {
+                        componentList.add(new ComponentCodeItem(
+                                p.path("title").asText(),
+                                p.path("tag").asText(),
+                                p.path("code").asText(),
+                                p.path("desc").asText()
+                        ));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("解析作品 partsData 失败: title={}, error={}", target.getTitle(), e.getMessage());
+            }
+        }
+
+        return new ArtworkCodeResult(
+                target.getTitle(),
+                resolveDeviceType(target.getDeviceFrame()),
+                target.getSummary(),
+                target.getStandaloneHtml(),
+                componentList,
+                target.getDeconstructedPrompt(),
+                target.getCoverUrl()
+        );
     }
 
     // =========================================================================
@@ -635,13 +716,50 @@ public class OwnAiDesignTools {
             String sourceArtwork
     ) implements Serializable {}
 
+    private List<String> extractComponentTitles(Artwork aw) {
+        if (aw == null || StringUtils.isBlank(aw.getPartsData())) {
+            return Collections.emptyList();
+        }
+        List<String> titles = new ArrayList<>();
+        try {
+            JsonNode parts = objectMapper.readTree(aw.getPartsData());
+            if (parts.isArray()) {
+                for (JsonNode p : parts) {
+                    String title = p.path("title").asText();
+                    if (StringUtils.isNotBlank(title)) {
+                        titles.add(title);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return titles;
+    }
+
     public record ArtworkSearchResult(
             String title,
             String device,
             String summary,
             String coverUrl,
             boolean isDeconstructed,
-            String sourceZipUrl
+            List<String> availableComponents,
+            boolean hasPrototypeSource
+    ) implements Serializable {}
+
+    public record ComponentCodeItem(
+            String title,
+            String tag,
+            String code,
+            String desc
+    ) implements Serializable {}
+
+    public record ArtworkCodeResult(
+            String title,
+            String device,
+            String summary,
+            String prototypeHtml,
+            List<ComponentCodeItem> components,
+            String designSpec,
+            String coverUrl
     ) implements Serializable {}
 
     public record PromptTemplateResult(

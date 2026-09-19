@@ -5,12 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.DeconstructionAssetFavorite;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.DeconstructionAssetFavoriteService;
 import com.yupi.springbootinit.service.PromptAssetService;
@@ -61,11 +64,23 @@ class OwnAiDesignToolsTest {
         sampleArtwork.setStatus(1);
         sampleArtwork.setPromptData("{\"motions\":[{\"label\":\"灵动岛弹簧\",\"desc\":\"胶囊展开\",\"token\":\"cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.28s\"}],\"colors\":{\"primary\":\"#d97706\",\"background\":\"#0f1013\"}}");
         sampleArtwork.setPartsData("[{\"id\":\"status-bar\",\"title\":\"iOS 状态栏与灵动岛\",\"tag\":\"StatusBar\",\"code\":\"export const StatusBar = () => <header className=\\\"h-11 flex\\\" />\",\"desc\":\"顶部信号电量与动态弹簧胶囊\"}]");
+        sampleArtwork.setStandaloneHtml("<!DOCTYPE html><html><body><div id='root'>Claude Chat App</div></body></html>");
+        sampleArtwork.setDeconstructedPrompt("Design System: Dark minimal chat UI");
 
         when(artworkService.getById(2083L)).thenReturn(sampleArtwork);
         when(artworkService.listByIds(any())).thenReturn(List.of(sampleArtwork));
         when(artworkService.getOne(any())).thenReturn(sampleArtwork);
         when(artworkService.list(any(QueryWrapper.class))).thenReturn(List.of(sampleArtwork));
+
+        ArtworkVO vo = new ArtworkVO();
+        vo.setId(2083L);
+        vo.setTitle("Claude iOS 聊天客户端");
+        vo.setDeviceFrame("iphone");
+        vo.setSummary("高质感移动端社交聊天设计");
+        vo.setIsDeconstructed(1);
+        Page<ArtworkVO> voPage = new Page<>(1, 5, 1);
+        voPage.setRecords(List.of(vo));
+        when(artworkService.listArtworkVOByPage(any(), any(), anyBoolean())).thenReturn(voPage);
     }
 
     @AfterEach
@@ -131,5 +146,27 @@ class OwnAiDesignToolsTest {
         assertNotNull(first.framerMotionSnippet());
         assertNotNull(first.tailwindSnippet());
         assertNotNull(first.cssBezier());
+    }
+
+    @Test
+    void find_design_artworks_withExclusion_deduplicatesAndPaginates() {
+        List<OwnAiDesignTools.ArtworkSearchResult> results = tools.find_design_artworks(
+                "社交", "app", "暗黑", null, 1, "Claude iOS 聊天客户端", 5
+        );
+        assertNotNull(results);
+        assertTrue(results.isEmpty()); // 命中排除列表，成功过滤
+    }
+
+    @Test
+    void get_artwork_code_returnsStandaloneHtmlAndComponentSnippets() {
+        OwnAiDesignTools.ArtworkCodeResult codeResult = tools.get_artwork_code("Claude", "all");
+        assertNotNull(codeResult);
+        assertEquals("Claude iOS 聊天客户端", codeResult.title());
+        assertNotNull(codeResult.prototypeHtml());
+        assertTrue(codeResult.prototypeHtml().contains("Claude Chat App"));
+        assertNotNull(codeResult.components());
+        assertFalse(codeResult.components().isEmpty());
+        assertEquals("StatusBar", codeResult.components().get(0).tag());
+        assertNotNull(codeResult.designSpec());
     }
 }
