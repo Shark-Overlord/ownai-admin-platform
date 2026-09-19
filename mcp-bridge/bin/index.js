@@ -149,6 +149,65 @@ let currentMessageEndpoint = null;
 let currentToken = null;
 const pendingMessages = [];
 let isRlSetup = false;
+let currentSseReq = null;
+
+// 追踪客户端正在等待响应的请求 ID 与超时定时器
+const pendingRequests = new Map();
+const REQUEST_TIMEOUT_MS = 20000; // 20秒硬超时快速失败
+
+function trackRequest(jsonStr) {
+  try {
+    const parsed = JSON.parse(jsonStr);
+    if (parsed && parsed.id !== undefined && parsed.method) {
+      const id = parsed.id;
+      const timer = setTimeout(() => {
+        if (pendingRequests.has(id)) {
+          pendingRequests.delete(id);
+          const errPayload = {
+            jsonrpc: "2.0",
+            id: id,
+            error: {
+              code: -32000,
+              message: `OwnAI MCP 调用超时 (${REQUEST_TIMEOUT_MS / 1000}s)，会话可能已断开或在自动恢复中，请重试`
+            }
+          };
+          process.stdout.write(JSON.stringify(errPayload) + "\n");
+          log(`请求 [id: ${id}, method: ${parsed.method}] 超时，已向客户端返回快速失败`);
+        }
+      }, REQUEST_TIMEOUT_MS);
+
+      pendingRequests.set(id, { timer, method: parsed.method });
+    }
+  } catch (_) {}
+}
+
+function resolveRequest(jsonStr) {
+  try {
+    const parsed = JSON.parse(jsonStr);
+    if (parsed && parsed.id !== undefined && pendingRequests.has(parsed.id)) {
+      const item = pendingRequests.get(parsed.id);
+      clearTimeout(item.timer);
+      pendingRequests.delete(parsed.id);
+    }
+  } catch (_) {}
+}
+
+function failAllPendingRequests(reason) {
+  for (const [id, item] of pendingRequests.entries()) {
+    clearTimeout(item.timer);
+    const errPayload = {
+      jsonrpc: "2.0",
+      id: id,
+      error: {
+        code: -32000,
+        message: `OwnAI MCP 请求异常: ${reason}`
+      }
+    };
+    process.stdout.write(JSON.stringify(errPayload) + "\n");
+    log(`已快速失败挂起请求 [id: ${id}]: ${reason}`);
+  }
+  pendingRequests.clear();
+}
 
 function flushPendingMessages() {
   if (!currentMessageEndpoint || !currentToken) return;
@@ -246,7 +305,8 @@ async function startMcpBridge(token) {
               log(`已获取 MCP Message 端点: ${currentMessageEndpoint}`);
               flushPendingMessages();
             } else {
-              // 收到 JSON-RPC 消息包，推给 stdout
+              // 收到 JSON-RPC 消息包，推给 stdout 并闭环已完成请求
+              resolveRequest(dataStr);
               process.stdout.write(dataStr + "\n");
             }
           }
@@ -256,22 +316,35 @@ async function startMcpBridge(token) {
       res.on("end", () => {
         log("SSE 连接断开，准备重连…");
         currentMessageEndpoint = null;
-        setTimeout(() => startMcpBridge(token), 3000);
+        currentSseReq = null;
+        setTimeout(() => startMcpBridge(token), 2000);
       });
     }
   );
 
   req.on("error", (err) => {
-    log(`SSE 连接出错: ${err.message}，3秒后重连…`);
+    log(`SSE 连接出错: ${err.message}，2秒后重连…`);
     currentMessageEndpoint = null;
-    setTimeout(() => startMcpBridge(token), 3000);
+    currentSseReq = null;
+    setTimeout(() => startMcpBridge(token), 2000);
   });
 
+  currentSseReq = req;
   req.end();
   setupStdinHandler();
 }
 
 function sendJsonRpcMessage(endpointUrl, token, jsonStr) {
+  trackRequest(jsonStr);
+
+  let parsedId = null;
+  try {
+    const parsed = JSON.parse(jsonStr);
+    if (parsed && parsed.id !== undefined) {
+      parsedId = parsed.id;
+    }
+  } catch (_) {}
+
   const urlObj = new URL(endpointUrl);
   const clientMod = urlObj.protocol === "https:" ? require("https") : require("http");
 
@@ -287,21 +360,51 @@ function sendJsonRpcMessage(endpointUrl, token, jsonStr) {
         "Content-Length": postData.length,
         Authorization: `Bearer ${token}`,
       },
+      timeout: 15000,
     },
     (res) => {
       let body = "";
       res.on("data", (d) => { body += d; });
       res.on("end", () => {
+        // 如果后端返回 400 或 404，说明 SessionId 已过期失效（例如后端刚重启）
+        if (res.statusCode === 400 || res.statusCode === 404) {
+          log(`检测到 MCP 会话已失效 (HTTP ${res.statusCode})，触发自动通道重建…`);
+          currentMessageEndpoint = null;
+          failAllPendingRequests("MCP 会话已失效，正在自动恢复连接，请重试");
+          if (currentSseReq) {
+            try { currentSseReq.destroy(); } catch (_) {}
+          }
+          return;
+        }
+
         if (body.trim()) {
-          // 有些 MCP 实现是在 POST 响应中直接返回结果
+          resolveRequest(body.trim());
           process.stdout.write(body.trim() + "\n");
         }
       });
     }
   );
 
+  req.on("timeout", () => {
+    req.destroy(new Error("POST 请求超时 (15s)"));
+  });
+
   req.on("error", (err) => {
     log(`发送消息失败: ${err.message}`);
+    if (parsedId !== null && pendingRequests.has(parsedId)) {
+      const item = pendingRequests.get(parsedId);
+      clearTimeout(item.timer);
+      pendingRequests.delete(parsedId);
+      const errPayload = {
+        jsonrpc: "2.0",
+        id: parsedId,
+        error: {
+          code: -32000,
+          message: `网络传输错误: ${err.message}`
+        }
+      };
+      process.stdout.write(JSON.stringify(errPayload) + "\n");
+    }
   });
 
   req.write(postData);

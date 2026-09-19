@@ -57,7 +57,7 @@ public class OwnAiDesignTools {
     // Tool 1: find_design_components (多维语义寻找组件切片代码与动效)
     // =========================================================================
 
-    @Tool(description = "根据多维设计语义（业务场景、终端设备、视觉风格、构件类型、动效特征）智能查找前端切片组件与 TSX/JSX 代码。优先匹配用户已收藏的资产，也可同时在系统已解构作品库中深度查找。直接输出可直接粘贴使用的代码与动效参数。")
+    @Tool(description = "根据多维设计语义（业务场景、终端设备、视觉风格、构件类型、动效特征）智能查找前端切片组件与 TSX/JSX 代码。返回结果包含 coverUrl 界面设计封面截图（可使用 ![界面图](coverUrl) 直接展示）。优先匹配用户已收藏的资产，也可同时在系统已解构作品库中深度查找。")
     public List<DesignComponentResult> find_design_components(
             @ToolParam(description = "业务场景，如: 电商, 社交/聊天, SaaS仪表盘, 个人主页/博客, 内容资讯, 工具类", required = false) String scenario,
             @ToolParam(description = "终端载体: app (移动端/iOS/Android) 或 website (桌面端/Web网页)", required = false) String device,
@@ -80,8 +80,12 @@ public class OwnAiDesignTools {
         if (userId != null) {
             List<DeconstructionAssetFavorite> favs = favoriteService.listFavoritesForMcp(
                     userId, "component", keyword, 50);
+            List<Long> awIds = favs.stream().map(DeconstructionAssetFavorite::getArtworkId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+            Map<Long, Artwork> awMap = awIds.isEmpty() ? Collections.emptyMap() :
+                    artworkService.listByIds(awIds).stream().collect(Collectors.toMap(Artwork::getId, a -> a, (k1, k2) -> k1));
+
             for (DeconstructionAssetFavorite fav : favs) {
-                Artwork linkedArtwork = fav.getArtworkId() != null ? artworkService.getById(fav.getArtworkId()) : null;
+                Artwork linkedArtwork = fav.getArtworkId() != null ? awMap.get(fav.getArtworkId()) : null;
                 int score = scoreComponent(fav.getTitle(), fav.getTag(), fav.getDescription(), fav.getContent(),
                         linkedArtwork != null ? linkedArtwork.getTitle() : "",
                         linkedArtwork != null ? linkedArtwork.getDeviceFrame() : "",
@@ -100,6 +104,7 @@ public class OwnAiDesignTools {
                         true,
                         linkedArtwork != null ? linkedArtwork.getTitle() : "我的收藏",
                         fav.getArtworkId(),
+                        linkedArtwork != null ? linkedArtwork.getCoverUrl() : null,
                         score + 10 // 收藏加权
                 ));
             }
@@ -134,7 +139,7 @@ public class OwnAiDesignTools {
                             candidates.add(new ScoredComponent(
                                     pId, pTitle, pTag, resolveDeviceType(aw.getDeviceFrame()),
                                     fullCode ? pCode : StringUtils.abbreviate(pCode, 300),
-                                    pDesc, artworkMotions, false, aw.getTitle(), aw.getId(), score
+                                    pDesc, artworkMotions, false, aw.getTitle(), aw.getId(), aw.getCoverUrl(), score
                             ));
                         }
                     }
@@ -144,11 +149,11 @@ public class OwnAiDesignTools {
             }
         }
 
-        // 3. 按多维匹配打分降序排列，取 Top N
+        // 3. 按多维匹配打分降序排列，取 Top N（默认 5 条）
         candidates.sort(Comparator.comparingInt((ScoredComponent c) -> c.score).reversed());
 
         return candidates.stream().limit(safeLimit).map(c -> new DesignComponentResult(
-                c.id, c.title, c.componentType, c.device, c.code, c.desc, c.matchedMotions, c.isFavorite, c.artworkTitle, c.artworkId
+                c.id, c.title, c.componentType, c.device, c.code, c.desc, c.matchedMotions, c.isFavorite, c.artworkTitle, c.artworkId, c.coverUrl
         )).collect(Collectors.toList());
     }
 
@@ -234,7 +239,8 @@ public class OwnAiDesignTools {
                 motionTokens,
                 promptContent,
                 target.getSourceZipUrl(),
-                Integer.valueOf(1).equals(target.getIsDeconstructed())
+                Integer.valueOf(1).equals(target.getIsDeconstructed()),
+                target.getCoverUrl()
         );
     }
 
@@ -303,23 +309,23 @@ public class OwnAiDesignTools {
             ));
         }
 
-        return results.stream().limit(6).collect(Collectors.toList());
+        return results.stream().limit(5).collect(Collectors.toList());
     }
 
     // =========================================================================
     // Tool 4: find_design_artworks (按场景与设备搜设计作品案例)
     // =========================================================================
 
-    @Tool(description = "按业务场景、终端设备载体与视觉风格检索 OwnAI 平台界面设计作品案例库。返回作品卡片信息与解构状态概览。")
+    @Tool(description = "按业务场景、终端设备载体与视觉风格检索 OwnAI 平台界面设计作品案例库。返回结果包含 coverUrl 界面设计封面截图（可使用 ![界面图](coverUrl) 直接向用户展示视觉效果）。")
     public List<ArtworkSearchResult> find_design_artworks(
             @ToolParam(description = "业务场景，如: 电商, 社交, 仪表盘, 官网, 音乐", required = false) String scenario,
             @ToolParam(description = "设备载体: app (移动端) 或 website (网页端)", required = false) String device,
             @ToolParam(description = "视觉风格: 极简, 暗黑, 玻璃拟态, 渐变, 扁平", required = false) String style,
             @ToolParam(description = "自由搜索词", required = false) String keyword,
-            @ToolParam(description = "返回条数，默认 10", required = false) Integer limit) {
+            @ToolParam(description = "返回条数，默认 5", required = false) Integer limit) {
 
         User user = McpUserContext.get();
-        int safeLimit = (limit == null || limit <= 0) ? 10 : Math.min(limit, 20);
+        int safeLimit = (limit == null || limit <= 0) ? 5 : Math.min(limit, 20);
 
         ArtworkQueryRequest queryRequest = new ArtworkQueryRequest();
         String text = StringUtils.defaultIfBlank(keyword, StringUtils.defaultIfBlank(scenario, style));
@@ -328,8 +334,12 @@ public class OwnAiDesignTools {
         queryRequest.setPageSize(safeLimit);
 
         Page<ArtworkVO> page = artworkService.listArtworkVOByPage(queryRequest, user, false);
+        List<Long> ids = page.getRecords().stream().map(ArtworkVO::getId).filter(Objects::nonNull).collect(Collectors.toList());
+        Map<Long, Artwork> rawMap = ids.isEmpty() ? Collections.emptyMap() :
+                artworkService.listByIds(ids).stream().collect(Collectors.toMap(Artwork::getId, a -> a, (k1, k2) -> k1));
+
         return page.getRecords().stream().map(vo -> {
-            Artwork raw = artworkService.getById(vo.getId());
+            Artwork raw = rawMap.get(vo.getId());
             return new ArtworkSearchResult(
                     vo.getId(),
                     vo.getTitle(),
@@ -346,16 +356,16 @@ public class OwnAiDesignTools {
     // Tool 5: find_prompts_for_creation (按视觉风格与用途搜提示词模板)
     // =========================================================================
 
-    @Tool(description = "按视觉风格、应用场景与目标工具检索高品质提示词模板（包含前端 UI 生成规范以及 Midjourney / FLUX 视觉生图 Prompt）。")
+    @Tool(description = "按视觉风格、应用场景与目标工具检索高品质提示词模板（包含前端 UI 生成规范以及 Midjourney / FLUX 视觉生图 Prompt）。返回结果包含 coverUrl 视觉效果图（可使用 ![效果图](coverUrl) 直接展示）。")
     public List<PromptTemplateResult> find_prompts_for_creation(
             @ToolParam(description = "视觉风格，如: 极简扁平, 3D质感, 深色科技, 纸质质感, 赛博朋克", required = false) String visualStyle,
             @ToolParam(description = "应用场景，如: 产品海报, App界面, 网页Hero, 商业插画, 封面", required = false) String scenario,
             @ToolParam(description = "自由关键词", required = false) String keyword,
             @ToolParam(description = "目标工具: frontend-ui (代码生成), midjourney, flux, dall-e", required = false) String targetTool,
-            @ToolParam(description = "返回条数，默认 10", required = false) Integer limit) {
+            @ToolParam(description = "返回条数，默认 5", required = false) Integer limit) {
 
         User user = McpUserContext.get();
-        int safeLimit = (limit == null || limit <= 0) ? 10 : Math.min(limit, 20);
+        int safeLimit = (limit == null || limit <= 0) ? 5 : Math.min(limit, 20);
 
         PromptAssetQueryRequest queryRequest = new PromptAssetQueryRequest();
         String text = StringUtils.defaultIfBlank(keyword, StringUtils.defaultIfBlank(visualStyle, scenario));
@@ -388,7 +398,7 @@ public class OwnAiDesignTools {
     public List<DesignComponentResult> search_my_favorites(
             @ToolParam(description = "资产类型过滤：prompt / component / icon / media", required = false) String assetType,
             @ToolParam(description = "搜索关键词", required = false) String keyword,
-            @ToolParam(description = "返回条数上限", required = false) Integer limit) {
+            @ToolParam(description = "返回条数上限，默认 5", required = false) Integer limit) {
         return find_design_components(null, null, null, null, null, keyword, true, "favorites", limit);
     }
 
@@ -399,10 +409,12 @@ public class OwnAiDesignTools {
         if (userId == null || favoriteId == null) return null;
         DeconstructionAssetFavorite fav = favoriteService.getById(favoriteId);
         if (fav == null || !fav.getUserId().equals(userId)) return null;
+        Artwork linkedAw = fav.getArtworkId() != null ? artworkService.getById(fav.getArtworkId()) : null;
         return new DesignComponentResult(
                 fav.getAssetKey() != null ? fav.getAssetKey() : String.valueOf(fav.getId()),
                 fav.getTitle(), fav.getTag(), "unknown", fav.getContent(), fav.getDescription(),
-                Collections.emptyList(), true, "我的收藏", fav.getArtworkId()
+                Collections.emptyList(), true, linkedAw != null ? linkedAw.getTitle() : "我的收藏", fav.getArtworkId(),
+                linkedAw != null ? linkedAw.getCoverUrl() : null
         );
     }
 
@@ -567,11 +579,12 @@ public class OwnAiDesignTools {
         boolean isFavorite;
         String artworkTitle;
         Long artworkId;
+        String coverUrl;
         int score;
 
         ScoredComponent(String id, String title, String componentType, String device,
                         String code, String desc, List<MotionItem> matchedMotions,
-                        boolean isFavorite, String artworkTitle, Long artworkId, int score) {
+                        boolean isFavorite, String artworkTitle, Long artworkId, String coverUrl, int score) {
             this.id = id;
             this.title = title;
             this.componentType = componentType;
@@ -582,6 +595,7 @@ public class OwnAiDesignTools {
             this.isFavorite = isFavorite;
             this.artworkTitle = artworkTitle;
             this.artworkId = artworkId;
+            this.coverUrl = coverUrl;
             this.score = score;
         }
     }
@@ -598,7 +612,8 @@ public class OwnAiDesignTools {
             List<MotionItem> matchedMotions,
             boolean isFavorite,
             String artworkTitle,
-            Long artworkId
+            Long artworkId,
+            String coverUrl
     ) implements Serializable {}
 
     public record DesignSystemSpec(
@@ -611,7 +626,8 @@ public class OwnAiDesignTools {
             List<MotionItem> motionTokens,
             String systemPrompt,
             String sourceZipUrl,
-            boolean isDeconstructed
+            boolean isDeconstructed,
+            String coverUrl
     ) implements Serializable {}
 
     public record MotionPresetResult(
