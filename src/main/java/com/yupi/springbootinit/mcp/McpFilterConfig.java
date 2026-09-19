@@ -12,9 +12,11 @@ import org.springframework.context.annotation.Configuration;
 public class McpFilterConfig {
 
     @Bean
-    public FilterRegistrationBean<McpAuthFilter> mcpAuthFilterRegistration(UserMcpKeyService userMcpKeyService) {
+    public FilterRegistrationBean<McpAuthFilter> mcpAuthFilterRegistration(
+            UserMcpKeyService userMcpKeyService,
+            McpRateLimiter mcpRateLimiter) {
         FilterRegistrationBean<McpAuthFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new McpAuthFilter(userMcpKeyService));
+        registration.setFilter(new McpAuthFilter(userMcpKeyService, mcpRateLimiter));
         registration.addUrlPatterns("/sse", "/mcp/*");
         registration.setOrder(1);
         registration.setName("mcpAuthFilter");

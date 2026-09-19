@@ -21,9 +21,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class McpAuthFilter extends OncePerRequestFilter {
 
     private final UserMcpKeyService userMcpKeyService;
+    private final McpRateLimiter mcpRateLimiter;
 
-    public McpAuthFilter(UserMcpKeyService userMcpKeyService) {
+    public McpAuthFilter(UserMcpKeyService userMcpKeyService, McpRateLimiter mcpRateLimiter) {
         this.userMcpKeyService = userMcpKeyService;
+        this.mcpRateLimiter = mcpRateLimiter;
     }
 
     @Override
@@ -51,6 +53,15 @@ public class McpAuthFilter extends OncePerRequestFilter {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED,
                     "Invalid or expired MCP API Key, or membership has expired.");
             return;
+        }
+
+        // 多级流控校验（秒级防突发 3次/秒，分钟级防死循环 30次/分，日度软上限 800次/天）
+        if (mcpRateLimiter != null) {
+            McpRateLimiter.RateLimitResult rateLimitResult = mcpRateLimiter.checkLimit(user.getId());
+            if (!rateLimitResult.allowed()) {
+                sendRateLimitError(response, rateLimitResult);
+                return;
+            }
         }
 
         McpUserContext.set(user);
@@ -102,6 +113,14 @@ public class McpAuthFilter extends OncePerRequestFilter {
         response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write("{\"error\": \"" + message + "\"}");
+        response.getWriter().flush();
+    }
+
+    private void sendRateLimitError(HttpServletResponse response, McpRateLimiter.RateLimitResult result) throws IOException {
+        response.setStatus(429);
+        response.setHeader("Retry-After", String.valueOf(result.retryAfterSeconds()));
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\": 42900, \"message\": \"" + result.message() + "\", \"error\": \"" + result.message() + "\"}");
         response.getWriter().flush();
     }
 }
