@@ -104,11 +104,15 @@ function UserAvatarDisplay({
     );
   }
 
-  const initial = name?.trim() ? name.trim().charAt(0).toUpperCase() : "U";
-
+  // 默认使用官方 OwnAI Logo 图标，不使用手写字母占位
   return (
-    <div className="h-9 w-9 rounded-full border border-white/20 bg-white/10 text-white flex items-center justify-center text-[12px] font-semibold select-none shrink-0">
-      {initial}
+    <div className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-white/15 bg-white/[0.05] p-1.5 shadow-inner shrink-0">
+      <img
+        src="/images/ownai-logo.webp"
+        alt="OwnAI"
+        className="h-full w-full object-contain"
+        draggable={false}
+      />
     </div>
   );
 }
