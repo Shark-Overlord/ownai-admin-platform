@@ -41,6 +41,14 @@ import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
 import com.yupi.springbootinit.model.vo.videobackground.VideoBackgroundVO;
 import com.yupi.springbootinit.service.community.CommunityPostService;
 import com.yupi.springbootinit.service.community.CommunityTaxonomyService;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.yupi.springbootinit.mapper.CategoryTagMapper;
+import com.yupi.springbootinit.model.dto.category.CategoryAddRequest;
+import com.yupi.springbootinit.model.dto.category.CategoryUpdateRequest;
+import com.yupi.springbootinit.model.entity.Category;
+import com.yupi.springbootinit.model.entity.CategoryTag;
+import com.yupi.springbootinit.model.entity.Tag;
+import com.yupi.springbootinit.model.vo.CategoryVO;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -50,8 +58,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Resource;
+import java.util.stream.Collectors;
+import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,6 +102,7 @@ public class ContentExternalService {
     @Resource private BlogTagService blogTagService;
     @Resource private CategoryService categoryService;
     @Resource private TagService tagService;
+    @Resource private CategoryTagMapper categoryTagMapper;
     @Resource private CommunityPostService communityPostService;
     @Resource private CommunityTaxonomyService communityTaxonomyService;
     @Resource private ContentMarkdownService contentMarkdownService;
@@ -143,6 +154,7 @@ public class ContentExternalService {
         result.put("resources", resources);
         result.put("taxonomyRead", Arrays.asList("siteCategories", "siteTags", "blogCategories", "blogTags",
                 "communityCategories", "communityTags"));
+        result.put("categoryManage", Arrays.asList("list", "add", "update", "addTag", "unbindTag"));
         result.put("publishByApiKey", false);
         return result;
     }
@@ -260,29 +272,67 @@ public class ContentExternalService {
     public ContentResourceVO add(String type, JsonNode fields, User operator) {
         ObjectNode payload = validateFields(type, fields, true);
         Long id;
+        String externalId = null;
         switch (type) {
             case ARTWORK:
                 ArtworkAddRequest artwork = convert(payload, ArtworkAddRequest.class);
-                artwork.setStatus(ArtworkStatusEnum.DRAFT.getValue()); artwork.setApiSecret(null);
-                if (StringUtils.isNotBlank(artwork.getExternalKey())
-                        && artworkService.lambdaQuery().eq(Artwork::getExternalKey,
-                        StringUtils.trim(artwork.getExternalKey())).one() != null) {
-                    throw new BusinessException(ErrorCode.OPERATION_ERROR,
-                            "externalKey 已存在，请查询对应作品后执行更新");
+                artwork.setStatus(ArtworkStatusEnum.DRAFT.getValue());
+                artwork.setApiSecret(null);
+                String extKey = StringUtils.defaultIfBlank(artwork.getExternalKey(), artwork.getExternalId());
+                if (StringUtils.isNotBlank(extKey)) {
+                    extKey = StringUtils.trim(extKey);
+                    artwork.setExternalKey(extKey);
+                    artwork.setExternalId(extKey);
+                    externalId = extKey;
+                    Artwork existing = artworkService.lambdaQuery().eq(Artwork::getExternalKey, extKey).one();
+                    if (existing != null) {
+                        ContentResourceVO vo = get(type, existing.getId(), operator);
+                        vo.setExternalId(extKey);
+                        vo.setCreated(false);
+                        return vo;
+                    }
                 }
-                id = artworkService.addArtwork(artwork, operator); break;
+                id = artworkService.addArtwork(artwork, operator);
+                break;
             case PROMPT_ASSET:
                 if (payload.has("tagIdList") && !payload.has("assetTagIdList")) {
                     payload.set("assetTagIdList", payload.get("tagIdList"));
                 }
                 payload.remove("tagIdList");
                 PromptAssetAddRequest prompt = convert(payload, PromptAssetAddRequest.class);
-                prompt.setStatus(0); prompt.setApiSecret(null);
-                id = promptAssetService.addPromptAsset(prompt); break;
+                prompt.setStatus(0);
+                prompt.setApiSecret(null);
+                if (StringUtils.isNotBlank(prompt.getExternalId())) {
+                    String extId = StringUtils.trim(prompt.getExternalId());
+                    prompt.setExternalId(extId);
+                    externalId = extId;
+                    PromptAsset existing = promptAssetService.lambdaQuery().eq(PromptAsset::getExternalId, extId).one();
+                    if (existing != null) {
+                        ContentResourceVO vo = get(type, existing.getId(), operator);
+                        vo.setExternalId(extId);
+                        vo.setCreated(false);
+                        return vo;
+                    }
+                }
+                id = promptAssetService.addPromptAsset(prompt);
+                break;
             case VIDEO_BACKGROUND:
                 VideoBackgroundAddRequest video = convert(payload, VideoBackgroundAddRequest.class);
                 video.setStatus(ArtworkStatusEnum.DRAFT.getValue());
-                id = videoBackgroundService.addVideoBackground(video, operator); break;
+                if (StringUtils.isNotBlank(video.getExternalId())) {
+                    String extId = StringUtils.trim(video.getExternalId());
+                    video.setExternalId(extId);
+                    externalId = extId;
+                    VideoBackground existing = videoBackgroundService.lambdaQuery().eq(VideoBackground::getExternalId, extId).one();
+                    if (existing != null) {
+                        ContentResourceVO vo = get(type, existing.getId(), operator);
+                        vo.setExternalId(extId);
+                        vo.setCreated(false);
+                        return vo;
+                    }
+                }
+                id = videoBackgroundService.addVideoBackground(video, operator);
+                break;
             case COMMUNITY_POST:
                 CommunityRequests.SavePost community = convert(payload, CommunityRequests.SavePost.class);
                 community.setId(null); community.setVersion(null);
@@ -302,7 +352,10 @@ public class ContentExternalService {
             default:
                 throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return get(type, id, operator);
+        ContentResourceVO vo = get(type, id, operator);
+        vo.setExternalId(externalId);
+        vo.setCreated(true);
+        return vo;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -492,6 +545,113 @@ public class ContentExternalService {
         result.put("blogTags", blogTagService.listTags(true));
         result.put("communityCategories", communityTaxonomyService.list("category", true));
         result.put("communityTags", communityTaxonomyService.list("tag", true));
+        return result;
+    }
+
+    public List<CategoryVO> listCategories() {
+        return categoryService.buildCategoryTreeWithTags();
+    }
+
+    public Long addCategory(CategoryAddRequest categoryAddRequest) {
+        if (categoryAddRequest == null || StringUtils.isBlank(categoryAddRequest.getName())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "分类名称不能为空");
+        }
+        String name = categoryAddRequest.getName().trim();
+        Category exist = categoryService.getOne(new QueryWrapper<Category>()
+                .eq("name", name).eq("isDelete", 0).last("LIMIT 1"));
+        if (exist != null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "分类名称已存在");
+        }
+        Category category = new Category();
+        BeanUtils.copyProperties(categoryAddRequest, category);
+        category.setName(name);
+        if (category.getSort() == null) {
+            category.setSort(0);
+        }
+        boolean result = categoryService.save(category);
+        if (!result) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加分类失败");
+        }
+        return category.getId();
+    }
+
+    public Boolean updateCategory(Long id, CategoryUpdateRequest categoryUpdateRequest) {
+        if (id == null || id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "分类 ID 不合法");
+        }
+        Category oldCategory = categoryService.getById(id);
+        if (oldCategory == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "分类不存在");
+        }
+        if (categoryUpdateRequest != null && StringUtils.isNotBlank(categoryUpdateRequest.getName())) {
+            String name = categoryUpdateRequest.getName().trim();
+            Category exist = categoryService.getOne(new QueryWrapper<Category>()
+                    .eq("name", name).eq("isDelete", 0).ne("id", id).last("LIMIT 1"));
+            if (exist != null) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "分类名称已存在");
+            }
+        }
+        Category category = new Category();
+        if (categoryUpdateRequest != null) {
+            BeanUtils.copyProperties(categoryUpdateRequest, category);
+        }
+        category.setId(id);
+        if (StringUtils.isNotBlank(category.getName())) {
+            category.setName(category.getName().trim());
+        }
+        boolean result = categoryService.updateById(category);
+        if (!result) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "更新分类失败");
+        }
+        return true;
+    }
+
+    public Boolean addTagToCategory(Long categoryId, String tagName) {
+        if (categoryId == null || categoryId <= 0 || StringUtils.isBlank(tagName)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "分类 ID 和标签名称不能为空");
+        }
+        Category category = categoryService.getById(categoryId);
+        if (category == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "分类不存在");
+        }
+        String trimmedTagName = tagName.trim();
+        List<CategoryTag> existingBindings = categoryTagMapper.selectList(
+                new QueryWrapper<CategoryTag>().eq("categoryId", categoryId));
+        if (!existingBindings.isEmpty()) {
+            List<Long> tagIds = existingBindings.stream().map(CategoryTag::getTagId).collect(Collectors.toList());
+            List<Tag> existingTags = tagService.listByIds(tagIds);
+            boolean hasSameName = existingTags.stream()
+                    .anyMatch(t -> trimmedTagName.equals(t.getName()) && (t.getIsDelete() == null || t.getIsDelete() == 0));
+            if (hasSameName) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "该分类下已存在同名标签");
+            }
+        }
+        Tag tag = new Tag();
+        tag.setName(trimmedTagName);
+        tag.setSort(0);
+        boolean saveResult = tagService.save(tag);
+        if (!saveResult) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "标签创建失败");
+        }
+        CategoryTag categoryTag = new CategoryTag();
+        categoryTag.setCategoryId(categoryId);
+        categoryTag.setTagId(tag.getId());
+        categoryTag.setSort(0);
+        return categoryTagMapper.insert(categoryTag) > 0;
+    }
+
+    public Boolean removeTagFromCategory(Long categoryId, Long tagId) {
+        if (categoryId == null || categoryId <= 0 || tagId == null || tagId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数不合法");
+        }
+        boolean result = categoryTagMapper.delete(new QueryWrapper<CategoryTag>()
+                .eq("categoryId", categoryId)
+                .eq("tagId", tagId)) > 0;
+        Long count = categoryTagMapper.selectCount(
+                new QueryWrapper<CategoryTag>().eq("tagId", tagId));
+        if (count == null || count == 0) {
+            tagService.removeById(tagId);
+        }
         return result;
     }
 
@@ -724,19 +884,19 @@ public class ContentExternalService {
 
     private static Map<String, Set<String>> writableFields(boolean creating) {
         Map<String, Set<String>> result = new LinkedHashMap<>();
-        result.put(ARTWORK, set("externalKey", "title", "summary", "description", "coverUrl", "videoUrl",
+        result.put(ARTWORK, set("externalKey", "externalId", "title", "summary", "description", "coverUrl", "videoUrl",
                 "promptContent", "categoryId", "cashPrice", "pointsPrice", "memberOnly", "sort", "htmlUrl",
                 "sourceZipUrl", "isDeconstructed", "deviceFrame", "deconstructedPrompt", "promptData",
                 "partsData", "assetsData", "standaloneHtml", "tagIdList"));
         result.put(PROMPT_ASSET, creating
-                ? set("assetType", "categoryId", "title", "summary", "promptContent", "promptCn",
+                ? set("externalId", "assetType", "categoryId", "title", "summary", "promptContent", "promptCn",
                 "coverUrl", "previewMediaUrl", "memberOnly", "sort", "isFeatured", "featuredSort",
                 "sceneTagIdList", "assetTagIdList", "tagIdList")
                 : set("categoryId", "title", "summary", "promptContent", "promptCn", "coverUrl",
                 "previewMediaUrl", "memberOnly", "sort", "isFeatured", "featuredSort", "sceneTagIdList",
                 "assetTagIdList", "tagIdList", "visualAssetType", "scenario", "visualStyle", "qualityLevel",
                 "selectionStatus", "license", "commercialRisk"));
-        result.put(VIDEO_BACKGROUND, set("title", "summary", "promptContent", "coverUrl", "previewVideoUrl",
+        result.put(VIDEO_BACKGROUND, set("externalId", "title", "summary", "promptContent", "coverUrl", "previewVideoUrl",
                 "sourceVideoUrl", "categoryId", "memberOnly", "videoWidth", "videoHeight", "durationMs",
                 "fileSize", "videoFormat", "sort", "tagIdList"));
         result.put(COMMUNITY_POST, set("title", "summary", "categoryId", "tagIds", "markdown", "commentsEnabled"));

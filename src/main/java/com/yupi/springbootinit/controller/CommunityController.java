@@ -10,7 +10,7 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.service.community.*;
 import java.util.*;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

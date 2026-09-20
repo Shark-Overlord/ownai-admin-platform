@@ -10,7 +10,7 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.contentapikey.ContentApiKeyCreateVO;
 import com.yupi.springbootinit.model.vo.contentapikey.ContentApiKeyVO;
 import java.util.List;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 public interface ContentApiKeyService extends IService<ContentApiKey> {
 
@@ -61,6 +61,8 @@ public interface ContentApiKeyService extends IService<ContentApiKey> {
     String SCOPE_TUTORIAL_UPLOAD = "tutorial:upload";
 
     String SCOPE_TAXONOMY_READ = "taxonomy:read";
+
+    String SCOPE_CATEGORY_MANAGE = "category:manage";
 
     ContentApiKeyCreateVO addKey(ContentApiKeyAddRequest request, User loginUser);
 

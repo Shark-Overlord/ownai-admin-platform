@@ -5,7 +5,7 @@ import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.mapper.PointRechargeConfigMapper;
 import com.yupi.springbootinit.model.entity.PointRechargeConfig;
 import java.math.BigDecimal;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

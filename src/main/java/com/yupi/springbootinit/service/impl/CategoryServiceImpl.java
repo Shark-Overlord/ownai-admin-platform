@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
 
-    @javax.annotation.Resource
+    @jakarta.annotation.Resource
     private TagService tagService;
 
     @Override

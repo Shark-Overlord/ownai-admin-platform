@@ -7,7 +7,7 @@ import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.service.*;
 import java.io.IOException;
 import java.util.*;
-import javax.servlet.http.*;
+import jakarta.servlet.http.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;

@@ -10,6 +10,7 @@ import {
   PackageSearch,
   RefreshCw,
   Shuffle,
+  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import { AnnouncementPanel } from "@/components/home/AnnouncementPanel";
 import { UserAvatar } from "@/components/home/UserAvatar";
 import { CommunityFeed } from "@/components/community/CommunityFeed";
 import { CommunityInteractions } from "@/components/community/CommunityInteractions";
+import { ProfileMcpPanel } from "@/components/profile/ProfileMcpPanel";
 import { getUnreadAnnouncementCount } from "@/lib/announcement";
 import "@/components/community/community.css";
 import { TutorialWorkspaceShell, type TutorialSidebarItem } from "@/components/tutorial/TutorialWorkspaceShell";
@@ -443,7 +445,7 @@ export function ProfilePage() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const activeTab = requestedTab === "orders" || requestedTab === "announcements" || requestedTab === "profile" || requestedTab === "interactions" ? requestedTab : "news";
+  const activeTab = requestedTab === "orders" || requestedTab === "announcements" || requestedTab === "profile" || requestedTab === "interactions" || requestedTab === "mcp" ? requestedTab : "news";
   const setActiveTab = (tab: string) => setSearchParams((current) => {
     const next = new URLSearchParams(current);
     next.set("tab", tab);
@@ -714,6 +716,7 @@ export function ProfilePage() {
     { id: "interactions", label: "我的互动", icon: MessageCircle, active: activeTab === "interactions", onClick: () => setActiveTab("interactions") },
     { id: "profile", label: copy.tabProfile, icon: UserRound, active: activeTab === "profile", onClick: () => setActiveTab("profile") },
     { id: "orders", label: copy.tabOrders, icon: ReceiptText, active: activeTab === "orders", onClick: () => setActiveTab("orders") },
+    { id: "mcp", label: locale === "zh-CN" ? "MCP 助手" : "MCP Assistant", icon: Sparkles, active: activeTab === "mcp", onClick: () => setActiveTab("mcp") },
   ];
   const activeLabel = sidebarItems.find((item) => item.active)?.label;
   const isProfileUnavailable = !profile && (isLoading || Boolean(loadError));
@@ -727,7 +730,7 @@ export function ProfilePage() {
       navigationLabel={locale === "zh-CN" ? "个人中心导航" : "Account navigation"}
       groups={[
         { label: locale === "zh-CN" ? "社区" : "Community", items: sidebarItems.slice(0, 3) },
-        { label: locale === "zh-CN" ? "账号" : "Account", items: sidebarItems.slice(3) },
+        { label: locale === "zh-CN" ? "账号与工具" : "Account & Tools", items: sidebarItems.slice(3) },
       ]}
       items={sidebarItems}
       collapsedItems={sidebarItems}
@@ -735,7 +738,7 @@ export function ProfilePage() {
       header={<div className="min-w-0"><h1 className="community-page-title">{activeLabel}</h1></div>}
     >
       <div className={activeTab === "news" || activeTab === "announcements" || activeTab === "interactions" ? "min-w-0 w-full" : "community-account-container mx-auto w-full min-w-0 p-4 sm:p-6 lg:p-8"}>
-        {isProfileUnavailable && (activeTab === "profile" || activeTab === "orders") ? (
+        {isProfileUnavailable && (activeTab === "profile" || activeTab === "orders" || activeTab === "mcp") ? (
           <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 text-center text-[14px] text-[var(--hero-muted)]" role="status">
             {isLoading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <UserRound className="h-5 w-5" />}
             <p>{isLoading ? copy.loading : loadError || copy.loadFailed}</p>
@@ -939,6 +942,9 @@ export function ProfilePage() {
               <CommunityFeed />
             )}
             {activeTab === "interactions" && <CommunityInteractions />}
+            {activeTab === "mcp" && (
+              <ProfileMcpPanel profile={profile} />
+            )}
           </>
         )}
       </div>

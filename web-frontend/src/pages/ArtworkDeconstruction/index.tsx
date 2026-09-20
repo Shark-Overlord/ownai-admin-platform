@@ -1,12 +1,26 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getArtworkDeconstruction } from '@/lib/artwork';
+import {
+  getArtworkDeconstruction,
+  getDeconstructionAssetFavoriteKeys,
+  addDeconstructionAssetFavorite,
+  cancelDeconstructionAssetFavorite,
+} from '@/lib/artwork';
 import type { ArtworkDeconstructionVO } from '@/lib/types';
 import './index.css';
 
 type TabKey = 'prompt' | 'parts' | 'assets' | 'code';
 type DeviceKey = 'mobile' | 'tablet' | 'desktop';
 type UnknownRecord = Record<string, unknown>;
+
+type FavoriteItemParam = {
+  assetType: 'prompt' | 'component' | 'icon';
+  assetKey: string;
+  title?: string;
+  tag?: string;
+  description?: string;
+  content: string;
+};
 
 type ViewportSpec = { name: string; size: string; note?: string };
 type PromptToken = { label?: string; role?: string; value?: string; note?: string };
@@ -39,6 +53,73 @@ function asRecord(value: unknown): UnknownRecord {
 
 function parsePrompt(value: unknown): PromptData {
   return asRecord(value) as PromptData;
+}
+
+function buildFullPromptMarkdown(prompt: PromptData, fallback: string): string {
+  if (prompt.rawMarkdown && prompt.rawMarkdown.trim().length > 30) {
+    return prompt.rawMarkdown;
+  }
+  const sections: string[] = [];
+  sections.push('# SYSTEM_PROMPT & 视觉设计规范\n');
+
+  if (prompt.role) {
+    sections.push(`## 角色与核心任务 (Role & Objective)\n${prompt.role}\n`);
+  } else if (fallback) {
+    sections.push(`## 角色与核心任务 (Role & Objective)\n${fallback}\n`);
+  }
+
+  if (prompt.layout) {
+    sections.push(`## 01. 界面布局与视觉风格\n**整体布局**：${prompt.layout}\n`);
+  }
+
+  if (prompt.viewports && prompt.viewports.length > 0) {
+    sections.push(`### 画板基准与设备视口 (Viewport Specs)`);
+    prompt.viewports.forEach((v) => {
+      sections.push(`- **${v.name}** (${v.size}): ${v.note || ''}`);
+    });
+    sections.push('');
+  }
+
+  if (prompt.colors && prompt.colors.length > 0) {
+    sections.push(`### 色彩系统 (Color Palette)`);
+    prompt.colors.forEach((c) => {
+      sections.push(`- \`${c.value}\` **${c.label || ''}**: ${c.note || ''}`);
+    });
+    sections.push('');
+  }
+
+  if (prompt.typography && prompt.typography.length > 0) {
+    sections.push(`### 文字排版与资产 (Typography)`);
+    prompt.typography.forEach((t) => {
+      sections.push(`- **${t.role || t.label || ''}**: \`${t.value || ''}\` (${t.note || ''})`);
+    });
+    sections.push('');
+  }
+
+  if (prompt.motions && prompt.motions.length > 0) {
+    sections.push(`## 02. 交互控件与动效参数 (Motion Specs)`);
+    prompt.motions.forEach((m) => {
+      sections.push(`- **${m.label}**: ${m.desc || ''} (\`${m.token || ''}\`)`);
+    });
+    sections.push('');
+  }
+
+  if (prompt.rules) {
+    sections.push(`## 03. 设计红线与约束 (Do's and Don'ts)`);
+    if (prompt.rules.dos && prompt.rules.dos.length > 0) {
+      sections.push(`### ✅ Do (必须执行)`);
+      prompt.rules.dos.forEach((d) => sections.push(`- ${d}`));
+      sections.push('');
+    }
+    if (prompt.rules.donts && prompt.rules.donts.length > 0) {
+      sections.push(`### ❌ Don't (严禁行为)`);
+      prompt.rules.donts.forEach((d) => sections.push(`- ${d}`));
+      sections.push('');
+    }
+  }
+
+  const result = sections.join('\n');
+  return result.trim().length > 20 ? result : fallback;
 }
 
 function parseParts(value: unknown): PartData[] {
@@ -133,6 +214,45 @@ function CopyButton({ text, compact = false }: { text: string; compact?: boolean
   </button>;
 }
 
+function FavoriteButton({
+  favorited,
+  onToggle,
+  compact = false,
+}: {
+  favorited: boolean;
+  onToggle: (event: React.MouseEvent) => void;
+  compact?: boolean;
+}) {
+  const iconSize = compact ? 12 : 14;
+  return (
+    <button
+      type="button"
+      className={`dc-favorite-button${compact ? ' is-compact' : ''}${favorited ? ' is-favorited' : ''}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(e);
+      }}
+      title={favorited ? '已收藏，点击取消收藏' : '收藏到我的资产库 (可供 Cursor/Agent 调用)'}
+    >
+      <span className="dc-fav-icon" style={{ width: iconSize, height: iconSize }} aria-hidden="true">
+        <svg
+          width={iconSize}
+          height={iconSize}
+          viewBox="0 0 24 24"
+          fill={favorited ? 'currentColor' : 'none'}
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+        </svg>
+      </span>
+      <span>{favorited ? 'Saved' : 'Save'}</span>
+    </button>
+  );
+}
+
 const AI_TOOL_NAMES = ['Cursor', 'Claude', 'Antigravity', 'Lovable', 'Codex', 'Copilot'] as const;
 
 function AiToolIcon({ name }: { name: typeof AI_TOOL_NAMES[number] }) {
@@ -164,11 +284,38 @@ function RecommendedUsage({ mode, guide = {} }: { mode: 'prompt' | 'parts' | 'co
   </section>;
 }
 
-function PromptPane({ prompt, fallback }: { prompt: PromptData; fallback: string }) {
-  const rawPrompt = prompt.rawMarkdown || fallback;
+function PromptPane({
+  prompt,
+  fallback,
+  favoritedKeys,
+  onToggleFavorite,
+}: {
+  prompt: PromptData;
+  fallback: string;
+  favoritedKeys: Set<string>;
+  onToggleFavorite: (item: FavoriteItemParam) => void;
+}) {
+  const rawPrompt = buildFullPromptMarkdown(prompt, fallback);
   const layout = (prompt.layout || '').replace(/^整体布局[：:]\s*/, '');
+  const isFavorited = favoritedKeys.has('prompt:full');
   return <div className="dc-pane dc-prompt-pane">
-    <div className="dc-pane-title"><div className="dc-code-title"><span># SYSTEM_PROMPT.md</span><small>Markdown</small></div><CopyButton text={rawPrompt} /></div>
+    <div className="dc-pane-title">
+      <div className="dc-code-title"><span># SYSTEM_PROMPT.md</span><small>Markdown</small></div>
+      <div className="dc-pane-actions">
+        <FavoriteButton
+          favorited={isFavorited}
+          onToggle={() => onToggleFavorite({
+            assetType: 'prompt',
+            assetKey: 'full',
+            title: 'System Prompt & 设计规范',
+            tag: 'Design Specs',
+            description: prompt.role || '完整解构 System Prompt 与视觉规范',
+            content: rawPrompt,
+          })}
+        />
+        <CopyButton text={rawPrompt} />
+      </div>
+    </div>
     <section className="dc-role"><h1>角色与核心任务 (Role &amp; Objective)</h1><p>{prompt.role || '暂无角色与核心任务说明'}</p></section>
     <RecommendedUsage mode="prompt" guide={asRecord(prompt.customGuide)} />
     <hr />
@@ -187,21 +334,254 @@ function PromptPane({ prompt, fallback }: { prompt: PromptData; fallback: string
   </div>;
 }
 
-function PartsPane({ parts, selected, onSelect }: { parts: PartData[]; selected: string | null; onSelect: (part: PartData) => void }) {
-  return <div className="dc-pane"><div className="dc-pane-title"><div><span className="dc-overline"># UI PARTS · 核心结构零件</span><p>点击结构块在右侧即时动态高亮对应区域，点击 Copy 独立复制代码</p></div></div>
-    <div className="dc-parts-list">{parts.length ? parts.map((part) => <article className={`dc-part-card${selected === part.id ? ' active' : ''}`} key={part.id} onClick={() => onSelect(part)}><div><h3>{part.title || part.id}<span>{part.tag || 'Part'}</span></h3><p>{part.desc}</p></div><CopyButton text={part.code || ''} /></article>) : <div className="dc-empty">暂无零件切片数据</div>}</div>
+function PartsPane({
+  parts,
+  selected,
+  onSelect,
+  favoritedKeys,
+  onToggleFavorite,
+}: {
+  parts: PartData[];
+  selected: string | null;
+  onSelect: (part: PartData) => void;
+  favoritedKeys: Set<string>;
+  onToggleFavorite: (item: FavoriteItemParam) => void;
+}) {
+  return <div className="dc-pane"><div className="dc-pane-title"><div><span className="dc-overline"># UI PARTS · 核心结构零件</span><p>点击结构块在右侧即时动态高亮对应区域，点击 Save 收藏至资产库，点击 Copy 复制代码</p></div></div>
+    <div className="dc-parts-list">{parts.length ? parts.map((part) => {
+      const isFav = favoritedKeys.has(`component:${part.id}`);
+          const componentCopyText = (() => {
+            const header = [part.title || part.id, part.tag ? `[${part.tag}]` : ''].filter(Boolean).join(' ');
+            const desc = part.desc ? part.desc.trim() : '';
+            const code = (part.code || '').trim();
+            if (code.startsWith('<')) {
+              return `<!--\n  组件：${header}\n  说明：${desc || '暂无说明'}\n-->\n${code}`;
+            } else {
+              return `/**\n * 组件：${header}\n * 说明：${desc || '暂无说明'}\n */\n${code}`;
+            }
+          })();
+          return <article className={`dc-part-card${selected === part.id ? ' active' : ''}`} key={part.id} onClick={() => onSelect(part)}>
+            <div><h3>{part.title || part.id}<span>{part.tag || 'Part'}</span></h3><p>{part.desc}</p></div>
+            <div className="dc-card-actions" onClick={(e) => e.stopPropagation()}>
+              <FavoriteButton
+                compact
+                favorited={isFav}
+                onToggle={() => onToggleFavorite({
+                  assetType: 'component',
+                  assetKey: part.id,
+                  title: part.title || part.id,
+                  tag: part.tag || 'Part',
+                  description: part.desc || '',
+                  content: part.code || '',
+                })}
+              />
+              <CopyButton compact text={componentCopyText} />
+            </div>
+          </article>;
+    }) : <div className="dc-empty">暂无零件切片数据</div>}</div>
     <RecommendedUsage mode="parts" />
   </div>;
 }
 
-function AssetsPane({ assets }: { assets: AssetsData }) {
+function AssetsPane({
+  assets,
+  favoritedKeys,
+  onToggleFavorite,
+}: {
+  assets: AssetsData;
+  favoritedKeys: Set<string>;
+  onToggleFavorite: (item: FavoriteItemParam) => void;
+}) {
   const icons = Array.isArray(assets.icons) ? assets.icons : [];
   const media = Array.isArray(assets.media) ? assets.media : [];
-  return <div className="dc-pane"><div className="dc-pane-title"><div><span className="dc-overline"># UI ASSETS · 设计素材库</span><p>展示右侧界面调用的全部矢量图标与图片视频资产</p></div></div>
-    <section className="dc-assets-section"><div className="dc-subtitle"><b>01. 矢量图标 (Icons · {icons.length})</b><small>点击 Copy 获取代码</small></div><div className="dc-icon-grid">{icons.length ? icons.map((icon, index) => <article key={`${icon.name}-${index}`}><div className="dc-icon-preview"><SvgIcon name={icon.name || 'copy'} size={16} /></div><div className="dc-asset-text"><h3>{icon.name}<span>{icon.library || 'Lucide'}</span></h3><p>{icon.label || icon.desc}</p></div><CopyButton compact text={icon.code || icon.name || ''} /></article>) : <p className="dc-muted">暂无独立声明图标</p>}</div></section>
-    <hr />
-    <section className="dc-assets-section"><div className="dc-subtitle"><b>02. 视频与图片素材 (Media &amp; Images · {media.length || '无'})</b>{media.length > 0 && <small>点击 Copy 获取链接</small>}</div>{media.length ? <div className="dc-media-list">{media.map((item, index) => <article key={`${item.url}-${index}`}>{item.type === 'video' ? <div className="dc-media-video">▶</div> : <img src={item.url} alt={item.title || ''} />}<div className="dc-asset-text"><h3>{item.title}<span>{item.type === 'video' ? 'Video' : 'Image'}</span></h3><code>{item.url}</code><p>{item.desc}</p></div><CopyButton text={item.url || ''} /></article>)}</div> : <div className="dc-no-media"><span>外部视频与图片素材</span><b>无</b></div>}</section>
-  </div>;
+  const [mediaFilter, setMediaFilter] = useState<'all' | 'video' | 'image'>('all');
+
+  const mediaWithIndex = useMemo(() => {
+    const list = media.map((item, originalIndex) => ({
+      ...item,
+      originalIndex,
+      assetKey: `media-${originalIndex}`,
+    }));
+    return list.slice().sort((a, b) => {
+      const aIsVideo = a.type === 'video' ? 1 : 0;
+      const bIsVideo = b.type === 'video' ? 1 : 0;
+      return bIsVideo - aIsVideo;
+    });
+  }, [media]);
+
+  const videoCount = useMemo(() => mediaWithIndex.filter((m) => m.type === 'video').length, [mediaWithIndex]);
+  const imageCount = useMemo(() => mediaWithIndex.filter((m) => m.type !== 'video').length, [mediaWithIndex]);
+
+  const filteredMedia = useMemo(() => {
+    if (mediaFilter === 'video') return mediaWithIndex.filter((m) => m.type === 'video');
+    if (mediaFilter === 'image') return mediaWithIndex.filter((m) => m.type !== 'video');
+    return mediaWithIndex;
+  }, [mediaWithIndex, mediaFilter]);
+
+  return (
+    <div className="dc-pane">
+      <div className="dc-pane-title">
+        <div>
+          <span className="dc-overline"># UI ASSETS · 设计素材库</span>
+          <p>展示右侧界面调用的全部矢量图标与图片视频资产，可一键收藏供 Agent 编码调用</p>
+        </div>
+      </div>
+      <section className="dc-assets-section">
+        <div className="dc-subtitle">
+          <b>01. 矢量图标 (Icons · {icons.length})</b>
+          <small>点击 Save 收藏，点击 Copy 获取代码</small>
+        </div>
+        <div className="dc-icon-grid">
+          {icons.length ? (
+            icons.map((icon, index) => {
+              const iconKey = icon.name || `icon-${index}`;
+              const isFav = favoritedKeys.has(`icon:${iconKey}`);
+              return (
+                <article key={`${icon.name}-${index}`}>
+                  <div className="dc-icon-preview">
+                    <SvgIcon name={icon.name || 'copy'} size={16} />
+                  </div>
+                  <div className="dc-asset-text">
+                    <h3>
+                      {icon.name}
+                      <span>{icon.library || 'Lucide'}</span>
+                    </h3>
+                    <p>{icon.label || icon.desc}</p>
+                  </div>
+                  <div className="dc-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <FavoriteButton
+                      compact
+                      favorited={isFav}
+                      onToggle={() =>
+                        onToggleFavorite({
+                          assetType: 'icon',
+                          assetKey: iconKey,
+                          title: icon.name || 'Icon',
+                          tag: icon.library || 'Lucide',
+                          description: icon.label || icon.desc || '',
+                          content: icon.code || icon.svg || icon.name || '',
+                        })
+                      }
+                    />
+                    <CopyButton compact text={icon.code || icon.name || ''} />
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <p className="dc-muted">暂无独立声明图标</p>
+          )}
+        </div>
+      </section>
+      <hr />
+      <section className="dc-assets-section">
+        <div className="dc-subtitle dc-media-header">
+          <b>02. 视频与图片素材 (Media · {media.length || 0})</b>
+          <small>支持大图检视、网格浏览与直链获取</small>
+        </div>
+
+        {media.length > 0 && (
+          <div className="dc-media-filter-bar">
+            <div className="dc-media-pills">
+              <button
+                type="button"
+                className={`dc-media-pill${mediaFilter === 'all' ? ' active' : ''}`}
+                onClick={() => setMediaFilter('all')}
+              >
+                <span>全部</span>
+                <span className="dc-pill-num">{media.length}</span>
+              </button>
+              <button
+                type="button"
+                className={`dc-media-pill${mediaFilter === 'video' ? ' active' : ''}`}
+                onClick={() => setMediaFilter('video')}
+              >
+                <span>视频</span>
+                <span className="dc-pill-num">{videoCount}</span>
+              </button>
+              <button
+                type="button"
+                className={`dc-media-pill${mediaFilter === 'image' ? ' active' : ''}`}
+                onClick={() => setMediaFilter('image')}
+              >
+                <span>图片</span>
+                <span className="dc-pill-num">{imageCount}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {filteredMedia.length ? (
+          <div className="dc-media-grid">
+            {filteredMedia.map((item) => {
+              const isVideo = item.type === 'video';
+              const isFav = favoritedKeys.has(`icon:${item.assetKey}`);
+              return (
+                <article className="dc-media-card" key={item.assetKey}>
+                  <div className="dc-media-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <FavoriteButton
+                      compact
+                      favorited={isFav}
+                      onToggle={() =>
+                        onToggleFavorite({
+                          assetType: 'icon',
+                          assetKey: item.assetKey,
+                          title: item.title || (isVideo ? '视频素材' : '图片素材'),
+                          tag: isVideo ? 'Video' : 'Image',
+                          description: item.desc || '',
+                          content: item.url || '',
+                        })
+                      }
+                    />
+                    <CopyButton compact text={item.url || ''} />
+                  </div>
+                  <div className="dc-media-card-content">
+                    {isVideo ? (
+                      <video
+                        src={item.url}
+                        controls
+                        preload="metadata"
+                        playsInline
+                        className="dc-media-video-element"
+                      />
+                    ) : (
+                      <>
+                        <img
+                          src={item.url}
+                          alt={item.title || '设计素材'}
+                          className="dc-media-image-element"
+                          loading="lazy"
+                        />
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="dc-media-preview-overlay"
+                          title="在新标签页中查看原尺寸大图"
+                        >
+                          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.3-4.3" />
+                            <path d="M11 8v6M8 11h6" />
+                          </svg>
+                          <span>查看原图</span>
+                        </a>
+                      </>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="dc-no-media">
+            <span>{media.length ? '暂无符合当前类型的素材' : '外部视频与图片素材'}</span>
+            <b>{media.length ? '0' : '无'}</b>
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }
 
 function CodePane({ code }: { code: string }) {
@@ -216,6 +596,7 @@ export default function ArtworkDeconstruction() {
   const [tab, setTab] = useState<TabKey>('prompt');
   const [device, setDevice] = useState<DeviceKey>('desktop');
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
+  const [favoritedKeys, setFavoritedKeys] = useState<Set<string>>(new Set());
   const [dark, setDark] = useState(() => {
     const queryTheme = new URLSearchParams(window.location.search).get('theme');
     return queryTheme ? queryTheme === 'dark' : localStorage.getItem('public_deconstruct_theme') === 'dark';
@@ -234,7 +615,61 @@ export default function ArtworkDeconstruction() {
       return;
     }
     getArtworkDeconstruction(id).then(setData).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : '解构数据加载失败')).finally(() => setLoading(false));
+    getDeconstructionAssetFavoriteKeys(id).then((keys) => {
+      setFavoritedKeys(new Set(keys));
+    }).catch(() => {
+      // 未登录时静默
+    });
   }, [id]);
+
+  const handleToggleFavorite = async (param: FavoriteItemParam) => {
+    if (!id) return;
+    const itemKey = `${param.assetType}:${param.assetKey}`;
+    const currentlyFavorited = favoritedKeys.has(itemKey);
+    // 乐观更新
+    setFavoritedKeys((prev) => {
+      const next = new Set(prev);
+      if (currentlyFavorited) {
+        next.delete(itemKey);
+      } else {
+        next.add(itemKey);
+      }
+      return next;
+    });
+
+    try {
+      if (currentlyFavorited) {
+        await cancelDeconstructionAssetFavorite({
+          artworkId: id,
+          assetType: param.assetType,
+          assetKey: param.assetKey,
+        });
+      } else {
+        await addDeconstructionAssetFavorite({
+          artworkId: id,
+          assetType: param.assetType,
+          assetKey: param.assetKey,
+          title: param.title,
+          tag: param.tag,
+          description: param.description,
+          content: param.content,
+        });
+      }
+    } catch (err: unknown) {
+      // 失败回滚
+      setFavoritedKeys((prev) => {
+        const next = new Set(prev);
+        if (currentlyFavorited) {
+          next.add(itemKey);
+        } else {
+          next.delete(itemKey);
+        }
+        return next;
+      });
+      const message = err instanceof Error ? err.message : '操作失败，请先登录';
+      alert(message);
+    }
+  };
 
   const prompt = useMemo(() => parsePrompt(data?.promptData), [data?.promptData]);
   const parts = useMemo(() => parseParts(data?.partsData), [data?.partsData]);
@@ -327,7 +762,7 @@ export default function ArtworkDeconstruction() {
   return <div className={`dc-workbench${dark ? ' dark' : ''}`}>
     <header className="dc-header"><a className="dc-brand" href="/frontend-prompts" title="返回前端提示词"><img src="/images/deconstruction-logo.png" alt="Ownai Logo" /><span>ownai</span></a><button className={`dc-theme-switch${dark ? ' active' : ''}`} type="button" role="switch" aria-checked={dark} onClick={toggleTheme} title={dark ? '当前为暗色主题，点击切换浅色主题' : '当前为浅色主题，点击切换暗色主题'}><i><SvgIcon name={dark ? 'moon' : 'sun'} size={12} /></i></button></header>
     <div className="dc-main">
-      <aside className="dc-sidebar"><nav className="dc-tabs">{(['prompt', 'parts', 'assets', 'code'] as TabKey[]).map((key) => <button type="button" className={tab === key ? 'active' : ''} onClick={() => changeTab(key)} key={key}>{key.toUpperCase()}</button>)}</nav><div className="dc-sidebar-scroll">{tab === 'prompt' && <PromptPane prompt={prompt} fallback={data.deconstructedPrompt || ''} />}{tab === 'parts' && <PartsPane parts={parts} selected={selectedPart} onSelect={selectPart} />}{tab === 'assets' && <AssetsPane assets={assets} />}{tab === 'code' && <CodePane code={data.standaloneHtml || ''} />}</div></aside>
+      <aside className="dc-sidebar"><nav className="dc-tabs">{(['prompt', 'parts', 'assets', 'code'] as TabKey[]).map((key) => <button type="button" className={tab === key ? 'active' : ''} onClick={() => changeTab(key)} key={key}>{key.toUpperCase()}</button>)}</nav><div className="dc-sidebar-scroll">{tab === 'prompt' && <PromptPane prompt={prompt} fallback={data.deconstructedPrompt || ''} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'parts' && <PartsPane parts={parts} selected={selectedPart} onSelect={selectPart} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'assets' && <AssetsPane assets={assets} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'code' && <CodePane code={data.standaloneHtml || ''} />}</div></aside>
       <main className="dc-canvas"><div className="dc-canvas-toolbar"><div className="dc-device-switcher" ref={deviceSwitcherRef}><span className="dc-device-indicator" ref={deviceIndicatorRef} aria-hidden="true" />{(['mobile', 'tablet', 'desktop'] as DeviceKey[]).map((key) => <button ref={(node) => { deviceButtonRefs.current[key] = node; }} type="button" className={device === key ? 'active' : ''} onClick={() => setDevice(key)} key={key}><SvgIcon name={key === 'desktop' ? 'monitor' : key} /><span>{key[0].toUpperCase() + key.slice(1)}</span></button>)}</div></div>
         <div className="dc-stage" ref={stageRef}><div className="dc-scaled-box" style={{ width: size.width, height: frameHeight, transform: `scale(${scale})` }}><div className={`dc-window-frame frame-${data.deviceFrame || 'website'}`} style={{ width: size.width, height: frameHeight }}>{showTitlebar && <div className="dc-titlebar"><div className="dc-traffic"><i /><i /><i /></div><span>ownai.icu</span><b /></div>}<iframe ref={iframeRef} src={previewUrl || undefined} srcDoc={previewUrl ? undefined : previewHtml} onLoad={handlePreviewLoad} referrerPolicy="no-referrer" title={`${data.title} 实机预览`} sandbox="allow-scripts allow-forms allow-modals" /></div></div></div>
       </main>

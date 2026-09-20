@@ -31,11 +31,11 @@ class PointRechargeConfigServiceTest {
         assertThrows(BusinessException.class, () -> service.updateConfig(config));
         config.setPointsPerUnit(100); config.setMaxQuantity(1001);
         assertThrows(BusinessException.class, () -> service.updateConfig(config));
-        verify(mapper, never()).updateById(any());
+        verify(mapper, never()).updateById(any(PointRechargeConfig.class));
     }
     @Test void savesOnlySingletonConfigAndReturnsPersistedValues() {
         PointRechargeConfig config = valid(); config.setId(99L);
-        when(mapper.updateById(any())).thenReturn(1);
+        when(mapper.updateById(any(PointRechargeConfig.class))).thenReturn(1);
         when(mapper.selectById(1L)).thenReturn(config);
         assertSame(config, service.updateConfig(config));
         assertEquals(1L, config.getId());

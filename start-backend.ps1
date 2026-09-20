@@ -16,4 +16,4 @@ Write-Host "正在使用 Java 版本:" -ForegroundColor Yellow
 & java -version
 
 Write-Host "`n正在启动 Spring Boot 后端服务（local 环境）..." -ForegroundColor Green
-& .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
+& .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"

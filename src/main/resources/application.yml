@@ -7,10 +7,18 @@ spring:
     active: prod
   application:
     name: springboot-init
-  # 支持 swagger3
-  mvc:
-    pathmatch:
-      matching-strategy: ant_path_matcher
+  # Spring AI 配置
+  ai:
+    openai:
+      api-key: ${AI_OPENAI_API_KEY:mock-key-for-init}
+      base-url: ${AI_OPENAI_BASE_URL:https://api.deepseek.com}
+    mcp:
+      server:
+        name: ownai-design-assistant
+        version: 1.0.0
+        type: SYNC
+        sse-endpoint: /sse
+        sse-message-endpoint: /mcp/message
   # session 配置
   session:
     # todo 取消注释开启分布式 session（须先配置 Redis）

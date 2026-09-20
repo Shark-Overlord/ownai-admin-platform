@@ -18,7 +18,7 @@ import io.swagger.annotations.Api;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;

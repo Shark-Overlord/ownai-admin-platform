@@ -7,7 +7,7 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.utils.NetUtils;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
 
 /**

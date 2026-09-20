@@ -474,6 +474,10 @@ export function Navbar() {
     }
   };
 
+  const handleMcpClick = () => {
+    navigate("/profile?tab=mcp");
+  };
+
   return (
     <>
       {location.pathname !== "/" ? (
@@ -574,6 +578,21 @@ export function Navbar() {
                 </span>
               </button>
             ) : null}
+
+            {/* ⚡ MCP 助手常驻入口 - 高端极简极客胶囊 */}
+            <button
+              type="button"
+              onClick={handleMcpClick}
+              aria-label="打开 MCP 助手"
+              className="group relative inline-flex items-center gap-1.5 rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)]/80 px-2.5 py-1 text-[12px] font-medium text-[var(--hero-ink)] transition-all duration-200 hover:-translate-y-[1px] hover:border-[var(--hero-ink)]/25 hover:bg-[var(--hero-ink)]/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--hero-ink)]/15 sm:px-3 sm:py-1.5"
+            >
+              <Sparkles className="h-3 w-3 opacity-80 transition-transform duration-300 group-hover:scale-110" />
+              <span className="tracking-tight">MCP 助手</span>
+              <span className="rounded-full bg-[var(--hero-ink)] px-1.5 py-[1px] font-mono text-[9px] font-medium tracking-wide text-[var(--hero-bg)] uppercase">
+                NEW
+              </span>
+            </button>
+
             {loginUser ? (
               <AuthenticatedUserMenu
                 hasUnreadAnnouncements={hasUnreadAnnouncements}
@@ -756,6 +775,23 @@ export function Navbar() {
                 ) : null}
 
                 <div className="flex flex-col items-stretch gap-1.5">
+                  <div className="mb-1">
+                    <SheetClose asChild>
+                      <button
+                        type="button"
+                        onClick={handleMcpClick}
+                        className="group flex w-full items-center justify-between rounded-[8px] border border-[var(--hero-border)] bg-[var(--hero-surface)] px-2.5 py-2 text-left text-[12px] font-medium text-[var(--hero-ink)] transition-colors hover:bg-[var(--hero-ink)]/[0.04]"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 opacity-80" />
+                          <span>MCP 助手</span>
+                        </span>
+                        <span className="rounded-full bg-[var(--hero-ink)] px-1.5 py-[1px] font-mono text-[9px] font-medium text-[var(--hero-bg)] uppercase">
+                          NEW
+                        </span>
+                      </button>
+                    </SheetClose>
+                  </div>
                   {desktopNavItems.map((item) => {
                     if (item.id === "frontendPrompts") return renderPromptLibrarySelect(true);
                     const Icon = item.icon;

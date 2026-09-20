@@ -6,6 +6,7 @@ import lombok.Data;
 
 @Data
 public class VideoBackgroundAddRequest implements Serializable {
+    private String externalId;
     private String title;
     private String summary;
     private String promptContent;

@@ -33,6 +33,7 @@ video_background:read, video_background:add, video_background:update, video_back
 community_post:read, community_post:add, community_post:update, community_post:upload
 tutorial:read, tutorial:add, tutorial:update, tutorial:upload
 taxonomy:read
+category:manage
 ```
 
 ## 2. 接口总览
@@ -43,9 +44,15 @@ taxonomy:read
 | `GET /taxonomy` | 查询各模块分类和标签 |
 | `POST /resources/{type}/list` | 分页查询资源，包含后台可见的草稿 |
 | `GET /resources/{type}/{id}` | 查询编辑详情和当前版本标识 |
-| `POST /resources/{type}` | 新增内容草稿 |
+| `POST /resources/{type}` | 新增内容草稿（支持 `externalId` 幂等新增） |
 | `PATCH /resources/{type}/{id}` | 局部更新草稿，必须携带 `If-Match` |
-| `POST /uploads?biz={biz}` | 上传图片、视频或附件，表单字段名为 `file` |
+| `POST /uploads?biz={biz}` | 上传本地图片、视频或附件，表单字段名为 `file` |
+| `POST /uploads/remote` | 远程图片链接直接导入并存储至 COS（JSON: `url`, `biz`） |
+| `GET /categories` | 查询作品分类完整列表（含二级标签树） |
+| `POST /categories` | 新增作品分类 |
+| `PATCH /categories/{id}` | 修改作品分类（名称、排序等） |
+| `POST /categories/{id}/tags` | 为分类添加二级标签（不存在时自动新建独立标签） |
+| `DELETE /categories/{id}/tags/{tagId}` | 解绑分类下的二级标签（无引用时同步清理） |
 
 资源类型：
 
@@ -139,6 +146,25 @@ curl -X POST "https://admin.ownai.icu/api/content/v1/resources/prompt_asset" \
 
 服务端强制保存为草稿，客户端传入 `status` 会直接报错。
 
+### 幂等新增（externalId）
+
+为避免网络重试或任务重跑产生重复数据，`artwork`、`prompt_asset`、`video_background` 支持传入调用方的唯一键：
+- `artwork`：支持 `externalId` 或 `externalKey`
+- `prompt_asset`：支持 `externalId`
+- `video_background`：支持 `externalId`
+
+```json
+{
+  "externalId": "my-source-1001",
+  "title": "电影感城市夜景",
+  "categoryId": "12"
+}
+```
+
+响应字段中会包含 `created` 和 `externalId`：
+- `created: true`：首次创建成功。
+- `created: false`：服务端已存在该外部 ID，幂等返回已存在的记录详情，**不会**重复创建，也不报错。
+
 ### 作品
 
 ```bash
@@ -146,7 +172,7 @@ curl -X POST "https://admin.ownai.icu/api/content/v1/resources/artwork" \
   -H "X-Content-Asset-Key: $OWNAI_CONTENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "externalKey":"agent-demo-001",
+    "externalId":"agent-demo-001",
     "title":"交互按钮示例",
     "summary":"CSS 交互组件",
     "coverUrl":"https://example.com/cover.webp",
@@ -182,7 +208,9 @@ curl -X POST "https://admin.ownai.icu/api/content/v1/resources/tutorial_post" \
 
 教程正文优先传 `markdown`。后端统一生成后台可继续编辑的 Tiptap JSON 和清理后的 HTML；支持标题、段落、列表、引用、代码块、链接、HTTPS 图片、表格和约定的视频代码块。
 
-## 5. 上传素材
+## 5. 素材上传
+
+### 5.1 本地文件上传
 
 ```bash
 curl -X POST "https://admin.ownai.icu/api/content/v1/uploads?biz=prompt_asset_cover" \
@@ -190,8 +218,27 @@ curl -X POST "https://admin.ownai.icu/api/content/v1/uploads?biz=prompt_asset_co
   -F "file=@./cover.webp"
 ```
 
-可用 `biz`：
+### 5.2 远程图片导入（无需本地下载）
 
+对于 AI 生成结果等已有公开 HTTPS 链接的图片，Agent 可直接调用远程导入端点，服务端自动下载安全校验并存入 COS：
+
+```bash
+curl -X POST "https://admin.ownai.icu/api/content/v1/uploads/remote" \
+  -H "X-Content-Asset-Key: $OWNAI_CONTENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/generated-image.png",
+    "biz": "artwork_cover"
+  }'
+```
+
+成功返回 COS 图片公开访问 URL。远程导入支持的 `biz`（仅图片类）：
+- `artwork_cover`
+- `prompt_asset_cover`
+- `video_background_cover`
+- `blog_image`
+
+可用 `biz` 列表（文件上传）：
 - 作品：`artwork_cover`、`artwork_video`、`artwork_prompt`、`artwork_source`
 - Prompt：`prompt_asset_cover`
 - 视频素材：`video_background_cover`、`video_background_preview`、`video_background_source`
@@ -199,7 +246,52 @@ curl -X POST "https://admin.ownai.icu/api/content/v1/uploads?biz=prompt_asset_co
 
 头像和图片生成结果不允许通过内容密钥上传。文件格式、大小、对象路径、视频处理和本地开发回退行为复用原上传规则。
 
-## 6. 当前发布兼容边界
+## 6. 作品分类与二级标签管理
+
+当 Agent 需要动态调整作品的分类体系时，使用持有 `category:manage` 权限的 API 密钥即可完成分类与标签的操作。
+
+### 查询分类列表（含二级标签）
+
+```bash
+curl -X GET "https://admin.ownai.icu/api/content/v1/categories" \
+  -H "X-Content-Asset-Key: $OWNAI_CONTENT_API_KEY"
+```
+
+### 新增分类
+
+```bash
+curl -X POST "https://admin.ownai.icu/api/content/v1/categories" \
+  -H "X-Content-Asset-Key: $OWNAI_CONTENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"交互动效","description":"前端交互与微动效","sort":10}'
+```
+
+### 修改分类
+
+```bash
+curl -X PATCH "https://admin.ownai.icu/api/content/v1/categories/<CATEGORY_ID>" \
+  -H "X-Content-Asset-Key: $OWNAI_CONTENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"全新动效名","sort":20}'
+```
+
+### 添加二级标签（自动绑定）
+
+```bash
+curl -X POST "https://admin.ownai.icu/api/content/v1/categories/<CATEGORY_ID>/tags" \
+  -H "X-Content-Asset-Key: $OWNAI_CONTENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"tagName":"悬浮卡片"}'
+```
+
+### 解绑二级标签
+
+```bash
+curl -X DELETE "https://admin.ownai.icu/api/content/v1/categories/<CATEGORY_ID>/tags/<TAG_ID>" \
+  -H "X-Content-Asset-Key: $OWNAI_CONTENT_API_KEY"
+```
+
+## 7. 当前发布兼容边界
 
 - `community_post` 已有线上版本与草稿版本分离，Agent 可以在已发布帖子上保存未发布修改，旧版继续在线。
 - 新建的作品、Prompt、视频素材和教程都能进入各自原生草稿，并由原管理页面发布。

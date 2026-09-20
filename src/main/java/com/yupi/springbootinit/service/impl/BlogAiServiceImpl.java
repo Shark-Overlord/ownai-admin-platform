@@ -17,7 +17,7 @@ import com.yupi.springbootinit.model.vo.blog.BlogAiSlugVO;
 import com.yupi.springbootinit.service.AiConfigService;
 import com.yupi.springbootinit.service.BlogAiService;
 import java.util.Locale;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 

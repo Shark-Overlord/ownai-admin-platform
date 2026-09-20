@@ -19,6 +19,7 @@ const TutorialBookPage = lazy(() => import("@/pages/TutorialBookPage").then(modu
 const TutorialLibraryPage = lazy(() => import("@/pages/TutorialLibraryPage").then(module => ({ default: module.TutorialLibraryPage })));
 const TutorialPostPage = lazy(() => import("@/pages/TutorialPostPage").then(module => ({ default: module.TutorialPostPage })));
 const VideoBackgroundLibraryPage = lazy(() => import("@/pages/VideoBackgroundLibraryPage").then(module => ({ default: module.VideoBackgroundLibraryPage })));
+const McpAuthPage = lazy(() => import("@/pages/McpAuthPage").then(module => ({ default: module.McpAuthPage })));
 import { useRobotsMeta } from "@/hooks/useDocumentMeta";
 import { useTheme } from "@/lib/theme";
 import { AnnouncementPopup } from "@/components/home/AnnouncementPopup";
@@ -104,6 +105,7 @@ function App() {
       <Route path="/pricing/payment-result" element={<PricingPaymentResultPage />} />
       <Route path="/auth/login" element={<LoginPage />} />
       <Route path="/auth/register" element={<RegisterPage />} />
+      <Route path="/mcp/auth" element={<McpAuthPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes></Suspense></RouteLoadBoundary>
       </PromptUnlockProvider>

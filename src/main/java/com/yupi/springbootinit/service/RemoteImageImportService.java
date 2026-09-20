@@ -4,6 +4,7 @@ import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.config.CosClientConfig;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.manager.CosManager;
+import com.yupi.springbootinit.model.enums.FileUploadBizEnum;
 import com.yupi.springbootinit.model.vo.file.RemoteImageImportItemVO;
 import com.yupi.springbootinit.model.vo.file.RemoteImageImportResultVO;
 import java.io.BufferedInputStream;
@@ -18,11 +19,12 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import javax.net.ssl.HttpsURLConnection;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -43,6 +45,46 @@ public class RemoteImageImportService {
 
     @Resource
     private CosClientConfig cosClientConfig;
+
+    /**
+     * 单张图片远程导入并保存到对应业务的 COS 目录
+     */
+    public String importForContent(String sourceUrl, FileUploadBizEnum biz, Long userId) {
+        if (StringUtils.isBlank(sourceUrl)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "图片地址不能为空");
+        }
+        if (biz == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "上传业务类型不能为空");
+        }
+        if (!Arrays.asList(FileUploadBizEnum.ARTWORK_COVER, FileUploadBizEnum.PROMPT_ASSET_COVER,
+                FileUploadBizEnum.VIDEO_BACKGROUND_COVER, FileUploadBizEnum.BLOG_IMAGE).contains(biz)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "该 biz 不支持远程图片导入");
+        }
+        File tempFile = null;
+        try {
+            tempFile = File.createTempFile("content-remote-image-", ".tmp");
+            DownloadedImage downloadedImage = download(sourceUrl, tempFile);
+            java.util.Map<String, Object> rule = ContentFileUploadService.limit(biz);
+            Long maxBytes = (Long) rule.get("maxBytes");
+            if (tempFile.length() > maxBytes) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "图片大小超过限制: " + (maxBytes / 1024 / 1024) + "MB");
+            }
+            String filename = RandomStringUtils.randomAlphanumeric(12) + "-imported." + downloadedImage.extension;
+            String objectPath = String.format("%s/%s/%s", biz.getValue(), userId, filename);
+            String filepath = "/" + objectPath;
+            cosManager.putObject(filepath, tempFile, downloadedImage.contentType);
+            return cosClientConfig.getHost() + filepath;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("remote content image import failed, sourceUrl = {}, reason = {}", sanitizeUrlForLog(sourceUrl), e.getMessage(), e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "远程图片导入失败: " + e.getMessage());
+        } finally {
+            if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
+                log.warn("remote content image temp file delete failed, path = {}", tempFile.getAbsolutePath());
+            }
+        }
+    }
 
     public RemoteImageImportResultVO importImages(List<String> rawUrls, Long userId) {
         if (rawUrls == null || rawUrls.isEmpty()) {

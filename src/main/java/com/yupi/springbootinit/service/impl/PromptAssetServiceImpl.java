@@ -74,7 +74,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -332,6 +332,7 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     public Long addPromptAsset(PromptAssetAddRequest request) {
         validateAddRequest(request);
         PromptAsset asset = new PromptAsset();
+        asset.setExternalId(StringUtils.trimToNull(request.getExternalId()));
         asset.setAssetType(StringUtils.trim(request.getAssetType()));
         asset.setCategoryId(request.getCategoryId());
         asset.setTitle(StringUtils.left(StringUtils.trim(request.getTitle()), 255));

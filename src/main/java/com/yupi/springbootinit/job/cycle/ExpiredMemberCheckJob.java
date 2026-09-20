@@ -6,7 +6,7 @@ import com.yupi.springbootinit.model.enums.MemberLevelEnum;
 import com.yupi.springbootinit.service.UserService;
 import java.util.Date;
 import java.util.List;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

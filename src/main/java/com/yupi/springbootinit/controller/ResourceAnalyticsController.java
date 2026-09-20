@@ -7,7 +7,7 @@ import com.yupi.springbootinit.model.dto.analytics.*;
 import com.yupi.springbootinit.service.*;
 import java.time.LocalDate;
 import java.util.*;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 

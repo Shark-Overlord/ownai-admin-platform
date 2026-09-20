@@ -16,4 +16,6 @@ public interface AiConfigService {
     AiTaskConfig getEnabledTask(String taskCode);
 
     String executeTask(String taskCode, String userPrompt);
+
+    <T> T executeTask(String taskCode, String userPrompt, Class<T> responseType);
 }

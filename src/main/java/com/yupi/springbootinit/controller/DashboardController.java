@@ -8,7 +8,7 @@ import com.yupi.springbootinit.model.vo.dashboard.DashboardOverviewVO;
 import com.yupi.springbootinit.service.DashboardService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
