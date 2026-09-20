@@ -280,7 +280,7 @@ export function AuthShell({
         {/* 左侧：首页同款倾斜 24° 动态交错无限滚动画廊 + 经典居中文案 */}
         <aside className="relative hidden lg:flex lg:col-span-6 xl:col-span-7 flex-col items-center justify-center border-r border-[var(--hero-border)] bg-[#050505] p-8 xl:p-12 overflow-hidden select-none">
           {/* 首页同款倾斜动态网格画廊 */}
-          <DiagonalVideoGallery hero videos={videos} />
+          <DiagonalVideoGallery hero videos={videos} disableVideo />
 
           {/* 轻透暗夜遮罩：通透明亮，让精美封面清晰生动 */}
           <div

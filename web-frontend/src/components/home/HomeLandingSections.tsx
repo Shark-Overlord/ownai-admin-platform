@@ -47,9 +47,12 @@ function createCoverLanes(videos: HomeVideoItem[]): HomeVideoItem[][] {
 export function DiagonalVideoGallery({
   hero = false,
   videos,
+  disableVideo = false,
 }: {
   hero?: boolean;
   videos: HomeVideoItem[];
+  /** 禁用视频播放，只渲染封面图（用于认证页，消除不必要的 COS 视频流量） */
+  disableVideo?: boolean;
 }) {
   // 1. 每次进入随机洗牌封面顺序，打破固定死板的排布
   const [shuffledVideos, setShuffledVideos] = useState<HomeVideoItem[]>(() =>
@@ -77,10 +80,13 @@ export function DiagonalVideoGallery({
     });
   };
 
-  // 3. 多轨道错峰节奏心跳轮换：每 7~11 秒随机接力下一个视频，保持全局仅 4 路视频解码
+  // 3. 多轨道错峰节奏心跳轮换：每 18~27 秒随机接力下一个视频（降低 COS 切换频率）
+  //    disableVideo=true 时跳过，避免徒增 timer 开销
   useEffect(() => {
+    if (disableVideo) return;
+
     const timers = [0, 1, 2, 3].map((laneIndex) => {
-      const interval = 7000 + laneIndex * 1400 + Math.floor(Math.random() * 1500);
+      const interval = 18000 + laneIndex * 3000 + Math.floor(Math.random() * 2000);
       return setInterval(() => {
         const laneLength = coverLanes[laneIndex]?.length || 4;
         rotateLaneVideo(laneIndex, laneLength);
@@ -90,7 +96,7 @@ export function DiagonalVideoGallery({
     return () => {
       timers.forEach(clearInterval);
     };
-  }, [coverLanes]);
+  }, [coverLanes, disableVideo]);
 
   return (
     <div
@@ -142,7 +148,9 @@ export function DiagonalVideoGallery({
                   <div key={group} className="flex flex-col gap-3 pb-3 sm:gap-4 sm:pb-4" aria-hidden={group === 1}>
                     {laneCovers.map((cover, itemIndex) => {
                       // 动态随机点亮：每条轨道当前随机位置激活视频，播放完或定时接力给下一张
+                      // disableVideo=true（认证页）时强制不播放视频，只展示封面
                       const shouldPlayVideo =
+                        !disableVideo &&
                         group === 0 &&
                         Boolean(cover.videoUrl) &&
                         itemIndex === activeVideoPerLane[laneIndex] % Math.max(1, laneLength);
@@ -216,7 +224,7 @@ function LoopMediaCard({
           autoPlay
           muted
           playsInline
-          preload="metadata"
+          preload="none"
           disablePictureInPicture
           onEnded={onVideoEnded}
           className="h-full w-full object-cover transition-opacity duration-300"

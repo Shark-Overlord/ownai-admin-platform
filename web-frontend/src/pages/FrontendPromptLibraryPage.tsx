@@ -87,7 +87,7 @@ const FRONTEND_PROMPT_CATEGORY_ID = "2071608263790104578";
 const IMAGE_PROMPT_CATEGORY_ID = "2057283059198771201";
 const VIDEO_BACKGROUND_CATEGORY_ID = "2086654566127300610";
 const PAGE_SIZE = 20;
-const MAX_VISIBLE_AUTOPLAY_VIDEOS = 5;
+const MAX_VISIBLE_AUTOPLAY_VIDEOS = 1; // 降低 COS 视频流量：视口内最多 1 路自动播放
 
 interface ViewportAutoplayVideoEntry {
   priority: number;
@@ -152,7 +152,7 @@ function registerViewportAutoplayVideo(video: HTMLVideoElement) {
   if (viewportAutoplayShuffleTimer === undefined) {
     viewportAutoplayShuffleTimer = window.setInterval(
       shuffleViewportAutoplayVideos,
-      10_000,
+      30_000, // 每 30s 随机换一次（原 10s，降低 COS 流量）
     );
   }
 
