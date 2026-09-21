@@ -24,7 +24,29 @@ type FavoriteItemParam = {
 
 type ViewportSpec = { name: string; size: string; note?: string };
 type PromptToken = { label?: string; role?: string; value?: string; note?: string };
-type MotionSpec = { label?: string; desc?: string; token?: string };
+type MotionPhase = {
+  component?: string;
+  trigger?: string;
+  duration?: string;
+  changes?: string[];
+};
+type MotionSpec = {
+  title?: string;
+  label?: string;
+  category?: string;
+  area?: string;
+  component?: string;
+  members?: string[];
+  phases?: MotionPhase[];
+  actionChain?: string;
+  metaLine?: string;
+  promptSpeech?: string;
+  trigger?: string;
+  duration?: string;
+  desc?: string;
+  token?: string;
+  code?: string;
+};
 type RuleItem =
   | string
   | {
@@ -83,6 +105,129 @@ function RuleItemContent({ item }: { item: RuleItem }) {
   </span>;
 }
 
+function humanizeMotionTrigger(value?: string) {
+  const trigger = (value || '状态变化').trim();
+  const triggerMap: Record<string, string> = {
+    页面载入后自动播放: '页面打开后',
+    '鼠标悬停 + 按下': '鼠标悬停或按下时',
+    鼠标悬停: '鼠标悬停时',
+    '鼠标/触控点击': '点击时',
+    页面滚动: '页面滚动时',
+    '键盘/输入聚焦': '输入框聚焦时',
+    状态变化: '状态变化时',
+  };
+  return triggerMap[trigger] || (/时$|后$/.test(trigger) ? trigger : `${trigger}时`);
+}
+
+function humanizeMotionChange(value?: string) {
+  let change = (value || '').replace(/`/g, '').trim();
+  if (/相同实现共用于|pointer-events/i.test(change)) return '';
+  change = change
+    .replace(/document\.body/gi, '页面')
+    .replace(/mobileOverlay/gi, '移动菜单遮罩层')
+    .replace(/mobileMenu/gi, '移动菜单')
+    .replace(/closeIcon/gi, '关闭图标')
+    .replace(/menuIcon/gi, '菜单图标')
+    .replace(/toast/gi, '提示消息')
+    .replace(/overlay/gi, '遮罩层')
+    .replace(/^Logo 图标块：/, 'Logo ')
+    .replace(/^「?chevron-down」?图标：/, '下拉箭头')
+    .replace(/^页面载入后自动播放视频帧$/, '视频自动播放')
+    .replace(/^播放结束后从头循环$/, '视频循环播放')
+    .replace(/drawer：在显示\/隐藏状态间切换（hidden）/gi, '抽屉在显示和隐藏之间切换')
+    .replace(/子菜单面板：子元素显示/g, '下拉菜单展开')
+    .replace(/文字\/图标颜色切换为\s*text-white(?:\/\d+)?/gi, '文字和图标高亮')
+    .replace(/文字\/图标颜色切换为\s*text-black/gi, '文字和图标变深')
+    .replace(/文字\/图标颜色切换为\s*text-[\w/-]+/gi, '文字和图标颜色变化')
+    .replace(/文字颜色变为\s*#f{3,6}/gi, '文字高亮')
+    .replace(/背景切换为\s*bg-white(?:\/\d+)?/gi, '背景轻微提亮')
+    .replace(/背景切换为\s*bg-black(?:\/\d+)?/gi, '背景变暗')
+    .replace(/背景切换为\s*bg-[\w/-]+/gi, '背景颜色变化')
+    .replace(/阴影切换为\s*shadow-lg/gi, '阴影增强')
+    .replace(/阴影切换为\s*shadow-white\/\d+/gi, '增加柔光阴影')
+    .replace(/阴影切换为\s*shadow-[\w/-]+/gi, '阴影变化')
+    .replace(/缩放至\s*([0-9.]+)倍/g, (_, scale: string) => {
+      const number = Number(scale);
+      return number > 1 ? '轻微放大' : number < 1 ? '轻微缩小' : '恢复原始大小';
+    })
+    .replace(/位移\/缩放\/旋转变为\s*translateY\(0\)(?:\s*scale\(1\))?/gi, '回到原位')
+    .replace(/位移\/缩放\/旋转变为\s*translateY\(-[0-9.]+px\)/gi, '轻微上移')
+    .replace(/位移\/缩放\/旋转变为\s*translateX\(0\)/gi, '水平滑入到位')
+    .replace(/位移\/缩放\/旋转变为\s*translateX\([^)]*\)/gi, '水平滑动')
+    .replace(/位移\/缩放\/旋转变为\s*scale\([^)]*\)/gi, '大小平滑变化')
+    .replace(/位移\/缩放\/旋转变为\s*none/gi, '回到原位')
+    .replace(/透明度变为\s*(?:1(?:\.0+)?|100%)(?![\d.])/gi, '完全显示')
+    .replace(/透明度变为\s*(?:0(?:\.0+)?|0%)(?![\d.])/gi, '淡出隐藏')
+    .replace(/透明度变为\s*(0?\.\d+)/gi, (_, opacity: string) => `透明度调整为 ${Math.round(Number(opacity) * 100)}%`)
+    .replace(/透明度变为\s*([0-9]+)%/gi, '透明度调整为 $1%')
+    .replace(/播放\s*animate-blur-fade-up\s*自动动画/gi, '模糊渐清并向上淡入')
+    .replace(/播放\s*animate-(?:fade-up|fade-in-up)\s*自动动画/gi, '向上淡入')
+    .replace(/页面：逐次更新\s*overflow\s*为\s*hidden/gi, '页面滚动锁定')
+    .replace(/页面：逐次更新\s*overflow\s*为\s*''/gi, '页面滚动恢复')
+    .replace(/切换\s*(?:menu-open|nav-open|mobile menu open)\s*状态/gi, '菜单开合状态切换')
+    .replace(/滤镜变为\s*blur\(0(?:px)?\)/gi, '模糊渐清');
+  return change;
+}
+
+function getMotionTitle(motion: MotionSpec) {
+  const title = motion.title || motion.label || '交互动效包';
+  return title.replace(/完整交互动效/g, '').replace(/交互动效$/g, '').trim() || title;
+}
+
+function buildMotionSentence(motion: MotionSpec) {
+  const phases = Array.isArray(motion.phases) ? motion.phases : [];
+  if (!phases.length) {
+    const fallback = motion.actionChain || motion.desc || '操作后呈现平滑的状态反馈';
+    return `${fallback.replace(/[。；]+$/, '')}。`;
+  }
+  const groups: Array<{ trigger: string; changes: string[] }> = [];
+  phases.forEach((phase) => {
+    const trigger = phase.trigger || '状态变化';
+    let group = groups.find((item) => item.trigger === trigger);
+    if (!group) {
+      group = { trigger, changes: [] };
+      groups.push(group);
+    }
+    (Array.isArray(phase.changes) ? phase.changes : []).forEach((item) => {
+      const readable = humanizeMotionChange(item);
+      if (readable && !group?.changes.includes(readable)) group?.changes.push(readable);
+    });
+  });
+  const clauses = groups.map((group) => {
+    const visible = group.changes.slice(0, 5);
+    return `${humanizeMotionTrigger(group.trigger)}，${visible.length ? visible.join('、') : '组件状态平滑变化'}${group.changes.length > 5 ? '等反馈' : ''}`;
+  });
+  return `${clauses.join('；').replace(/[。；]+$/, '')}。`;
+}
+
+function buildMotionCopyText(motion: MotionSpec) {
+  const title = motion.title || motion.label || '交互动效包';
+  const phases = Array.isArray(motion.phases) ? motion.phases : [];
+  const phaseText = phases.map((phase, index) => {
+    const changes = Array.isArray(phase.changes) ? phase.changes.join('；') : '';
+    return `${index + 1}. ${phase.component || '组件'} | ${phase.trigger || '状态变化'} | ${phase.duration || '未定义时长'}\n   ${changes}`;
+  }).join('\n');
+  return [
+    `【完整动效提示词 · ${title}】`,
+    `- 动效分类：${motion.category || '【按钮与链接反馈】'}`,
+    ...(motion.members?.length ? [`- 包含控件：${motion.members.join('、')}`] : []),
+    ...(phaseText ? [`- 分阶段变化：\n${phaseText}`] : []),
+    `- 交互提示词：${motion.promptSpeech || motion.desc || motion.actionChain || ''}`,
+    `- 动效代码：${motion.token || motion.code || ''}`,
+    `- 规范属性：${motion.metaLine || `${motion.area || '主体界面'}　${motion.trigger || '状态变化'}　${motion.duration || '平滑过渡'}`}`,
+  ].join('\n');
+}
+
+function MotionCard({ motion }: { motion: MotionSpec }) {
+  return <article className="dc-motion-card">
+    <div className="dc-motion-head">
+      <h3><i />{getMotionTitle(motion)}</h3>
+      <CopyButton compact label="复制动效参数" text={buildMotionCopyText(motion)} />
+    </div>
+    <p>{buildMotionSentence(motion)}</p>
+  </article>;
+}
+
 function formatRuleItemMarkdown(item: RuleItem) {
   if (typeof item === 'string') return item;
 
@@ -139,7 +284,7 @@ function buildFullPromptMarkdown(prompt: PromptData, fallback: string): string {
   if (prompt.motions && prompt.motions.length > 0) {
     sections.push(`## 02. 交互控件与动效参数 (Motion Specs)`);
     prompt.motions.forEach((m) => {
-      sections.push(`- **${m.label}**: ${m.desc || ''} (\`${m.token || ''}\`)`);
+      sections.push(`- **${getMotionTitle(m)}**: ${buildMotionSentence(m)} (\`${m.token || m.code || ''}\`)`);
     });
     sections.push('');
   }
@@ -170,6 +315,78 @@ function parseAssets(value: unknown): AssetsData {
   return asRecord(value) as AssetsData;
 }
 
+function getIconSvgMarkup(icon: IconAsset) {
+  const source = icon.svg || icon.code || '';
+  const match = source.match(/<svg\b[\s\S]*?<\/svg>/i);
+  if (!match) return '';
+  let sanitized = match[0]
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<foreignObject\b[\s\S]*?<\/foreignObject>/gi, '')
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '')
+    .replace(/\s+(?:href|xlink:href)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '');
+  if (!/\sxmlns=/.test(sanitized)) sanitized = sanitized.replace(/<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+  if (!/\scolor=/.test(sanitized)) sanitized = sanitized.replace(/<svg\b/i, '<svg color="#64748b"');
+  if (!/\sstroke=/.test(sanitized) && /fill="none"/i.test(sanitized)) {
+    sanitized = sanitized.replace(/<svg\b/i, '<svg stroke="currentColor"');
+  }
+  return sanitized;
+}
+
+function getIconSignature(icon: IconAsset) {
+  const svg = getIconSvgMarkup(icon);
+  if (svg) return svg
+    .replace(/\s+(?:width|height|class|color)="[^"]*"/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return [icon.name, icon.library, icon.label, icon.desc, icon.code].map((item) => item || '').join('|').toLowerCase();
+}
+
+function dedupeIconAssets(icons: IconAsset[]) {
+  const seen = new Set<string>();
+  return icons.filter((icon) => {
+    const signature = getIconSignature(icon);
+    if (seen.has(signature)) return false;
+    seen.add(signature);
+    return true;
+  });
+}
+
+function normalizeMediaAssets(media: MediaAsset[], baseUrl?: string) {
+  const isResolvable = (url: string) => /^(?:https?:)?\/\//i.test(url) || /^(?:data|blob):/i.test(url) || url.startsWith('/');
+  const identity = (item: MediaAsset) => `${item.type || 'image'}|${item.title || ''}`.toLowerCase();
+  const absoluteIdentities = new Set(media.filter((item) => isResolvable(item.url || '')).map(identity));
+  const seen = new Set<string>();
+  const items: Array<MediaAsset & { originalIndex: number; assetKey: string }> = [];
+
+  media.forEach((item, originalIndex) => {
+    const rawUrl = item.url?.trim() || '';
+    if (!rawUrl) return;
+    let url = rawUrl;
+    if (!isResolvable(rawUrl)) {
+      if (absoluteIdentities.has(identity(item)) || !baseUrl) return;
+      try {
+        url = new URL(rawUrl, baseUrl).toString();
+      } catch {
+        return;
+      }
+    }
+    const signature = `${item.type || 'image'}|${url}`.toLowerCase();
+    if (seen.has(signature)) return;
+    seen.add(signature);
+    items.push({ ...item, url, originalIndex, assetKey: `media-${originalIndex}` });
+  });
+  return items;
+}
+
+function AssetIconPreview({ icon }: { icon: IconAsset }) {
+  const svg = getIconSvgMarkup(icon);
+  if (svg) {
+    return <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`} alt="" />;
+  }
+  return <SvgIcon name={icon.name || 'copy'} size={16} />;
+}
+
 function getDeviceSizes(viewports: ViewportSpec[] | undefined) {
   const result = {
     mobile: { ...DEFAULT_SIZES.mobile },
@@ -190,7 +407,10 @@ function getDeviceSizes(viewports: ViewportSpec[] | undefined) {
 
 function preparePreviewHtml(source: string) {
   const listener = `<style id="ownai-part-highlight">.part-highlight-active{outline:2.5px solid #3b82f6!important;outline-offset:-3px!important;box-shadow:inset 0 0 50px rgba(59,130,246,.35)!important}</style><script data-ownai-preview-bridge>(function(){if(window.__ownaiPreviewBridgeInstalled)return;window.__ownaiPreviewBridgeInstalled=true;function clear(){document.querySelectorAll('.part-highlight-active').forEach(function(el){el.classList.remove('part-highlight-active')})}function find(id){if(!id)return null;var direct=document.getElementById(id);if(direct)return direct;var nodes=document.querySelectorAll('[data-part-target]');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute('data-part-target')===id)return nodes[i]}return null}window.addEventListener('message',function(event){if(event.source!==window.parent)return;var data=event.data||{};if(data.type==='CLEAR_HIGHLIGHTS'){clear();return}if(data.type==='HIGHLIGHT_PART'){clear();var el=find(data.targetId)||find(data.partId);if(el){el.classList.add('part-highlight-active');el.scrollIntoView({behavior:'smooth',block:'center',inline:'center'})}}});if(window.lucide&&typeof window.lucide.createIcons==='function')window.lucide.createIcons();window.parent.postMessage({type:'OWNAI_PREVIEW_READY'},'*')})();<\/script>`;
-  const trimmed = source.trim();
+  const trimmed = source.trim().replace(
+    /document\.getElementById\((['"])navbar\1\)/g,
+    "(document.getElementById('navbar') || document.querySelector('.navbar'))",
+  );
   if (!trimmed) {
     return `<!doctype html><html><body style="margin:0;font-family:Inter,sans-serif;display:grid;place-items:center;min-height:100vh;color:#64748b">暂无独立 HTML 源码${listener}</body></html>`;
   }
@@ -212,7 +432,7 @@ function SvgIcon({ name, size = 15 }: { name: string; size?: number }) {
   return <svg {...common}><rect width="14" height="14" x="8" y="8" rx="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>;
 }
 
-function CopyButton({ text, compact = false }: { text: string; compact?: boolean }) {
+function CopyButton({ text, compact = false, label = 'Copy' }: { text: string; compact?: boolean; label?: string }) {
   const [copied, setCopied] = useState(false);
   const resetTimerRef = useRef<number | null>(null);
 
@@ -250,7 +470,7 @@ function CopyButton({ text, compact = false }: { text: string; compact?: boolean
       <svg className="dc-copy-icon-default" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
       <svg className="dc-copy-icon-success" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
     </span>
-    <span>Copy</span>
+    <span>{label}</span>
   </button>;
 }
 
@@ -368,7 +588,7 @@ function PromptPane({
       </div>
     </section>
     <hr />
-    <section className="dc-section"><h2>02. 交互控件与动效参数 (Motion Specs)</h2><div className="dc-motion-list">{(prompt.motions || []).map((motion, index) => <article key={`${motion.label}-${index}`}><i /><p><strong>{motion.label}</strong>：{motion.desc} (<code>{motion.token}</code>)。</p></article>)}</div></section>
+    <section className="dc-section"><h2>02. 交互控件与动效参数 (Motion Specs)</h2><div className="dc-motion-list">{(prompt.motions || []).map((motion, index) => <MotionCard motion={motion} key={`${getMotionTitle(motion)}-${index}`} />)}</div></section>
     <hr />
     <section className="dc-section dc-rules"><h2>03. 设计红线与约束 (Do's and Don'ts)</h2><h3 className="do">✅ Do (必须执行)</h3>{(prompt.rules?.dos || []).map((item, index) => <p key={getRuleItemKey('do', item, index)}><i className="do" /><RuleItemContent item={item} /></p>)}<h3 className="dont">❌ Don't (严禁行为)</h3>{(prompt.rules?.donts || []).map((item, index) => <p key={getRuleItemKey('dont', item, index)}><i className="dont" /><RuleItemContent item={item} /></p>)}</section>
   </div>;
@@ -425,29 +645,29 @@ function PartsPane({
 
 function AssetsPane({
   assets,
+  baseUrl,
   favoritedKeys,
   onToggleFavorite,
 }: {
   assets: AssetsData;
+  baseUrl?: string;
   favoritedKeys: Set<string>;
   onToggleFavorite: (item: FavoriteItemParam) => void;
 }) {
-  const icons = Array.isArray(assets.icons) ? assets.icons : [];
-  const media = Array.isArray(assets.media) ? assets.media : [];
+  const icons = useMemo(
+    () => dedupeIconAssets(Array.isArray(assets.icons) ? assets.icons : []),
+    [assets.icons],
+  );
   const [mediaFilter, setMediaFilter] = useState<'all' | 'video' | 'image'>('all');
 
   const mediaWithIndex = useMemo(() => {
-    const list = media.map((item, originalIndex) => ({
-      ...item,
-      originalIndex,
-      assetKey: `media-${originalIndex}`,
-    }));
+    const list = normalizeMediaAssets(Array.isArray(assets.media) ? assets.media : [], baseUrl);
     return list.slice().sort((a, b) => {
       const aIsVideo = a.type === 'video' ? 1 : 0;
       const bIsVideo = b.type === 'video' ? 1 : 0;
       return bIsVideo - aIsVideo;
     });
-  }, [media]);
+  }, [assets.media, baseUrl]);
 
   const videoCount = useMemo(() => mediaWithIndex.filter((m) => m.type === 'video').length, [mediaWithIndex]);
   const imageCount = useMemo(() => mediaWithIndex.filter((m) => m.type !== 'video').length, [mediaWithIndex]);
@@ -479,7 +699,7 @@ function AssetsPane({
               return (
                 <article key={`${icon.name}-${index}`}>
                   <div className="dc-icon-preview">
-                    <SvgIcon name={icon.name || 'copy'} size={16} />
+                    <AssetIconPreview icon={icon} />
                   </div>
                   <div className="dc-asset-text">
                     <h3>
@@ -503,7 +723,7 @@ function AssetsPane({
                         })
                       }
                     />
-                    <CopyButton compact text={icon.code || icon.name || ''} />
+                    <CopyButton compact text={icon.code || icon.svg || icon.name || ''} />
                   </div>
                 </article>
               );
@@ -516,11 +736,11 @@ function AssetsPane({
       <hr />
       <section className="dc-assets-section">
         <div className="dc-subtitle dc-media-header">
-          <b>02. 视频与图片素材 (Media · {media.length || 0})</b>
+          <b>02. 视频与图片素材 (Media · {mediaWithIndex.length})</b>
           <small>支持大图检视、网格浏览与直链获取</small>
         </div>
 
-        {media.length > 0 && (
+        {mediaWithIndex.length > 0 && (
           <div className="dc-media-filter-bar">
             <div className="dc-media-pills">
               <button
@@ -529,7 +749,7 @@ function AssetsPane({
                 onClick={() => setMediaFilter('all')}
               >
                 <span>全部</span>
-                <span className="dc-pill-num">{media.length}</span>
+                <span className="dc-pill-num">{mediaWithIndex.length}</span>
               </button>
               <button
                 type="button"
@@ -615,8 +835,8 @@ function AssetsPane({
           </div>
         ) : (
           <div className="dc-no-media">
-            <span>{media.length ? '暂无符合当前类型的素材' : '外部视频与图片素材'}</span>
-            <b>{media.length ? '0' : '无'}</b>
+            <span>{mediaWithIndex.length ? '暂无符合当前类型的素材' : '外部视频与图片素材'}</span>
+            <b>{mediaWithIndex.length ? '0' : '无'}</b>
           </div>
         )}
       </section>
@@ -802,7 +1022,7 @@ export default function ArtworkDeconstruction() {
   return <div className={`dc-workbench${dark ? ' dark' : ''}`}>
     <header className="dc-header"><a className="dc-brand" href="/frontend-prompts" title="返回前端提示词"><img src="/images/deconstruction-logo.png" alt="Ownai Logo" /><span>ownai</span></a><button className={`dc-theme-switch${dark ? ' active' : ''}`} type="button" role="switch" aria-checked={dark} onClick={toggleTheme} title={dark ? '当前为暗色主题，点击切换浅色主题' : '当前为浅色主题，点击切换暗色主题'}><i><SvgIcon name={dark ? 'moon' : 'sun'} size={12} /></i></button></header>
     <div className="dc-main">
-      <aside className="dc-sidebar"><nav className="dc-tabs">{(['prompt', 'parts', 'assets', 'code'] as TabKey[]).map((key) => <button type="button" className={tab === key ? 'active' : ''} onClick={() => changeTab(key)} key={key}>{key.toUpperCase()}</button>)}</nav><div className="dc-sidebar-scroll">{tab === 'prompt' && <PromptPane prompt={prompt} fallback={data.deconstructedPrompt || ''} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'parts' && <PartsPane parts={parts} selected={selectedPart} onSelect={selectPart} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'assets' && <AssetsPane assets={assets} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'code' && <CodePane code={data.standaloneHtml || ''} />}</div></aside>
+      <aside className="dc-sidebar"><nav className="dc-tabs">{(['prompt', 'parts', 'assets', 'code'] as TabKey[]).map((key) => <button type="button" className={tab === key ? 'active' : ''} onClick={() => changeTab(key)} key={key}>{key.toUpperCase()}</button>)}</nav><div className="dc-sidebar-scroll">{tab === 'prompt' && <PromptPane prompt={prompt} fallback={data.deconstructedPrompt || ''} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'parts' && <PartsPane parts={parts} selected={selectedPart} onSelect={selectPart} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'assets' && <AssetsPane assets={assets} baseUrl={data.htmlUrl || undefined} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'code' && <CodePane code={data.standaloneHtml || ''} />}</div></aside>
       <main className="dc-canvas"><div className="dc-canvas-toolbar"><div className="dc-device-switcher" ref={deviceSwitcherRef}><span className="dc-device-indicator" ref={deviceIndicatorRef} aria-hidden="true" />{(['mobile', 'tablet', 'desktop'] as DeviceKey[]).map((key) => <button ref={(node) => { deviceButtonRefs.current[key] = node; }} type="button" className={device === key ? 'active' : ''} onClick={() => setDevice(key)} key={key}><SvgIcon name={key === 'desktop' ? 'monitor' : key} /><span>{key[0].toUpperCase() + key.slice(1)}</span></button>)}</div></div>
         <div className="dc-stage" ref={stageRef}><div className="dc-scaled-box" style={{ width: size.width, height: frameHeight, transform: `scale(${scale})` }}><div className={`dc-window-frame frame-${data.deviceFrame || 'website'}`} style={{ width: size.width, height: frameHeight }}>{showTitlebar && <div className="dc-titlebar"><div className="dc-traffic"><i /><i /><i /></div><span>ownai.icu</span><b /></div>}<iframe ref={iframeRef} src={previewUrl || undefined} srcDoc={previewUrl ? undefined : previewHtml} onLoad={handlePreviewLoad} referrerPolicy="no-referrer" title={`${data.title} 实机预览`} sandbox="allow-scripts allow-forms allow-modals" /></div></div></div>
       </main>
