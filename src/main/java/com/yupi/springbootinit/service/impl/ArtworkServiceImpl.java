@@ -147,6 +147,8 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         ThrowUtils.throwIf(oldArtwork == null, ErrorCode.NOT_FOUND_ERROR, "作品不存在");
         Artwork artwork = new Artwork();
         BeanUtils.copyProperties(artworkUpdateRequest, artwork);
+        // Artwork follows a single-row lifecycle. Any edit requires an explicit republish.
+        artwork.setStatus(ArtworkStatusEnum.DRAFT.getValue());
         boolean coverChanged = StringUtils.isNotBlank(artwork.getCoverUrl())
                 && !StringUtils.equals(artwork.getCoverUrl(), oldArtwork.getCoverUrl());
         boolean needsDimensions = coverChanged

@@ -24,11 +24,7 @@ public class ContentDraftPublishService {
 
     @Transactional(rollbackFor = Exception.class)
     public Boolean publishArtwork(List<Long> ids, User admin) {
-        for (Long id : normalize(ContentExternalService.ARTWORK, ids)) {
-            Long targetId = prepare(ContentExternalService.ARTWORK, id, admin);
-            artworkService.publishArtworkBatch(java.util.Collections.singletonList(targetId));
-        }
-        return true;
+        return artworkService.publishArtworkBatch(ids);
     }
 
     @Transactional(rollbackFor = Exception.class)
