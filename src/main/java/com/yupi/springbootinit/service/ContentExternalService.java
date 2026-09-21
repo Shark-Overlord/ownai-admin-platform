@@ -85,7 +85,7 @@ public class ContentExternalService {
             ARTWORK, PROMPT_ASSET, VIDEO_BACKGROUND, COMMUNITY_POST,
             TUTORIAL_BOOK, TUTORIAL_CHAPTER, TUTORIAL_POST)));
     private static final Set<String> BRIDGED_TYPES = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
-            ARTWORK, PROMPT_ASSET, VIDEO_BACKGROUND, TUTORIAL_POST)));
+            PROMPT_ASSET, VIDEO_BACKGROUND, TUTORIAL_POST)));
 
     private static final Map<String, Set<String>> CREATE_WRITABLE = writableFields(true);
     private static final Map<String, Set<String>> UPDATE_WRITABLE = writableFields(false);
@@ -144,7 +144,9 @@ public class ContentExternalService {
             contract.put("createFields", CREATE_WRITABLE.get(type));
             contract.put("updateFields", UPDATE_WRITABLE.get(type));
             contract.put("newStatus", draftLabel(type));
-            contract.put("publishedUpdate", COMMUNITY_POST.equals(type)
+            contract.put("publishedUpdate", ARTWORK.equals(type)
+                    ? "supported: update the same artwork row and move it to draft status"
+                    : COMMUNITY_POST.equals(type)
                     ? "supported: the existing published revision stays online"
                     : BRIDGED_TYPES.contains(type)
                     ? "supported: a native draft clone is reviewed and published in the original module"
@@ -383,10 +385,13 @@ public class ContentExternalService {
         verifyVersion(baseVersion, current.getVersion());
         ObjectNode patch = validateFields(type, fields, false);
         if (targetBridge == null && !COMMUNITY_POST.equals(type) && !isNativeDraft(type, current.getResource())) {
-            if (BRIDGED_TYPES.contains(type)) {
+            if (ARTWORK.equals(type)) {
+                // Artwork uses a single-row lifecycle: editing a published row moves that same id back to draft.
+            } else if (BRIDGED_TYPES.contains(type)) {
                 return createReplacementDraft(type, id, current, patch, operator);
+            } else {
+                requireNativeDraft(type, current.getResource());
             }
-            requireNativeDraft(type, current.getResource());
         }
         ObjectNode merged = mergeWritable(type, current.getResource(), patch);
         switch (type) {
@@ -435,13 +440,6 @@ public class ContentExternalService {
         Long draftId;
         String originalUniqueValue = null;
         switch (type) {
-            case ARTWORK:
-                ArtworkAddRequest artwork = convert(selectFields(merged, CREATE_WRITABLE.get(type)), ArtworkAddRequest.class);
-                artwork.setExternalKey(null);
-                artwork.setStatus(ArtworkStatusEnum.DRAFT.getValue());
-                artwork.setApiSecret(null);
-                draftId = artworkService.addArtwork(artwork, operator);
-                break;
             case PROMPT_ASSET:
                 ObjectNode promptCreate = selectFields(merged, CREATE_WRITABLE.get(type));
                 promptCreate.set("assetType", current.getResource().get("assetType"));
@@ -496,16 +494,6 @@ public class ContentExternalService {
         ObjectNode draft = getLive(type, bridge.getDraftId(), operator).getResource().deepCopy();
         ObjectNode draftPatch = editablePatch(type, draft);
         switch (type) {
-            case ARTWORK:
-                ArtworkUpdateRequest artwork = convert(mergeWritable(type, target.getResource(), draftPatch),
-                        ArtworkUpdateRequest.class);
-                artwork.setId(targetId);
-                artwork.setStatus(ArtworkStatusEnum.PUBLISHED.getValue());
-                artwork.setExternalKey(target.getResource().path("externalKey").asText(null));
-                artwork.setApiSecret(null);
-                artworkService.updateArtwork(artwork, operator);
-                artworkService.deleteArtwork(bridge.getDraftId());
-                break;
             case PROMPT_ASSET:
                 PromptAssetUpdateRequest prompt = convert(mergeWritable(type, target.getResource(), draftPatch),
                         PromptAssetUpdateRequest.class);

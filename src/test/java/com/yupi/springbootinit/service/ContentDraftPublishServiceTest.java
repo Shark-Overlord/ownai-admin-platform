@@ -45,31 +45,39 @@ class ContentDraftPublishServiceTest {
     }
 
     @Test
-    void replacementDraftPublishesBackToStableTargetId() {
-        ContentModuleDraftBridge bridge = bridge("version-a");
-        when(bridgeService.findByDraft(ContentExternalService.ARTWORK, 20L)).thenReturn(bridge);
-        when(contentExternalService.getLive(ContentExternalService.ARTWORK, 10L, admin))
+    void nonArtworkReplacementDraftStillPublishesBackToStableTargetId() {
+        ContentModuleDraftBridge bridge = bridge(ContentExternalService.PROMPT_ASSET, "version-a");
+        when(bridgeService.findByDraft(ContentExternalService.PROMPT_ASSET, 20L)).thenReturn(bridge);
+        when(contentExternalService.getLive(ContentExternalService.PROMPT_ASSET, 10L, admin))
                 .thenReturn(resource("version-a"));
 
-        service.publishArtwork(Collections.singletonList(20L), admin);
+        service.publishPromptAssets(Collections.singletonList(20L), admin);
 
         verify(contentExternalService).applyReplacementDraft(bridge, admin);
-        verify(artworkService).publishArtworkBatch(Collections.singletonList(10L));
+        verify(promptAssetService).publishPromptAssetBatch(Collections.singletonList(10L));
         verify(bridgeService).removeBridge(bridge);
     }
 
     @Test
     void changedLiveTargetRejectsDraftWithoutOverwritingAnything() {
-        ContentModuleDraftBridge bridge = bridge("version-a");
-        when(bridgeService.findByDraft(ContentExternalService.ARTWORK, 20L)).thenReturn(bridge);
-        when(contentExternalService.getLive(ContentExternalService.ARTWORK, 10L, admin))
+        ContentModuleDraftBridge bridge = bridge(ContentExternalService.PROMPT_ASSET, "version-a");
+        when(bridgeService.findByDraft(ContentExternalService.PROMPT_ASSET, 20L)).thenReturn(bridge);
+        when(contentExternalService.getLive(ContentExternalService.PROMPT_ASSET, 10L, admin))
                 .thenReturn(resource("version-b"));
 
         assertThrows(BusinessException.class,
-                () -> service.publishArtwork(Collections.singletonList(20L), admin));
+                () -> service.publishPromptAssets(Collections.singletonList(20L), admin));
         verify(contentExternalService, never()).applyReplacementDraft(any(), any());
-        verify(artworkService, never()).publishArtworkBatch(any());
+        verify(promptAssetService, never()).publishPromptAssetBatch(any());
         verify(bridgeService, never()).removeBridge(any());
+    }
+
+    @Test
+    void artworkPublishUsesTheSelectedRowsDirectly() {
+        service.publishArtwork(Arrays.asList(10L, 20L), admin);
+
+        verify(artworkService).publishArtworkBatch(Arrays.asList(10L, 20L));
+        verify(contentExternalService, never()).applyReplacementDraft(any(), any());
     }
 
     @Test
@@ -81,22 +89,22 @@ class ContentDraftPublishServiceTest {
 
     @Test
     void selectingTargetAndItsDraftPublishesLogicalResourceOnlyOnce() {
-        ContentModuleDraftBridge bridge = bridge("version-a");
-        when(bridgeService.findByDraft(ContentExternalService.ARTWORK, 10L)).thenReturn(null);
-        when(bridgeService.findByTarget(ContentExternalService.ARTWORK, 10L)).thenReturn(bridge);
-        when(bridgeService.findByDraft(ContentExternalService.ARTWORK, 20L)).thenReturn(bridge);
-        when(contentExternalService.getLive(ContentExternalService.ARTWORK, 10L, admin))
+        ContentModuleDraftBridge bridge = bridge(ContentExternalService.PROMPT_ASSET, "version-a");
+        when(bridgeService.findByDraft(ContentExternalService.PROMPT_ASSET, 10L)).thenReturn(null);
+        when(bridgeService.findByTarget(ContentExternalService.PROMPT_ASSET, 10L)).thenReturn(bridge);
+        when(bridgeService.findByDraft(ContentExternalService.PROMPT_ASSET, 20L)).thenReturn(bridge);
+        when(contentExternalService.getLive(ContentExternalService.PROMPT_ASSET, 10L, admin))
                 .thenReturn(resource("version-a"));
 
-        service.publishArtwork(Arrays.asList(10L, 20L), admin);
+        service.publishPromptAssets(Arrays.asList(10L, 20L), admin);
 
         verify(contentExternalService, times(1)).applyReplacementDraft(bridge, admin);
-        verify(artworkService, times(1)).publishArtworkBatch(Collections.singletonList(10L));
+        verify(promptAssetService, times(1)).publishPromptAssetBatch(Collections.singletonList(10L));
     }
 
-    private ContentModuleDraftBridge bridge(String baseVersion) {
+    private ContentModuleDraftBridge bridge(String type, String baseVersion) {
         ContentModuleDraftBridge bridge = new ContentModuleDraftBridge();
-        bridge.setId(99L); bridge.setResourceType(ContentExternalService.ARTWORK);
+        bridge.setId(99L); bridge.setResourceType(type);
         bridge.setTargetId(10L); bridge.setDraftId(20L); bridge.setBaseVersion(baseVersion);
         return bridge;
     }

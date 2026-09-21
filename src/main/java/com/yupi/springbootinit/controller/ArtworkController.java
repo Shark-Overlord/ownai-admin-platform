@@ -154,10 +154,6 @@ public class ArtworkController {
         if (keyRequest && artworkUpdateRequest != null) {
             Artwork existing = artworkService.getById(artworkUpdateRequest.getId());
             if (existing == null) throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "作品不存在");
-            if (!com.yupi.springbootinit.model.enums.ArtworkStatusEnum.DRAFT.getValue().equals(existing.getStatus())) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR,
-                        "密钥不能通过旧接口覆盖已发布作品，请使用 /api/content/v1/resources/artwork");
-            }
             artworkUpdateRequest.setStatus(com.yupi.springbootinit.model.enums.ArtworkStatusEnum.DRAFT.getValue());
         }
         if (artworkUpdateRequest != null && contentModuleDraftBridgeService.findByDraft(

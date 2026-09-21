@@ -243,11 +243,12 @@ class ArtworkPointsIntegrationTest {
         add.setTitle("New work");add.setCategoryId(2L);add.setTagIdList(Collections.singletonList(3L));
         long id = artworks.addArtwork(add,user());
         assertEquals(100,artworks.getById(id).getPointsPrice());
-        jdbc.update("UPDATE artwork SET pointsPrice=175 WHERE id=?",id);
+        jdbc.update("UPDATE artwork SET pointsPrice=175,status=1 WHERE id=?",id);
         com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest edit = new com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest();
         edit.setId(id);edit.setTitle("Edited");edit.setCategoryId(2L);edit.setTagIdList(Collections.singletonList(3L));
         artworks.updateArtwork(edit,user());
         assertEquals(175,artworks.getById(id).getPointsPrice());
+        assertEquals(0,artworks.getById(id).getStatus());
     }
 
     @Test void missingDebitNeverCreatesPermanentAccess() {

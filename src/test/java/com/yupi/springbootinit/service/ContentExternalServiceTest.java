@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -16,7 +17,6 @@ import com.yupi.springbootinit.model.dto.artwork.ArtworkAddRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.dto.contentapi.ContentResourceQuery;
 import com.yupi.springbootinit.model.entity.ContentApiKey;
-import com.yupi.springbootinit.model.entity.ContentModuleDraftBridge;
 import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
@@ -79,59 +79,42 @@ class ContentExternalServiceTest {
     }
 
     @Test
-    void publishedArtworkCreatesNativeDraftCloneInsteadOfOverwritingLiveRow() {
+    void publishedArtworkUpdatesSameRowAndMovesItToDraft() {
         ArtworkDetailVO published = artwork(10L, 1);
         when(artworkService.getArtworkDetail(10L, operator, true)).thenReturn(published);
         when(artworkService.getById(10L)).thenReturn(artworkEntity(10L, 1));
-        when(artworkService.addArtwork(any(), eq(operator))).thenReturn(20L);
         ContentResourceVO current = service.get(ContentExternalService.ARTWORK, 10L, operator);
         ObjectNode patch = objectMapper.createObjectNode().put("title", "未审核的新标题");
 
         service.update(ContentExternalService.ARTWORK, 10L, current.getVersion(), patch, operator);
-        verify(artworkService, never()).updateArtwork(any(ArtworkUpdateRequest.class), any());
-        verify(artworkService).addArtwork(any(ArtworkAddRequest.class), eq(operator));
-        verify(draftBridgeService).create(eq(ContentExternalService.ARTWORK), eq(10L), eq(20L),
-                eq(current.getVersion()), eq(null), eq(operator.getId()));
+        ArgumentCaptor<ArtworkUpdateRequest> request = ArgumentCaptor.forClass(ArtworkUpdateRequest.class);
+        verify(artworkService).updateArtwork(request.capture(), eq(operator));
+        assertEquals(10L, request.getValue().getId());
+        assertEquals(0, request.getValue().getStatus());
+        assertEquals("未审核的新标题", request.getValue().getTitle());
+        verify(artworkService, never()).addArtwork(any(), any());
+        verify(draftBridgeService, never()).create(any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    void replacementDraftPublishCopiesCompleteDeconstructionPayload() {
-        ArtworkDetailVO targetDetail = artwork(10L, 1);
-        ArtworkDetailVO draftDetail = artwork(20L, 0);
-        Artwork target = artworkEntity(10L, 1);
-        target.setExternalKey("stable-key");
-        Artwork draft = artworkEntity(20L, 0);
-        draft.setIsDeconstructed(1);
-        draft.setDeconstructedPrompt("完整解构 Prompt");
-        draft.setPromptData("{\"rules\":{}}");
-        draft.setPartsData("{\"parts\":[]}");
-        draft.setAssetsData("{\"assets\":[]}");
-        draft.setStandaloneHtml("<!doctype html><html></html>");
+    void liveArtworkResourceIncludesCompleteDeconstructionPayload() {
+        Artwork entity = artworkEntity(10L, 1);
+        entity.setIsDeconstructed(1);
+        entity.setDeconstructedPrompt("完整解构 Prompt");
+        entity.setPromptData("{\"rules\":{}}");
+        entity.setPartsData("{\"parts\":[]}");
+        entity.setAssetsData("{\"assets\":[]}");
+        entity.setStandaloneHtml("<!doctype html><html></html>");
+        when(artworkService.getArtworkDetail(10L, operator, true)).thenReturn(artwork(10L, 1));
+        when(artworkService.getById(10L)).thenReturn(entity);
 
-        when(artworkService.getArtworkDetail(10L, operator, true)).thenReturn(targetDetail);
-        when(artworkService.getArtworkDetail(20L, operator, true)).thenReturn(draftDetail);
-        when(artworkService.getById(10L)).thenReturn(target);
-        when(artworkService.getById(20L)).thenReturn(draft);
-        ContentModuleDraftBridge bridge = new ContentModuleDraftBridge();
-        bridge.setResourceType(ContentExternalService.ARTWORK);
-        bridge.setTargetId(10L);
-        bridge.setDraftId(20L);
+        JsonNode resource = service.getLive(ContentExternalService.ARTWORK, 10L, operator).getResource();
 
-        service.applyReplacementDraft(bridge, operator);
-
-        ArgumentCaptor<ArtworkUpdateRequest> request = ArgumentCaptor.forClass(ArtworkUpdateRequest.class);
-        verify(artworkService).updateArtwork(request.capture(), eq(operator));
-        ArtworkUpdateRequest published = request.getValue();
-        assertEquals(10L, published.getId());
-        assertEquals(1, published.getStatus());
-        assertEquals("stable-key", published.getExternalKey());
-        assertEquals(1, published.getIsDeconstructed());
-        assertEquals("完整解构 Prompt", published.getDeconstructedPrompt());
-        assertEquals("{\"rules\":{}}", published.getPromptData());
-        assertEquals("{\"parts\":[]}", published.getPartsData());
-        assertEquals("{\"assets\":[]}", published.getAssetsData());
-        assertEquals("<!doctype html><html></html>", published.getStandaloneHtml());
-        verify(artworkService).deleteArtwork(20L);
+        assertEquals("完整解构 Prompt", resource.path("deconstructedPrompt").asText());
+        assertEquals("{\"rules\":{}}", resource.path("promptData").asText());
+        assertEquals("{\"parts\":[]}", resource.path("partsData").asText());
+        assertEquals("{\"assets\":[]}", resource.path("assetsData").asText());
+        assertEquals("<!doctype html><html></html>", resource.path("standaloneHtml").asText());
     }
 
     @Test
