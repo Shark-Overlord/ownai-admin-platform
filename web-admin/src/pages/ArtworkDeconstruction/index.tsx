@@ -10,6 +10,13 @@ type UnknownRecord = Record<string, unknown>;
 type ViewportSpec = { name: string; size: string; note?: string };
 type PromptToken = { label?: string; role?: string; value?: string; note?: string };
 type MotionSpec = { label?: string; desc?: string; token?: string };
+type RuleItem =
+  | string
+  | {
+      title?: string;
+      description?: string;
+      evidence?: string;
+    };
 type PromptData = {
   role?: string;
   layout?: string;
@@ -18,7 +25,7 @@ type PromptData = {
   colors?: PromptToken[];
   typography?: PromptToken[];
   motions?: MotionSpec[];
-  rules?: { dos?: string[]; donts?: string[] };
+  rules?: { dos?: RuleItem[]; donts?: RuleItem[] };
   rawMarkdown?: string;
 };
 type PartData = { id: string; targetId?: string; title?: string; tag?: string; desc?: string; code?: string };
@@ -38,6 +45,27 @@ function asRecord(value: unknown): UnknownRecord {
 
 function parsePrompt(value: unknown): PromptData {
   return asRecord(value) as PromptData;
+}
+
+function getRuleItemKey(ruleType: 'do' | 'dont', item: RuleItem, index: number) {
+  const title = typeof item === 'string' ? item : item.title || item.description || '';
+  return `${ruleType}-${index}-${title}`;
+}
+
+function RuleItemContent({ item }: { item: RuleItem }) {
+  if (typeof item === 'string') {
+    return <span className="dc-rule-content">{item}</span>;
+  }
+
+  const title = item.title?.trim();
+  const description = item.description?.trim();
+  const evidence = item.evidence?.trim();
+  return <span className="dc-rule-content">
+    {title && <strong>{title}</strong>}
+    {title && description ? '：' : null}
+    {description}
+    {evidence && <small>依据：{evidence}</small>}
+  </span>;
 }
 
 function parseParts(value: unknown): PartData[] {
@@ -182,7 +210,7 @@ function PromptPane({ prompt, fallback }: { prompt: PromptData; fallback: string
     <hr />
     <section className="dc-section"><h2>02. 交互控件与动效参数 (Motion Specs)</h2><div className="dc-motion-list">{(prompt.motions || []).map((motion, index) => <article key={`${motion.label}-${index}`}><i /><p><strong>{motion.label}</strong>：{motion.desc} (<code>{motion.token}</code>)。</p></article>)}</div></section>
     <hr />
-    <section className="dc-section dc-rules"><h2>03. 设计红线与约束 (Do's and Don'ts)</h2><h3 className="do">✅ Do (必须执行)</h3>{(prompt.rules?.dos || []).map((item) => <p key={item}><i className="do" />{item}</p>)}<h3 className="dont">❌ Don't (严禁行为)</h3>{(prompt.rules?.donts || []).map((item) => <p key={item}><i className="dont" />{item}</p>)}</section>
+    <section className="dc-section dc-rules"><h2>03. 设计红线与约束 (Do's and Don'ts)</h2><h3 className="do">✅ Do (必须执行)</h3>{(prompt.rules?.dos || []).map((item, index) => <p key={getRuleItemKey('do', item, index)}><i className="do" /><RuleItemContent item={item} /></p>)}<h3 className="dont">❌ Don't (严禁行为)</h3>{(prompt.rules?.donts || []).map((item, index) => <p key={getRuleItemKey('dont', item, index)}><i className="dont" /><RuleItemContent item={item} /></p>)}</section>
   </div>;
 }
 
