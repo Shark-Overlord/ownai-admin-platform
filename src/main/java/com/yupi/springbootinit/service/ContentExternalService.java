@@ -245,7 +245,7 @@ public class ContentExternalService {
         JsonNode resource;
         switch (type) {
             case ARTWORK:
-                resource = objectMapper.valueToTree(artworkService.getArtworkDetail(id, operator, true)); break;
+                resource = artworkResource(id, operator); break;
             case PROMPT_ASSET:
                 resource = objectMapper.valueToTree(promptAssetService.getPromptAssetVO(id)); break;
             case VIDEO_BACKGROUND:
@@ -266,6 +266,23 @@ public class ContentExternalService {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         return view(type, id, resource);
+    }
+
+    /**
+     * ArtworkDetailVO is intended for page rendering and does not expose every editable field.
+     * Replacement-draft publishing must use the persisted values for the complete writable
+     * contract, otherwise enabling deconstruction can be copied without its prompt payload.
+     */
+    private ObjectNode artworkResource(Long id, User operator) {
+        Artwork artwork = artworkService.getById(id);
+        if (artwork == null) throw notFound();
+        ObjectNode resource = objectMapper.valueToTree(artworkService.getArtworkDetail(id, operator, true));
+        ObjectNode persisted = objectMapper.valueToTree(artwork);
+        for (String field : UPDATE_WRITABLE.get(ARTWORK)) {
+            JsonNode value = persisted.get(field);
+            if (value != null) resource.set(field, value.deepCopy());
+        }
+        return resource;
     }
 
     @Transactional(rollbackFor = Exception.class)

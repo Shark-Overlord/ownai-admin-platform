@@ -16,6 +16,8 @@ import com.yupi.springbootinit.model.dto.artwork.ArtworkAddRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.dto.contentapi.ContentResourceQuery;
 import com.yupi.springbootinit.model.entity.ContentApiKey;
+import com.yupi.springbootinit.model.entity.ContentModuleDraftBridge;
+import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.model.vo.contentapi.ContentResourceVO;
@@ -64,6 +66,7 @@ class ContentExternalServiceTest {
         when(artworkService.addArtwork(any(), eq(operator))).thenReturn(10L);
         ArtworkDetailVO saved = artwork(10L, 0);
         when(artworkService.getArtworkDetail(10L, operator, true)).thenReturn(saved);
+        when(artworkService.getById(10L)).thenReturn(artworkEntity(10L, 0));
 
         service.add(ContentExternalService.ARTWORK, valid, operator);
         ArgumentCaptor<ArtworkAddRequest> request = ArgumentCaptor.forClass(ArtworkAddRequest.class);
@@ -79,6 +82,7 @@ class ContentExternalServiceTest {
     void publishedArtworkCreatesNativeDraftCloneInsteadOfOverwritingLiveRow() {
         ArtworkDetailVO published = artwork(10L, 1);
         when(artworkService.getArtworkDetail(10L, operator, true)).thenReturn(published);
+        when(artworkService.getById(10L)).thenReturn(artworkEntity(10L, 1));
         when(artworkService.addArtwork(any(), eq(operator))).thenReturn(20L);
         ContentResourceVO current = service.get(ContentExternalService.ARTWORK, 10L, operator);
         ObjectNode patch = objectMapper.createObjectNode().put("title", "未审核的新标题");
@@ -88,6 +92,46 @@ class ContentExternalServiceTest {
         verify(artworkService).addArtwork(any(ArtworkAddRequest.class), eq(operator));
         verify(draftBridgeService).create(eq(ContentExternalService.ARTWORK), eq(10L), eq(20L),
                 eq(current.getVersion()), eq(null), eq(operator.getId()));
+    }
+
+    @Test
+    void replacementDraftPublishCopiesCompleteDeconstructionPayload() {
+        ArtworkDetailVO targetDetail = artwork(10L, 1);
+        ArtworkDetailVO draftDetail = artwork(20L, 0);
+        Artwork target = artworkEntity(10L, 1);
+        target.setExternalKey("stable-key");
+        Artwork draft = artworkEntity(20L, 0);
+        draft.setIsDeconstructed(1);
+        draft.setDeconstructedPrompt("完整解构 Prompt");
+        draft.setPromptData("{\"rules\":{}}");
+        draft.setPartsData("{\"parts\":[]}");
+        draft.setAssetsData("{\"assets\":[]}");
+        draft.setStandaloneHtml("<!doctype html><html></html>");
+
+        when(artworkService.getArtworkDetail(10L, operator, true)).thenReturn(targetDetail);
+        when(artworkService.getArtworkDetail(20L, operator, true)).thenReturn(draftDetail);
+        when(artworkService.getById(10L)).thenReturn(target);
+        when(artworkService.getById(20L)).thenReturn(draft);
+        ContentModuleDraftBridge bridge = new ContentModuleDraftBridge();
+        bridge.setResourceType(ContentExternalService.ARTWORK);
+        bridge.setTargetId(10L);
+        bridge.setDraftId(20L);
+
+        service.applyReplacementDraft(bridge, operator);
+
+        ArgumentCaptor<ArtworkUpdateRequest> request = ArgumentCaptor.forClass(ArtworkUpdateRequest.class);
+        verify(artworkService).updateArtwork(request.capture(), eq(operator));
+        ArtworkUpdateRequest published = request.getValue();
+        assertEquals(10L, published.getId());
+        assertEquals(1, published.getStatus());
+        assertEquals("stable-key", published.getExternalKey());
+        assertEquals(1, published.getIsDeconstructed());
+        assertEquals("完整解构 Prompt", published.getDeconstructedPrompt());
+        assertEquals("{\"rules\":{}}", published.getPromptData());
+        assertEquals("{\"parts\":[]}", published.getPartsData());
+        assertEquals("{\"assets\":[]}", published.getAssetsData());
+        assertEquals("<!doctype html><html></html>", published.getStandaloneHtml());
+        verify(artworkService).deleteArtwork(20L);
     }
 
     @Test
@@ -106,6 +150,13 @@ class ContentExternalServiceTest {
         ArtworkDetailVO item = new ArtworkDetailVO();
         item.setId(id); item.setStatus(status); item.setTitle("原标题"); item.setCategoryId(1L);
         item.setMemberOnly(0); item.setSort(0);
+        return item;
+    }
+
+    private Artwork artworkEntity(Long id, int status) {
+        Artwork item = new Artwork();
+        item.setId(id); item.setStatus(status); item.setTitle("原标题"); item.setCategoryId(1L);
+        item.setMemberOnly(0); item.setSort(0); item.setIsDeconstructed(0);
         return item;
     }
 }
