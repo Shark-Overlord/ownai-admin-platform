@@ -5,6 +5,7 @@ import './index.css';
 
 type TabKey = 'prompt' | 'parts' | 'assets' | 'code';
 type DeviceKey = 'mobile' | 'tablet' | 'desktop';
+type MediaFilter = 'all' | 'video' | 'image';
 type UnknownRecord = Record<string, unknown>;
 
 type ViewportSpec = { name: string; size: string; note?: string };
@@ -444,10 +445,42 @@ function PartsPane({ parts, selected, onSelect }: { parts: PartData[]; selected:
 function AssetsPane({ assets, baseUrl }: { assets: AssetsData; baseUrl?: string }) {
   const icons = dedupeIconAssets(Array.isArray(assets.icons) ? assets.icons : []);
   const media = normalizeMediaAssets(Array.isArray(assets.media) ? assets.media : [], baseUrl);
+  const [mediaFilter, setMediaFilter] = useState<MediaFilter>('all');
+  const mediaWithIndex = useMemo(() => media.map((item, index) => ({
+    ...item,
+    assetKey: `${item.type || 'image'}-${index}-${item.title || item.url || 'asset'}`,
+  })), [media]);
+  const videoCount = mediaWithIndex.filter((item) => item.type === 'video').length;
+  const imageCount = mediaWithIndex.length - videoCount;
+  const filteredMedia = mediaFilter === 'all'
+    ? mediaWithIndex
+    : mediaWithIndex.filter((item) => item.type === mediaFilter);
+
   return <div className="dc-pane"><div className="dc-pane-title"><div><span className="dc-overline"># UI ASSETS · 设计素材库</span><p>展示右侧界面调用的全部矢量图标与图片视频资产</p></div></div>
     <section className="dc-assets-section"><div className="dc-subtitle"><b>01. 矢量图标 (Icons · {icons.length})</b><small>点击 Copy 获取代码</small></div><div className="dc-icon-grid">{icons.length ? icons.map((icon, index) => <article key={`${icon.name || 'icon'}-${index}`}><div className="dc-icon-preview"><AssetIconPreview icon={icon} /></div><div className="dc-asset-text"><h3>{icon.name}<span>{icon.library || 'Lucide'}</span></h3><p>{icon.label || icon.desc}</p></div><CopyButton compact text={icon.code || icon.svg || icon.name || ''} /></article>) : <p className="dc-muted">暂无独立声明图标</p>}</div></section>
     <hr />
-    <section className="dc-assets-section"><div className="dc-subtitle"><b>02. 视频与图片素材 (Media &amp; Images · {media.length || '无'})</b>{media.length > 0 && <small>点击 Copy 获取链接</small>}</div>{media.length ? <div className="dc-media-list">{media.map((item, index) => <article key={`${item.url}-${index}`}>{item.type === 'video' ? <div className="dc-media-video">▶</div> : <img src={item.url} alt={item.title || ''} />}<div className="dc-asset-text"><h3>{item.title}<span>{item.type === 'video' ? 'Video' : 'Image'}</span></h3><code>{item.url}</code><p>{item.desc}</p></div><CopyButton text={item.url || ''} /></article>)}</div> : <div className="dc-no-media"><span>外部视频与图片素材</span><b>无</b></div>}</section>
+    <section className="dc-assets-section">
+      <div className="dc-subtitle dc-media-header">
+        <b>02. 视频与图片素材 (Media · {mediaWithIndex.length})</b>
+        <small>支持大图检视、网格浏览与直链获取</small>
+      </div>
+      {mediaWithIndex.length > 0 && <div className="dc-media-filter-bar"><div className="dc-media-pills">
+        <button type="button" className={`dc-media-pill${mediaFilter === 'all' ? ' active' : ''}`} onClick={() => setMediaFilter('all')}>全部 <span className="dc-pill-num">{mediaWithIndex.length}</span></button>
+        <button type="button" className={`dc-media-pill${mediaFilter === 'video' ? ' active' : ''}`} onClick={() => setMediaFilter('video')}>视频 <span className="dc-pill-num">{videoCount}</span></button>
+        <button type="button" className={`dc-media-pill${mediaFilter === 'image' ? ' active' : ''}`} onClick={() => setMediaFilter('image')}>图片 <span className="dc-pill-num">{imageCount}</span></button>
+      </div></div>}
+      {filteredMedia.length ? <div className="dc-media-grid">{filteredMedia.map((item) => {
+        const isVideo = item.type === 'video';
+        return <article className="dc-media-card" key={item.assetKey}>
+          <div className="dc-media-card-actions"><CopyButton compact text={item.url || ''} /></div>
+          <div className="dc-media-card-content">
+            {isVideo
+              ? <video src={item.url} controls preload="metadata" playsInline className="dc-media-video-element" />
+              : <><img src={item.url} alt={item.title || '设计素材'} className="dc-media-image-element" loading="lazy" /><a href={item.url} target="_blank" rel="noopener noreferrer" className="dc-media-preview-overlay" title="在新标签页中查看原尺寸大图"><svg width="15" height="15" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /><path d="M11 8v6M8 11h6" /></svg><span>查看原图</span></a></>}
+          </div>
+        </article>;
+      })}</div> : <div className="dc-no-media"><span>{mediaWithIndex.length ? '暂无符合当前类型的素材' : '外部视频与图片素材'}</span><b>{mediaWithIndex.length ? '0' : '无'}</b></div>}
+    </section>
   </div>;
 }
 
