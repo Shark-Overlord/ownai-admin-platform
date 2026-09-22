@@ -55,6 +55,7 @@ type RuleItem =
       evidence?: string;
     };
 type PromptData = {
+  mode?: 'code-only';
   role?: string;
   layout?: string;
   customGuide?: UnknownRecord;
@@ -200,32 +201,10 @@ function buildMotionSentence(motion: MotionSpec) {
   return `${clauses.join('；').replace(/[。；]+$/, '')}。`;
 }
 
-function buildMotionCopyText(motion: MotionSpec) {
-  const title = motion.title || motion.label || '交互动效包';
-  const phases = Array.isArray(motion.phases) ? motion.phases : [];
-  const phaseText = phases.map((phase, index) => {
-    const changes = Array.isArray(phase.changes) ? phase.changes.join('；') : '';
-    return `${index + 1}. ${phase.component || '组件'} | ${phase.trigger || '状态变化'} | ${phase.duration || '未定义时长'}\n   ${changes}`;
-  }).join('\n');
-  return [
-    `【完整动效提示词 · ${title}】`,
-    `- 动效分类：${motion.category || '【按钮与链接反馈】'}`,
-    ...(motion.members?.length ? [`- 包含控件：${motion.members.join('、')}`] : []),
-    ...(phaseText ? [`- 分阶段变化：\n${phaseText}`] : []),
-    `- 交互提示词：${motion.promptSpeech || motion.desc || motion.actionChain || ''}`,
-    `- 动效代码：${motion.token || motion.code || ''}`,
-    `- 规范属性：${motion.metaLine || `${motion.area || '主体界面'}　${motion.trigger || '状态变化'}　${motion.duration || '平滑过渡'}`}`,
-  ].join('\n');
-}
-
-function MotionCard({ motion }: { motion: MotionSpec }) {
-  return <article className="dc-motion-card">
-    <div className="dc-motion-head">
-      <h3><i />{getMotionTitle(motion)}</h3>
-      <CopyButton compact label="复制动效参数" text={buildMotionCopyText(motion)} />
-    </div>
-    <p>{buildMotionSentence(motion)}</p>
-  </article>;
+function MotionListItem({ motion }: { motion: MotionSpec }) {
+  const description = buildMotionSentence(motion).replace(/[。；]+$/, '');
+  const token = motion.token || motion.code;
+  return <article><i /><p><strong>{getMotionTitle(motion)}</strong>：{description}{token && <> (<code>{token}</code>)</>}。</p></article>;
 }
 
 function formatRuleItemMarkdown(item: RuleItem) {
@@ -588,7 +567,7 @@ function PromptPane({
       </div>
     </section>
     <hr />
-    <section className="dc-section"><h2>02. 交互控件与动效参数 (Motion Specs)</h2><div className="dc-motion-list">{(prompt.motions || []).map((motion, index) => <MotionCard motion={motion} key={`${getMotionTitle(motion)}-${index}`} />)}</div></section>
+    <section className="dc-section"><h2>02. 交互控件与动效参数 (Motion Specs)</h2><div className="dc-motion-list">{(prompt.motions || []).map((motion, index) => <MotionListItem motion={motion} key={`${getMotionTitle(motion)}-${index}`} />)}</div></section>
     <hr />
     <section className="dc-section dc-rules"><h2>03. 设计红线与约束 (Do's and Don'ts)</h2><h3 className="do">✅ Do (必须执行)</h3>{(prompt.rules?.dos || []).map((item, index) => <p key={getRuleItemKey('do', item, index)}><i className="do" /><RuleItemContent item={item} /></p>)}<h3 className="dont">❌ Don't (严禁行为)</h3>{(prompt.rules?.donts || []).map((item, index) => <p key={getRuleItemKey('dont', item, index)}><i className="dont" /><RuleItemContent item={item} /></p>)}</section>
   </div>;
@@ -934,6 +913,9 @@ export default function ArtworkDeconstruction() {
   const prompt = useMemo(() => parsePrompt(data?.promptData), [data?.promptData]);
   const parts = useMemo(() => parseParts(data?.partsData), [data?.partsData]);
   const assets = useMemo(() => parseAssets(data?.assetsData), [data?.assetsData]);
+  const codeOnly = prompt.mode === 'code-only';
+  const activeTab: TabKey = codeOnly ? 'code' : tab;
+  const visibleTabs: TabKey[] = codeOnly ? ['code'] : ['prompt', 'parts', 'assets', 'code'];
   const deviceSizes = useMemo(() => getDeviceSizes(prompt.viewports), [prompt.viewports]);
   const size = deviceSizes[device];
   const showTitlebar = data?.deviceFrame !== 'none' && data?.deviceFrame !== 'app';
@@ -1022,7 +1004,7 @@ export default function ArtworkDeconstruction() {
   return <div className={`dc-workbench${dark ? ' dark' : ''}`}>
     <header className="dc-header"><a className="dc-brand" href="/frontend-prompts" title="返回前端提示词"><img src="/images/deconstruction-logo.png" alt="Ownai Logo" /><span>ownai</span></a><button className={`dc-theme-switch${dark ? ' active' : ''}`} type="button" role="switch" aria-checked={dark} onClick={toggleTheme} title={dark ? '当前为暗色主题，点击切换浅色主题' : '当前为浅色主题，点击切换暗色主题'}><i><SvgIcon name={dark ? 'moon' : 'sun'} size={12} /></i></button></header>
     <div className="dc-main">
-      <aside className="dc-sidebar"><nav className="dc-tabs">{(['prompt', 'parts', 'assets', 'code'] as TabKey[]).map((key) => <button type="button" className={tab === key ? 'active' : ''} onClick={() => changeTab(key)} key={key}>{key.toUpperCase()}</button>)}</nav><div className="dc-sidebar-scroll">{tab === 'prompt' && <PromptPane prompt={prompt} fallback={data.deconstructedPrompt || ''} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'parts' && <PartsPane parts={parts} selected={selectedPart} onSelect={selectPart} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'assets' && <AssetsPane assets={assets} baseUrl={data.htmlUrl || undefined} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{tab === 'code' && <CodePane code={data.standaloneHtml || ''} />}</div></aside>
+      <aside className="dc-sidebar"><nav className="dc-tabs">{visibleTabs.map((key) => <button type="button" className={activeTab === key ? 'active' : ''} onClick={() => changeTab(key)} key={key}>{key.toUpperCase()}</button>)}</nav><div className="dc-sidebar-scroll">{activeTab === 'prompt' && <PromptPane prompt={prompt} fallback={data.deconstructedPrompt || ''} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{activeTab === 'parts' && <PartsPane parts={parts} selected={selectedPart} onSelect={selectPart} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{activeTab === 'assets' && <AssetsPane assets={assets} baseUrl={data.htmlUrl || undefined} favoritedKeys={favoritedKeys} onToggleFavorite={handleToggleFavorite} />}{activeTab === 'code' && <CodePane code={data.standaloneHtml || ''} />}</div></aside>
       <main className="dc-canvas"><div className="dc-canvas-toolbar"><div className="dc-device-switcher" ref={deviceSwitcherRef}><span className="dc-device-indicator" ref={deviceIndicatorRef} aria-hidden="true" />{(['mobile', 'tablet', 'desktop'] as DeviceKey[]).map((key) => <button ref={(node) => { deviceButtonRefs.current[key] = node; }} type="button" className={device === key ? 'active' : ''} onClick={() => setDevice(key)} key={key}><SvgIcon name={key === 'desktop' ? 'monitor' : key} /><span>{key[0].toUpperCase() + key.slice(1)}</span></button>)}</div></div>
         <div className="dc-stage" ref={stageRef}><div className="dc-scaled-box" style={{ width: size.width, height: frameHeight, transform: `scale(${scale})` }}><div className={`dc-window-frame frame-${data.deviceFrame || 'website'}`} style={{ width: size.width, height: frameHeight }}>{showTitlebar && <div className="dc-titlebar"><div className="dc-traffic"><i /><i /><i /></div><span>ownai.icu</span><b /></div>}<iframe ref={iframeRef} src={previewUrl || undefined} srcDoc={previewUrl ? undefined : previewHtml} onLoad={handlePreviewLoad} referrerPolicy="no-referrer" title={`${data.title} 实机预览`} sandbox="allow-scripts allow-forms allow-modals" /></div></div></div>
       </main>
