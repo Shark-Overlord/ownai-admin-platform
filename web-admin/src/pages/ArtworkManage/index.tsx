@@ -41,6 +41,9 @@ export default function ArtworkManage() {
   const [sourceFileList, setSourceFileList] = useState<any[]>([]);
   const [previewImage, setPreviewImage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [activeTabKey, setActiveTabKey] = useState('1');
+  const [hasStandaloneHtml, setHasStandaloneHtml] = useState<boolean | null>(false);
+  const [saving, setSaving] = useState(false);
 
   const formatJson = (value: unknown) => value == null ? '' : JSON.stringify(value, null, 2);
   const validateJson = async (_: unknown, value?: string) => {
@@ -230,6 +233,7 @@ export default function ArtworkManage() {
           type="link"
           onClick={() => {
             setEditing(record);
+            setActiveTabKey('1');
             setModalVisible(true);
           }}
         >
@@ -254,6 +258,7 @@ export default function ArtworkManage() {
 
   useEffect(() => {
     if (modalVisible && editing) {
+      setHasStandaloneHtml(null);
       form.setFieldsValue({
         title: editing.title,
         summary: editing.summary,
@@ -276,6 +281,7 @@ export default function ArtworkManage() {
       void getArtworkDeconstruction(editing.id)
         .then((res) => {
           if (!active) return;
+          setHasStandaloneHtml(Boolean(res.data.standaloneHtml?.trim()));
           form.setFieldsValue({
             isDeconstructed: res.data.isDeconstructed === 1,
             deviceFrame: res.data.deviceFrame || 'website',
@@ -336,6 +342,7 @@ export default function ArtworkManage() {
       );
       return () => { active = false; };
     } else if (!modalVisible) {
+      setHasStandaloneHtml(false);
       setCoverFileList([]);
       setVideoFileList([]);
       setHtmlFileList([]);
@@ -350,17 +357,43 @@ export default function ArtworkManage() {
       isDeconstructed: values.isDeconstructed ? 1 : 0,
       tagIdList: values.tagIdList || [],
     };
-    if (editing) {
-      await updateArtwork({ ...payload, id: editing.id });
-      message.success('更新成功');
-    } else {
-      await addArtwork(payload);
-      message.success('添加成功');
+    setSaving(true);
+    try {
+      if (editing) {
+        await updateArtwork({ ...payload, id: editing.id });
+        message.success('更新成功');
+      } else {
+        await addArtwork(payload);
+        message.success('添加成功');
+      }
+      setModalVisible(false);
+      setEditing(null);
+      form.resetFields();
+      actionRef.current?.reload();
+    } finally {
+      setSaving(false);
     }
-    setModalVisible(false);
-    setEditing(null);
-    form.resetFields();
-    actionRef.current?.reload();
+  };
+
+  const handleSaveFailed = (errorInfo: { errorFields: Array<{ name: (string | number)[]; errors: string[] }> }) => {
+    const firstError = errorInfo.errorFields[0];
+    if (!firstError) return;
+    const fieldName = String(firstError.name[0] || '');
+    const fieldTabMap: Record<string, string> = {
+      promptContent: '2',
+      htmlUrl: '3',
+      deconstructedPrompt: '4',
+      promptData: '4',
+      partsData: '4',
+      assetsData: '4',
+      categoryId: '5',
+      tagIdList: '5',
+      cashPrice: '6',
+      pointsPrice: '6',
+    };
+    setActiveTabKey(fieldTabMap[fieldName] || '1');
+    message.warning(firstError.errors[0] || '请检查必填项');
+    window.setTimeout(() => form.scrollToField(firstError.name, { block: 'center' }), 0);
   };
 
   return (
@@ -395,6 +428,8 @@ export default function ArtworkManage() {
             type="primary"
             onClick={() => {
               setEditing(null);
+              setActiveTabKey('1');
+              setHasStandaloneHtml(false);
               form.resetFields();
               setModalVisible(true);
             }}
@@ -504,15 +539,22 @@ export default function ArtworkManage() {
             >
               取消
             </Button>
-            <Button type="primary" onClick={() => form.submit()}>
+            <Button type="primary" loading={saving} onClick={() => form.submit()}>
               保存
             </Button>
           </div>
         }
       >
-        <Form form={form} layout="vertical" onFinish={handleSave} initialValues={{ pointsPrice: 100, isDeconstructed: false, deviceFrame: 'website' }}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSave}
+          onFinishFailed={handleSaveFailed}
+          initialValues={{ pointsPrice: 100, isDeconstructed: false, deviceFrame: 'website' }}
+        >
           <Tabs
-            defaultActiveKey="1"
+            activeKey={activeTabKey}
+            onChange={setActiveTabKey}
             items={[
               {
                 key: '1',
@@ -637,7 +679,7 @@ export default function ArtworkManage() {
                       rules={[
                         ({ getFieldValue }) => ({
                           validator: async (_, value) => {
-                            if (getFieldValue('isDeconstructed') && !value) {
+                            if (getFieldValue('isDeconstructed') && !value && hasStandaloneHtml === false) {
                               throw new Error('启用深度解构前请上传独立 HTML');
                             }
                           },
