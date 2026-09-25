@@ -38,7 +38,8 @@ $BACKEND_API  = 'http://127.0.0.1:8011/api/user/get/login'
 
 function Invoke-RemoteBash {
     param([string]$Script)
-    $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Script))
+    $cleanScript = $Script -replace "`r", ""
+    $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($cleanScript))
     ssh $SSH_ALIAS "echo $b64 | base64 -d | bash"
     if ($LASTEXITCODE -ne 0) {
         throw "远程执行失败，退出码: $LASTEXITCODE"
