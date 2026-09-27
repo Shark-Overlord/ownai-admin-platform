@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   Bell,
   BellRing,
+  CheckCircle2,
+  Copy,
   ExternalLink,
   History,
+  MessageCircle,
   RefreshCw,
+  X,
 } from "lucide-react";
 import { Footer } from "@/components/home/Footer";
 import { Navbar } from "@/components/home/Navbar";
@@ -22,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
+const INITIAL_ANNOUNCEMENT_COUNT = 8;
 const NOTIFICATION_KEY = "ownai.codexReset.notificationEnabled";
 const LAST_SIGNAL_KEY = "ownai.codexReset.lastSignalId";
 const WEEKS_COUNT = 30; // 30 周自然跨越 3 月至 9 月，自然平铺填满右侧卡片宽度，无任何右侧死角与多余空白
@@ -145,6 +151,17 @@ export function CodexResetMonitorPage() {
   const [notif, setNotif] = useState(
     () => typeof window !== "undefined" && window.localStorage.getItem(NOTIFICATION_KEY) === "true"
   );
+  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
+  const [notificationNoticeOpen, setNotificationNoticeOpen] = useState(false);
+
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [wechatCopied, setWechatCopied] = useState(false);
+
+  const handleCopyWechat = async () => {
+    await navigator.clipboard.writeText("xh1092968780");
+    setWechatCopied(true);
+    window.setTimeout(() => setWechatCopied(false), 1800);
+  };
 
   // 求重置互动状态
   const [prayCount, setPrayCount] = useState<number>(() => {
@@ -250,18 +267,34 @@ export function CodexResetMonitorPage() {
     return () => clearInterval(timer);
   }, [loadData]);
 
-  const toggleNotification = async () => {
-    if (!notif) {
-      if (!("Notification" in window)) return;
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") return;
+  const confirmEnableNotification = async () => {
+    if (!("Notification" in window)) {
+      setNotificationNoticeOpen(false);
+      return;
+    }
+
+    const perm = await Notification.requestPermission();
+    if (perm === "granted") {
       window.localStorage.setItem(NOTIFICATION_KEY, "true");
       setNotif(true);
-    } else {
-      window.localStorage.setItem(NOTIFICATION_KEY, "false");
-      setNotif(false);
     }
+    setNotificationNoticeOpen(false);
   };
+
+  const toggleNotification = () => {
+    if (!notif) {
+      setNotificationNoticeOpen(true);
+      return;
+    }
+
+    window.localStorage.setItem(NOTIFICATION_KEY, "false");
+    setNotif(false);
+  };
+
+  const announcements = data?.announcements || [];
+  const visibleAnnouncements = showAllAnnouncements
+    ? announcements
+    : announcements.slice(0, INITIAL_ANNOUNCEMENT_COUNT);
 
   // 生成对齐且带月份的 22 周网格（自然填满，最右侧是当前最新周）
   const calendarWeeks = useMemo<CalendarWeek[]>(() => {
@@ -417,7 +450,61 @@ export function CodexResetMonitorPage() {
             正在拉取重置信号快照…
           </div>
         ) : data ? (
-          <div className="mt-6 space-y-5">
+          <div className="relative mt-6 space-y-5">
+            {/* 左侧大屏垂直广告位 (精简极简版) */}
+            <div className="hidden min-[1560px]:block absolute -left-[270px] min-[1780px]:-left-[314px] top-0 bottom-0 w-[250px] min-[1780px]:w-[290px] pointer-events-none">
+              <div className="sticky top-6 pointer-events-auto flex flex-col justify-between h-[520px] rounded-2xl border border-[var(--hero-border)] bg-[var(--hero-surface)] p-5 shadow-xs transition-all hover:border-[var(--hero-border-strong)] select-none">
+                <div className="flex items-center justify-between border-b border-[var(--hero-border)] pb-3 text-xs font-mono">
+                  <span className="font-semibold text-[var(--hero-ink)] tracking-wider">SPONSOR 01</span>
+                  <span className="text-[11px] text-[var(--hero-muted)]">招租中</span>
+                </div>
+
+                <div className="my-auto flex items-center justify-center text-center">
+                  <span className="text-sm font-semibold tracking-wider text-[var(--hero-ink)]">
+                    广告位
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-[var(--hero-border)]">
+                  <button
+                    type="button"
+                    onClick={() => setContactModalOpen(true)}
+                    className={cn(compactButtonBase, compactButtonPrimary, "w-full h-8 text-xs cursor-pointer font-medium gap-1.5 shadow-xs")}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    <span>咨询</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 右侧大屏垂直广告位 (精简极简版) */}
+            <div className="hidden min-[1560px]:block absolute -right-[270px] min-[1780px]:-right-[314px] top-0 bottom-0 w-[250px] min-[1780px]:w-[290px] pointer-events-none">
+              <div className="sticky top-6 pointer-events-auto flex flex-col justify-between h-[520px] rounded-2xl border border-[var(--hero-border)] bg-[var(--hero-surface)] p-5 shadow-xs transition-all hover:border-[var(--hero-border-strong)] select-none">
+                <div className="flex items-center justify-between border-b border-[var(--hero-border)] pb-3 text-xs font-mono">
+                  <span className="font-semibold text-[var(--hero-ink)] tracking-wider">SPONSOR 02</span>
+                  <span className="text-[11px] text-[var(--hero-muted)]">虚位以待</span>
+                </div>
+
+                <div className="my-auto flex items-center justify-center text-center">
+                  <span className="text-sm font-semibold tracking-wider text-[var(--hero-ink)]">
+                    广告位
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-[var(--hero-border)]">
+                  <button
+                    type="button"
+                    onClick={() => setContactModalOpen(true)}
+                    className={cn(compactButtonBase, compactButtonPrimary, "w-full h-8 text-xs cursor-pointer font-medium gap-1.5 shadow-xs")}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    <span>咨询</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* 上半部分双卡片 (优化布局，摒弃一切胶囊按钮) */}
             <div className="grid gap-5 lg:grid-cols-12">
               {/* 左卡：最新重置信号 (5 cols) */}
@@ -669,7 +756,7 @@ export function CodexResetMonitorPage() {
                     Codex 重置公告
                   </h2>
                   <span className="font-mono text-xs text-[var(--hero-muted)]">
-                    （{(data.announcements || []).length} 条动态）
+                    （{announcements.length} 条动态）
                   </span>
                 </div>
                 <a
@@ -683,7 +770,7 @@ export function CodexResetMonitorPage() {
               </div>
 
               <div className="mt-4 space-y-3">
-                {(data.announcements || []).map((a) => (
+                {visibleAnnouncements.map((a) => (
                   <article
                     key={a.id}
                     className="flex flex-col gap-2 rounded-xl border border-[var(--hero-border)] bg-[var(--hero-bg)]/40 p-4 transition-colors hover:border-[var(--hero-border-strong)]"
@@ -735,6 +822,20 @@ export function CodexResetMonitorPage() {
                   </article>
                 ))}
               </div>
+              {!showAllAnnouncements && announcements.length > INITIAL_ANNOUNCEMENT_COUNT ? (
+                <div className="mt-5 flex justify-center border-t border-[var(--hero-border)] pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllAnnouncements(true)}
+                    className={cn(compactButtonBase, compactButtonSecondary, "h-8.5 px-4 text-xs shadow-xs")}
+                  >
+                    显示更多
+                    <span className="font-mono text-[10px] text-[var(--hero-muted)]">
+                      还有 {announcements.length - INITIAL_ANNOUNCEMENT_COUNT} 条
+                    </span>
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {/* 底部信息 */}
@@ -759,6 +860,91 @@ export function CodexResetMonitorPage() {
           </div>
         )}
       </main>
+
+      {/* 浏览器提醒使用说明 */}
+      <DialogPrimitive.Root open={notificationNoticeOpen} onOpenChange={setNotificationNoticeOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-black/65 backdrop-blur-[3px]" />
+          <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-[100] w-[calc(100%-32px)] max-w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-white/10 bg-[#171717] p-6 text-white shadow-[0_24px_70px_rgba(0,0,0,0.48)] focus:outline-none">
+            <DialogPrimitive.Close asChild>
+              <button
+                type="button"
+                aria-label="关闭提醒说明"
+                className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-white/55 transition-colors hover:bg-white/8 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </DialogPrimitive.Close>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black">
+              <BellRing className="h-5 w-5" />
+            </div>
+            <DialogPrimitive.Title className="mt-5 text-[18px] font-semibold">
+              开启浏览器提醒
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="mt-2 text-[13px] leading-6 text-white/60">
+              页面会每 5 分钟检查一次重置信号。开启后请保持当前页面打开，可以放在后台标签页；关闭页面或浏览器后将无法收到提醒。
+            </DialogPrimitive.Description>
+            <div className="mt-6 flex justify-end gap-2">
+              <DialogPrimitive.Close asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center justify-center rounded-[8px] border border-white/12 px-3 text-[12px] font-medium text-white/70 transition-colors hover:bg-white/8 hover:text-white"
+                >
+                  暂不开启
+                </button>
+              </DialogPrimitive.Close>
+              <button
+                type="button"
+                onClick={() => void confirmEnableNotification()}
+                className="inline-flex h-9 items-center justify-center rounded-[8px] bg-white px-3 text-[12px] font-semibold text-black transition-colors hover:bg-white/88"
+              >
+                我知道了，继续开启
+              </button>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+
+      {/* 联系客服弹窗 */}
+      <DialogPrimitive.Root open={contactModalOpen} onOpenChange={setContactModalOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-black/65 backdrop-blur-[3px]" />
+          <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-[100] w-[calc(100%-32px)] max-w-[380px] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-white/10 bg-[#171717] p-6 text-white shadow-[0_24px_70px_rgba(0,0,0,0.48)] focus:outline-none">
+            <DialogPrimitive.Close asChild>
+              <button
+                type="button"
+                aria-label="关闭客服窗口"
+                className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-white/55 transition-colors hover:bg-white/8 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </DialogPrimitive.Close>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <DialogPrimitive.Title className="mt-5 text-[20px] font-semibold">
+              联系客服
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="mt-2 text-[13px] leading-6 text-white/58">
+              购买广告位或合作咨询，可以添加微信联系解决。
+            </DialogPrimitive.Description>
+            <div className="mt-5 flex items-center justify-between gap-3 rounded-[10px] border border-white/10 bg-white/[0.045] px-4 py-3">
+              <div>
+                <p className="text-[11px] text-white/45">微信号</p>
+                <p className="mt-1 text-[15px] font-medium text-white">xh1092968780</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleCopyWechat()}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[8px] bg-white px-3 text-[12px] font-semibold text-black transition-colors hover:bg-white/88"
+              >
+                {wechatCopied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {wechatCopied ? "已复制" : "复制"}
+              </button>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
       <Footer />
     </div>
