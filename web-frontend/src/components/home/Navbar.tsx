@@ -17,6 +17,7 @@ import {
   Sparkles,
   Sun,
   TimerReset,
+  Hash,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -227,6 +228,13 @@ export function Navbar() {
       to: "/codex-reset",
       requiresAuth: false,
     },
+    {
+      id: "trafficTags",
+      label: locale === "zh-CN" ? "流量标签" : "Traffic Tags",
+      icon: Hash,
+      to: "/traffic-tags",
+      requiresAuth: false,
+    },
   ] as const;
   const desktopNavItems = navItems.filter((item) => !["contact", "imageStudio", "videoBackground"].includes(item.id));
   const desktopContactItem = navItems.find((item) => item.id === "contact");
@@ -305,7 +313,7 @@ export function Navbar() {
       return;
     }
 
-    if (location.pathname === "/codex-reset") {
+    if (location.pathname === "/codex-reset" || location.pathname === "/traffic-tags") {
       setActiveId("profile");
       return;
     }
@@ -440,6 +448,8 @@ export function Navbar() {
   const renderCommunityNewsSelect = (mobile = false) => {
     const selected = location.pathname === "/codex-reset"
       ? communityNewsItems[1]
+      : location.pathname === "/traffic-tags"
+        ? communityNewsItems[2]
       : location.pathname === "/profile" || location.pathname === "/projects"
         ? communityNewsItems[0]
         : undefined;

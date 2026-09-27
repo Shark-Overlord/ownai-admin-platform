@@ -72,6 +72,16 @@ class ContentApiKeyServiceImplExternalTest {
                 Collections.singletonList(ContentApiKeyService.SCOPE_ARTWORK_READ)));
     }
 
+    @Test
+    void authenticatesTrafficTagUpdateScope() {
+        ContentApiKey key = key("traffic_tag:update", 1);
+        when(mapper.selectOne(any())).thenReturn(key);
+        when(mapper.selectOne(any(), org.mockito.ArgumentMatchers.anyBoolean())).thenReturn(key);
+        when(mapper.updateById(any(ContentApiKey.class))).thenReturn(1);
+        assertEquals(key, service.requireRequestKey(request,
+                Collections.singletonList(ContentApiKeyService.SCOPE_TRAFFIC_TAG_UPDATE)));
+    }
+
     private ContentApiKey key(String scopes, int status) {
         ContentApiKey key = new ContentApiKey();
         key.setId(1L); key.setScopes(scopes); key.setStatus(status); key.setCreateUserId(2L);

@@ -64,6 +64,12 @@ public interface ContentApiKeyService extends IService<ContentApiKey> {
 
     String SCOPE_CATEGORY_MANAGE = "category:manage";
 
+    String SCOPE_TRAFFIC_TAG_READ = "traffic_tag:read";
+
+    String SCOPE_TRAFFIC_TAG_ADD = "traffic_tag:add";
+
+    String SCOPE_TRAFFIC_TAG_UPDATE = "traffic_tag:update";
+
     ContentApiKeyCreateVO addKey(ContentApiKeyAddRequest request, User loginUser);
 
     Boolean updateKey(ContentApiKeyUpdateRequest request);

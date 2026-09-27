@@ -69,6 +69,9 @@ http://admin.ownai.icu/api
 | `prompt_asset:update` | 更新 Prompt 资产、更新标签、上传 Prompt 资产封面 |
 | `artwork:add` | 新增作品、上传作品封面/视频/Prompt 文件 |
 | `artwork:update` | 更新作品、上传作品封面/视频/Prompt 文件 |
+| `traffic_tag:read` | 查询流量标签数据与当前版本 |
+| `traffic_tag:add` | 新增公开流量标签，支持 `externalId` 幂等 |
+| `traffic_tag:update` | 按版本修改公开流量标签 |
 | `*` | 全部内容资产能力，仅限可信内部自动化 |
 
 推荐做法：

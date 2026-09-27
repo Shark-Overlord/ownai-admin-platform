@@ -60,7 +60,9 @@ public class ContentExternalController {
             ContentApiKeyService.SCOPE_TUTORIAL_READ, ContentApiKeyService.SCOPE_TUTORIAL_ADD,
             ContentApiKeyService.SCOPE_TUTORIAL_UPDATE, ContentApiKeyService.SCOPE_TUTORIAL_UPLOAD,
             ContentApiKeyService.SCOPE_TAXONOMY_READ,
-            ContentApiKeyService.SCOPE_CATEGORY_MANAGE);
+            ContentApiKeyService.SCOPE_CATEGORY_MANAGE,
+            ContentApiKeyService.SCOPE_TRAFFIC_TAG_READ, ContentApiKeyService.SCOPE_TRAFFIC_TAG_ADD,
+            ContentApiKeyService.SCOPE_TRAFFIC_TAG_UPDATE);
 
     @Resource private ContentApiKeyService contentApiKeyService;
     @Resource private ContentExternalService contentExternalService;

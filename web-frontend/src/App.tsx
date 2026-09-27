@@ -21,6 +21,7 @@ const TutorialPostPage = lazy(() => import("@/pages/TutorialPostPage").then(modu
 const VideoBackgroundLibraryPage = lazy(() => import("@/pages/VideoBackgroundLibraryPage").then(module => ({ default: module.VideoBackgroundLibraryPage })));
 const McpAuthPage = lazy(() => import("@/pages/McpAuthPage").then(module => ({ default: module.McpAuthPage })));
 const CodexResetMonitorPage = lazy(() => import("@/pages/CodexResetMonitorPage").then(module => ({ default: module.CodexResetMonitorPage })));
+const TrafficTagsPage = lazy(() => import("@/pages/TrafficTagsPage").then(module => ({ default: module.TrafficTagsPage })));
 import { useRobotsMeta } from "@/hooks/useDocumentMeta";
 import { useTheme } from "@/lib/theme";
 import { AnnouncementPopup } from "@/components/home/AnnouncementPopup";
@@ -31,6 +32,7 @@ function RouteRobotsPolicy() {
     location.pathname === "/" ||
     location.pathname === "/ownai-design" ||
     location.pathname === "/codex-reset" ||
+    location.pathname === "/traffic-tags" ||
     location.pathname === "/tutorials" ||
     location.pathname.startsWith("/tutorials/books/") ||
     location.pathname.startsWith("/tutorials/posts/");
@@ -56,6 +58,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/ownai-design" element={<OwnAIDesignPage />} />
       <Route path="/codex-reset" element={<CodexResetMonitorPage />} />
+      <Route path="/traffic-tags" element={<TrafficTagsPage />} />
       <Route path="/image-studio" element={<Navigate to="/image-studio-2" replace />} />
       <Route
         path="/image-studio-2"
