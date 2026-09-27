@@ -31,6 +31,7 @@ import BlogBookWorkspace from '../pages/BlogBookWorkspace';
 import AiConfigManage from '../pages/AiConfigManage';
 import HomeContentManage from '../pages/HomeContentManage';
 import ArtworkDeconstruction from '../pages/ArtworkDeconstruction';
+import TrafficTagManage from '../pages/TrafficTagManage';
 
 export const routes = [
   {
@@ -44,6 +45,7 @@ export const routes = [
     children: [
       { path: 'community/posts', element: <CommunityManage />, meta: { requiresAdmin: true } },
       { path: 'community/comments', element: <CommentManage />, meta: { requiresAdmin: true } },
+      { path: 'community/traffic-tags', element: <TrafficTagManage />, meta: { requiresAdmin: true } },
       {
         index: true,
         element: <Navigate to="/dashboard" replace />,
@@ -219,6 +221,7 @@ export const menuRoutes = [
     routes: [
       { path: '/community/posts', name: '新闻与帖子', icon: 'FileTextOutlined' },
       { path: '/community/comments', name: '评论管理', icon: 'ReadOutlined' },
+      { path: '/community/traffic-tags', name: '流量标签', icon: 'TagOutlined' },
     ],
   },
   {

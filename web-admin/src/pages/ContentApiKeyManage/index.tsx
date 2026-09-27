@@ -48,6 +48,9 @@ const scopeOptions = [
   { label: '教程资产新增', value: 'tutorial:add' },
   { label: '教程资产修改', value: 'tutorial:update' },
   { label: '教程资产上传', value: 'tutorial:upload' },
+  { label: '流量标签查询', value: 'traffic_tag:read' },
+  { label: '流量标签新增', value: 'traffic_tag:add' },
+  { label: '流量标签修改', value: 'traffic_tag:update' },
   { label: '全站分类与标签查询（含教程/作品/社区只读字典）', value: 'taxonomy:read' },
   { label: '作品分类与标签管理（增改分类及二级标签）', value: 'category:manage' },
 ];
@@ -102,6 +105,14 @@ const SCOPE_GROUPS: ScopeGroup[] = [
       { label: '教程新增', value: 'tutorial:add' },
       { label: '教程修改', value: 'tutorial:update' },
       { label: '教程上传', value: 'tutorial:upload' },
+    ],
+  },
+  {
+    title: '🔥 流量标签',
+    items: [
+      { label: '流量标签查询', value: 'traffic_tag:read' },
+      { label: '流量标签新增', value: 'traffic_tag:add' },
+      { label: '流量标签修改', value: 'traffic_tag:update' },
     ],
   },
   {

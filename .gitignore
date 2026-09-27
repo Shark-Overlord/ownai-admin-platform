@@ -7,6 +7,7 @@ target/
 **/.DS_Store
 .playwright-mcp/
 sql/*.sql
+!sql/traffic_tag_schema_and_seed.sql
 !sql/prompt_asset_schema.sql
 !sql/prompt_asset_cloud_fields_migration.sql
 !sql/image_generation_message.sql
@@ -187,3 +188,4 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+.firecrawl/

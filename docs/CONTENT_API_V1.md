@@ -34,6 +34,7 @@ community_post:read, community_post:add, community_post:update, community_post:u
 tutorial:read, tutorial:add, tutorial:update, tutorial:upload
 taxonomy:read
 category:manage
+traffic_tag:read, traffic_tag:add, traffic_tag:update
 ```
 
 ## 2. 接口总览
@@ -64,7 +65,11 @@ community_post
 tutorial_book
 tutorial_chapter
 tutorial_post
+traffic_tag
 ```
+
+`traffic_tag` 是公开流量标签运营数据，不走内容草稿发布流程。持有对应密钥的 Agent
+新增或修改后会立即影响公开页面，因此只应给可信自动化发放最小权限；接口不提供删除能力。
 
 统一返回格式：
 
@@ -90,6 +95,9 @@ curl -X POST "https://admin.ownai.icu/api/content/v1/resources/prompt_asset/list
 ```
 
 列表查询支持通用字段 `current`、`pageSize`、`keyword`、`status`、`categoryId`、`tagId`、`tagIdList`、`memberOnly`，教程还支持 `bookId`、`chapterId`，Prompt 支持 `assetType`。不适用于当前资源类型的筛选会被忽略。
+
+流量标签列表另外支持 `platform`、`category`、`enabled`。平台当前只接受
+`douyin`、`xiaohongshu`。
 
 详情响应包含：
 
@@ -181,6 +189,35 @@ curl -X POST "https://admin.ownai.icu/api/content/v1/resources/artwork" \
     "tagIdList":["15"]
   }'
 ```
+
+### 流量标签
+
+`externalId` 是 Agent 侧稳定唯一键，重复新增时返回已有记录，不会产生重复数据。
+
+```bash
+curl -X POST "https://admin.ownai.icu/api/content/v1/resources/traffic_tag" \
+  -H "X-Content-Asset-Key: $OWNAI_TRAFFIC_TAG_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "externalId":"douyin-agent-ai-topic-20260927",
+    "title":"抖音 AI 话题",
+    "platform":"douyin",
+    "category":"AI 工具",
+    "status":"active",
+    "dateLabel":"长期有效",
+    "heat":800,
+    "tags":["#我在抖音学AI"],
+    "requirements":[],
+    "description":"Agent 更新的流量标签",
+    "sourceUrl":"https://example.com/source",
+    "sortOrder":100,
+    "enabled":true,
+    "sourceUpdatedTime":"2026-09-27 16:00:00"
+  }'
+```
+
+修改前仍需先调用详情接口取得 `version`，再使用 `If-Match` 局部更新。可写字段不含
+`externalId`，避免自动任务改变幂等键。
 
 ### 教程书、章节和文章
 
@@ -300,6 +337,7 @@ curl -X DELETE "https://admin.ownai.icu/api/content/v1/categories/<CATEGORY_ID>/
 - Prompt、视频素材和教程文章的正式记录会显示“有未发布修改”，草稿副本显示“待更新已发布内容”。草稿创建后如果原线上记录又被其他操作修改，发布会提示冲突并整单回滚。
 - 已启用教程书的资料和章节结构目前仍拒绝通过 Agent 修改；它们需要按整本教程目录处理，不能复制单个章节到已启用目录后提前暴露。
 - 旧的作品和 Prompt 密钥写入接口仅作为迁移入口保留：密钥新增会被强制设为草稿，也不能通过 `status` 绕过发布。作品更新已发布内容时会自动下架同一作品；Prompt 仍不能通过旧接口覆盖已发布内容。
+- 流量标签是例外：它属于公开运营数据，`traffic_tag:add` 和 `traffic_tag:update` 会直接生效；统一接口不开放删除。
 
 ## 7. Agent 调用建议
 

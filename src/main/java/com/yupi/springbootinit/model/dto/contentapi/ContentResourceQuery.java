@@ -19,5 +19,8 @@ public class ContentResourceQuery extends PageRequest implements Serializable {
     private List<Long> tagIdList;
     private Integer memberOnly;
     private String assetType;
+    private String platform;
+    private String category;
+    private Boolean enabled;
     private static final long serialVersionUID = 1L;
 }

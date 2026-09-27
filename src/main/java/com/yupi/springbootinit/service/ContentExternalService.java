@@ -21,6 +21,9 @@ import com.yupi.springbootinit.model.dto.contentapi.ContentResourceQuery;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
+import com.yupi.springbootinit.model.dto.traffictag.TrafficTagAddRequest;
+import com.yupi.springbootinit.model.dto.traffictag.TrafficTagQueryRequest;
+import com.yupi.springbootinit.model.dto.traffictag.TrafficTagUpdateRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundAddRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundQueryRequest;
 import com.yupi.springbootinit.model.dto.videobackground.VideoBackgroundUpdateRequest;
@@ -31,6 +34,7 @@ import com.yupi.springbootinit.model.entity.BlogPost;
 import com.yupi.springbootinit.model.entity.ContentApiKey;
 import com.yupi.springbootinit.model.entity.ContentModuleDraftBridge;
 import com.yupi.springbootinit.model.entity.PromptAsset;
+import com.yupi.springbootinit.model.entity.TrafficTag;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.entity.VideoBackground;
 import com.yupi.springbootinit.model.enums.ArtworkStatusEnum;
@@ -38,6 +42,7 @@ import com.yupi.springbootinit.model.vo.contentapi.ContentResourceVO;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.model.vo.blog.BlogPostVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
+import com.yupi.springbootinit.model.vo.traffictag.TrafficTagVO;
 import com.yupi.springbootinit.model.vo.videobackground.VideoBackgroundVO;
 import com.yupi.springbootinit.service.community.CommunityPostService;
 import com.yupi.springbootinit.service.community.CommunityTaxonomyService;
@@ -80,10 +85,11 @@ public class ContentExternalService {
     public static final String TUTORIAL_BOOK = "tutorial_book";
     public static final String TUTORIAL_CHAPTER = "tutorial_chapter";
     public static final String TUTORIAL_POST = "tutorial_post";
+    public static final String TRAFFIC_TAG = "traffic_tag";
 
     private static final Set<String> TYPES = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
             ARTWORK, PROMPT_ASSET, VIDEO_BACKGROUND, COMMUNITY_POST,
-            TUTORIAL_BOOK, TUTORIAL_CHAPTER, TUTORIAL_POST)));
+            TUTORIAL_BOOK, TUTORIAL_CHAPTER, TUTORIAL_POST, TRAFFIC_TAG)));
     private static final Set<String> BRIDGED_TYPES = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
             PROMPT_ASSET, VIDEO_BACKGROUND, TUTORIAL_POST)));
 
@@ -105,6 +111,7 @@ public class ContentExternalService {
     @Resource private CategoryTagMapper categoryTagMapper;
     @Resource private CommunityPostService communityPostService;
     @Resource private CommunityTaxonomyService communityTaxonomyService;
+    @Resource private TrafficTagService trafficTagService;
     @Resource private ContentMarkdownService contentMarkdownService;
     @Resource private ContentModuleDraftBridgeService draftBridgeService;
 
@@ -146,6 +153,8 @@ public class ContentExternalService {
             contract.put("newStatus", draftLabel(type));
             contract.put("publishedUpdate", ARTWORK.equals(type)
                     ? "supported: update the same artwork row and move it to draft status"
+                    : TRAFFIC_TAG.equals(type)
+                    ? "supported: operational data is updated live after version validation"
                     : COMMUNITY_POST.equals(type)
                     ? "supported: the existing published revision stays online"
                     : BRIDGED_TYPES.contains(type)
@@ -211,6 +220,11 @@ public class ContentExternalService {
                 Page<BlogPostVO> postPage = blogPostService.listAdminPosts(post);
                 draftBridgeService.annotateAdminResources(type, postPage.getRecords());
                 return postPage;
+            case TRAFFIC_TAG:
+                TrafficTagQueryRequest traffic = new TrafficTagQueryRequest();
+                copyPage(q, traffic); traffic.setKeyword(q.getKeyword()); traffic.setPlatform(q.getPlatform());
+                traffic.setCategory(q.getCategory()); traffic.setStatus(q.getStatus()); traffic.setEnabled(q.getEnabled());
+                return trafficTagService.listAdminByPage(traffic);
             default:
                 throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -264,6 +278,8 @@ public class ContentExternalService {
                 resource = chapter(id); break;
             case TUTORIAL_POST:
                 resource = objectMapper.valueToTree(blogPostService.getAdminPost(id)); break;
+            case TRAFFIC_TAG:
+                resource = objectMapper.valueToTree(trafficTagService.getTrafficTag(id)); break;
             default:
                 throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -368,6 +384,22 @@ public class ContentExternalService {
                 BlogPostAddRequest post = tutorialPost(payload, BlogPostAddRequest.class);
                 post.setStatus("draft");
                 id = blogPostService.addPost(post, operator); break;
+            case TRAFFIC_TAG:
+                TrafficTagAddRequest traffic = convert(payload, TrafficTagAddRequest.class);
+                if (StringUtils.isNotBlank(traffic.getExternalId())) {
+                    String extId = StringUtils.trim(traffic.getExternalId());
+                    traffic.setExternalId(extId);
+                    externalId = extId;
+                    TrafficTag existing = trafficTagService.lambdaQuery()
+                            .eq(TrafficTag::getSeedKey, extId).one();
+                    if (existing != null) {
+                        ContentResourceVO vo = get(type, existing.getId(), operator);
+                        vo.setExternalId(extId);
+                        vo.setCreated(false);
+                        return vo;
+                    }
+                }
+                id = trafficTagService.addTrafficTag(traffic); break;
             default:
                 throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -384,7 +416,8 @@ public class ContentExternalService {
         ContentResourceVO current = get(type, id, operator);
         verifyVersion(baseVersion, current.getVersion());
         ObjectNode patch = validateFields(type, fields, false);
-        if (targetBridge == null && !COMMUNITY_POST.equals(type) && !isNativeDraft(type, current.getResource())) {
+        if (targetBridge == null && !COMMUNITY_POST.equals(type) && !TRAFFIC_TAG.equals(type)
+                && !isNativeDraft(type, current.getResource())) {
             if (ARTWORK.equals(type)) {
                 // Artwork uses a single-row lifecycle: editing a published row moves that same id back to draft.
             } else if (BRIDGED_TYPES.contains(type)) {
@@ -428,6 +461,9 @@ public class ContentExternalService {
                 BlogPostUpdateRequest post = tutorialPost(merged, BlogPostUpdateRequest.class);
                 post.setId(editId); post.setVersion(current.getResource().path("version").asInt()); post.setStatus("draft");
                 blogPostService.updatePost(post); break;
+            case TRAFFIC_TAG:
+                TrafficTagUpdateRequest traffic = convert(merged, TrafficTagUpdateRequest.class);
+                traffic.setId(id); trafficTagService.updateTrafficTag(traffic); break;
             default:
                 throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -884,6 +920,7 @@ public class ContentExternalService {
 
     private String draftLabel(String type) {
         if (TUTORIAL_BOOK.equals(type) || TUTORIAL_CHAPTER.equals(type)) return "disabled tutorial workspace";
+        if (TRAFFIC_TAG.equals(type)) return "live operational data";
         return "draft";
     }
 
@@ -910,6 +947,11 @@ public class ContentExternalService {
         result.put(TUTORIAL_CHAPTER, set("bookId", "title", "description", "sort"));
         result.put(TUTORIAL_POST, set("categoryId", "chapterId", "tagIds", "title", "slug", "summary",
                 "coverUrl", "markdown", "contentJson", "visibility", "memberOnly", "seoTitle", "seoDescription"));
+        result.put(TRAFFIC_TAG, creating
+                ? set("externalId", "title", "platform", "category", "status", "dateLabel", "heat", "tags",
+                "requirements", "description", "sourceUrl", "sortOrder", "enabled", "sourceUpdatedTime")
+                : set("title", "platform", "category", "status", "dateLabel", "heat", "tags", "requirements",
+                "description", "sourceUrl", "sortOrder", "enabled", "sourceUpdatedTime"));
         return Collections.unmodifiableMap(result);
     }
 

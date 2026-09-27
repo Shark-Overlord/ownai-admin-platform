@@ -16,11 +16,13 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkAddRequest;
 import com.yupi.springbootinit.model.dto.artwork.ArtworkUpdateRequest;
 import com.yupi.springbootinit.model.dto.contentapi.ContentResourceQuery;
+import com.yupi.springbootinit.model.dto.traffictag.TrafficTagUpdateRequest;
 import com.yupi.springbootinit.model.entity.ContentApiKey;
 import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.model.vo.contentapi.ContentResourceVO;
+import com.yupi.springbootinit.model.vo.traffictag.TrafficTagVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +35,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class ContentExternalServiceTest {
     @Mock private UserService userService;
     @Mock private ArtworkService artworkService;
+    @Mock private TrafficTagService trafficTagService;
     @Mock private ContentModuleDraftBridgeService draftBridgeService;
     private ContentExternalService service;
     private ObjectMapper objectMapper;
@@ -46,6 +49,7 @@ class ContentExternalServiceTest {
         ReflectionTestUtils.setField(service, "objectMapper", objectMapper);
         ReflectionTestUtils.setField(service, "userService", userService);
         ReflectionTestUtils.setField(service, "artworkService", artworkService);
+        ReflectionTestUtils.setField(service, "trafficTagService", trafficTagService);
         ReflectionTestUtils.setField(service, "draftBridgeService", draftBridgeService);
     }
 
@@ -127,6 +131,27 @@ class ContentExternalServiceTest {
         assertEquals(page, service.list(ContentExternalService.ARTWORK, new ContentResourceQuery(), operator));
 
         verify(draftBridgeService).annotateAdminResources(ContentExternalService.ARTWORK, page.getRecords());
+    }
+
+    @Test
+    void trafficTagUpdateIsVersionCheckedAndAppliedDirectly() {
+        TrafficTagVO saved = new TrafficTagVO();
+        saved.setId(21L); saved.setExternalId("douyin-agent-21"); saved.setTitle("原标题");
+        saved.setPlatform("douyin"); saved.setCategory("AI 教程"); saved.setStatus("active");
+        saved.setHeat(100); saved.setSortOrder(10); saved.setEnabled(true);
+        saved.setTags(java.util.Collections.singletonList("#AI教程"));
+        saved.setRequirements(java.util.Collections.emptyList());
+        when(trafficTagService.getTrafficTag(21L)).thenReturn(saved);
+
+        ContentResourceVO current = service.get(ContentExternalService.TRAFFIC_TAG, 21L, operator);
+        ObjectNode patch = objectMapper.createObjectNode().put("heat", 880);
+        service.update(ContentExternalService.TRAFFIC_TAG, 21L, current.getVersion(), patch, operator);
+
+        ArgumentCaptor<TrafficTagUpdateRequest> request = ArgumentCaptor.forClass(TrafficTagUpdateRequest.class);
+        verify(trafficTagService).updateTrafficTag(request.capture());
+        assertEquals(21L, request.getValue().getId());
+        assertEquals(880, request.getValue().getHeat());
+        assertEquals("原标题", request.getValue().getTitle());
     }
 
     private ArtworkDetailVO artwork(Long id, int status) {
