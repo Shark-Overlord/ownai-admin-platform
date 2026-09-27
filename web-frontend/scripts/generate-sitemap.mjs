@@ -53,6 +53,7 @@ try {
   const urls = [
     `${siteUrl}/`,
     `${siteUrl}/ownai-design`,
+    `${siteUrl}/codex-reset`,
     `${siteUrl}/tutorials`,
     ...books
       .filter((book) => publicBookIds.has(String(book.id)))

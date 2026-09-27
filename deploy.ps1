@@ -36,6 +36,16 @@ $ADMIN_PATH   = '/www/wwwroot/springboot-init-admin'
 $FRONTEND_PATH= '/www/wwwroot/ownai'
 $BACKEND_API  = 'http://127.0.0.1:8011/api/user/get/login'
 
+function Invoke-RemoteBash {
+    param([string]$Script)
+    $cleanScript = $Script -replace "`r", ""
+    $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($cleanScript))
+    ssh $SSH_ALIAS "echo $b64 | base64 -d | bash"
+    if ($LASTEXITCODE -ne 0) {
+        throw "远程执行失败，退出码: $LASTEXITCODE"
+    }
+}
+
 # 自动探测并设置 JAVA_HOME
 if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\java.exe")) {
     if (Test-Path "C:\Program Files\Java\jdk-17\bin\java.exe") {
@@ -72,7 +82,7 @@ if ($Admin)    { $backupLines += "tar -czf '$releasePath/admin.before.tar.gz' -C
 if ($Frontend) { $backupLines += "tar -czf '$releasePath/frontend.before.tar.gz' -C '$FRONTEND_PATH' . && echo 'Frontend backed up'" }
 $backupLines += "echo '备份目录: $releasePath'"
 
-ssh $SSH_ALIAS ($backupLines -join '; ')
+Invoke-RemoteBash ($backupLines -join "`n")
 Write-Host "✓ 备份完成" -ForegroundColor Green
 Write-Host ""
 
@@ -128,7 +138,7 @@ done
 systemctl status springboot-init --no-pager || true
 exit 1
 "@
-    ssh $SSH_ALIAS $restartScript
+    Invoke-RemoteBash $restartScript
     Write-Host "  ✓ 后端部署完成" -ForegroundColor Green
 }
 
@@ -147,7 +157,7 @@ find '$ADMIN_PATH' -type d -exec chmod 755 {} + 2>/dev/null || true
 find '$ADMIN_PATH' -type f -exec chmod 644 {} + 2>/dev/null || true
 rm -rf /tmp/admin_unpack /tmp/admin_dist.tar.gz
 "@
-        ssh $SSH_ALIAS $deployAdminScript
+        Invoke-RemoteBash $deployAdminScript
         Write-Host "  ✓ web-admin 部署完成" -ForegroundColor Green
     } finally {
         if (Test-Path $tarPath) { Remove-Item -Force $tarPath }
@@ -175,7 +185,7 @@ find '$FRONTEND_PATH' -type d -exec chmod 755 {} + 2>/dev/null || true
 find '$FRONTEND_PATH' -type f -exec chmod 644 {} + 2>/dev/null || true
 rm -rf /tmp/frontend_unpack /tmp/frontend_dist.tar.gz
 "@
-        ssh $SSH_ALIAS $deployFrontendScript
+        Invoke-RemoteBash $deployFrontendScript
         Write-Host "  ✓ web-frontend 部署完成" -ForegroundColor Green
     } finally {
         if (Test-Path $tarPath) { Remove-Item -Force $tarPath }
@@ -189,7 +199,7 @@ $hashParts = @()
 if ($Backend)  { $hashParts += "sha256sum '$BACKEND_PATH/app.jar'" }
 if ($Admin)    { $hashParts += "sha256sum '$ADMIN_PATH/index.html'" }
 if ($Frontend) { $hashParts += "sha256sum '$FRONTEND_PATH/index.html'" }
-ssh $SSH_ALIAS ("set -euo pipefail; " + ($hashParts -join '; '))
+Invoke-RemoteBash ("set -euo pipefail`n" + ($hashParts -join "`n"))
 Write-Host ""
 
 # Step 5: 输出回退命令

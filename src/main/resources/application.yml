@@ -56,6 +56,17 @@ site:
     aggregate-cron: ${SITE_ANALYTICS_AGGREGATE_CRON:0 */5 * * * ?}
     cleanup-cron: ${SITE_ANALYTICS_CLEANUP_CRON:0 30 3 * * ?}
 
+codex:
+  reset-monitor:
+    enabled: ${CODEX_RESET_MONITOR_ENABLED:true}
+    source-url: ${CODEX_RESET_MONITOR_SOURCE_URL:https://betteropc.com/ai-products/reset-signals/codex}
+    history-url: ${CODEX_RESET_MONITOR_HISTORY_URL:https://betteropc.com/api/browser/product-tracking/codex/history}
+    history-months: ${CODEX_RESET_MONITOR_HISTORY_MONTHS:12}
+    refresh-interval-ms: ${CODEX_RESET_MONITOR_REFRESH_INTERVAL_MS:600000}
+    initial-delay-ms: ${CODEX_RESET_MONITOR_INITIAL_DELAY_MS:3000}
+    request-timeout-ms: ${CODEX_RESET_MONITOR_REQUEST_TIMEOUT_MS:15000}
+    stale-after-ms: ${CODEX_RESET_MONITOR_STALE_AFTER_MS:1800000}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: false
