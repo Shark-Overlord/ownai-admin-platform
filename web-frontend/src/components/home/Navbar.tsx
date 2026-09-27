@@ -13,8 +13,10 @@ import {
   Mail,
   Menu,
   Moon,
+  Newspaper,
   Sparkles,
   Sun,
+  TimerReset,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -81,7 +83,7 @@ const NAV_COPY = {
     videoBackground: "Motion Backgrounds",
     promptLibrary: "Prompt Library",
     tutorials: "VibeCoding Tutorials",
-    profile: "My Community",
+    profile: "Community News",
     contact: "Contact Us",
     pricing: "Pricing",
     login: "Log in",
@@ -101,7 +103,7 @@ const NAV_COPY = {
     promptLibrary: "提示词库",
     tutorials: "VibeCoding教程",
     home: "首页",
-    profile: "我的社区",
+    profile: "社区资讯",
     contact: "联系我们",
     pricing: "项目套餐",
     login: "登录",
@@ -167,6 +169,9 @@ export function Navbar() {
   const [isPromptMenuOpen, setIsPromptMenuOpen] = useState(false);
   const promptMenuRef = useRef<HTMLDivElement>(null);
   const promptTriggerRef = useRef<HTMLButtonElement>(null);
+  const [isCommunityMenuOpen, setIsCommunityMenuOpen] = useState(false);
+  const communityMenuRef = useRef<HTMLDivElement>(null);
+  const communityTriggerRef = useRef<HTMLButtonElement>(null);
   const [loginUser, setLoginUser] = useState<PersistedLoginUser | null>(
     () => getPersistedLoginUser() as PersistedLoginUser | null,
   );
@@ -204,9 +209,25 @@ export function Navbar() {
       to: "/tutorials",
     },
     { id: "pricing", label: copy.pricing, icon: CreditCard, to: "/pricing" },
-    { id: "profile", label: copy.profile, icon: UserRound, to: "/profile" },
+    { id: "profile", label: copy.profile, icon: Newspaper, to: "/profile" },
   ];
   const promptLibraryItems = navItems.filter(item => ["frontendPrompts", "imageStudio", "videoBackground"].includes(item.id));
+  const communityNewsItems = [
+    {
+      id: "updates",
+      label: locale === "zh-CN" ? "动态" : "Updates",
+      icon: Newspaper,
+      to: "/profile?tab=news",
+      requiresAuth: true,
+    },
+    {
+      id: "codexReset",
+      label: locale === "zh-CN" ? "Codex 重置" : "Codex Reset",
+      icon: TimerReset,
+      to: "/codex-reset",
+      requiresAuth: false,
+    },
+  ] as const;
   const desktopNavItems = navItems.filter((item) => !["contact", "imageStudio", "videoBackground"].includes(item.id));
   const desktopContactItem = navItems.find((item) => item.id === "contact");
   const hasUnreadAnnouncements = unreadAnnouncementCount > 0;
@@ -281,6 +302,11 @@ export function Navbar() {
 
     if (location.pathname.startsWith("/tutorials")) {
       setActiveId("tutorials");
+      return;
+    }
+
+    if (location.pathname === "/codex-reset") {
+      setActiveId("profile");
       return;
     }
 
@@ -411,6 +437,175 @@ export function Navbar() {
     );
   };
 
+  const renderCommunityNewsSelect = (mobile = false) => {
+    const selected = location.pathname === "/codex-reset"
+      ? communityNewsItems[1]
+      : location.pathname === "/profile" || location.pathname === "/projects"
+        ? communityNewsItems[0]
+        : undefined;
+
+    const handleSelection = (item: (typeof communityNewsItems)[number]) => {
+      if (item.requiresAuth && !loginUser) {
+        navigate("/auth/login", { state: { redirectTo: item.to } });
+        setActiveId("");
+      } else {
+        navigate(item.to);
+        setActiveId("profile");
+      }
+
+      setIsCommunityMenuOpen(false);
+      if (mobile) {
+        setIsMobileSheetOpen(false);
+      }
+    };
+
+    if (!mobile) {
+      return (
+        <div
+          key="community-news"
+          ref={communityMenuRef}
+          className="relative shrink-0"
+          onMouseEnter={() => {
+            setIsCommunityMenuOpen(true);
+            setHoveredId(null);
+          }}
+          onMouseLeave={() => setIsCommunityMenuOpen(false)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setIsCommunityMenuOpen(false);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setIsCommunityMenuOpen(false);
+              communityTriggerRef.current?.focus();
+            }
+            if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+              event.preventDefault();
+              setIsCommunityMenuOpen(true);
+              requestAnimationFrame(() => {
+                const items = Array.from(
+                  communityMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') || [],
+                );
+                const index = items.indexOf(document.activeElement as HTMLButtonElement);
+                const next = event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? items.length - 1
+                    : event.key === "ArrowDown"
+                      ? (index + 1) % items.length
+                      : (index <= 0 ? items.length : index) - 1;
+                items[next]?.focus();
+              });
+            }
+          }}
+        >
+          <button
+            ref={communityTriggerRef}
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={isCommunityMenuOpen}
+            aria-controls="desktop-community-news-menu"
+            onClick={() => setIsCommunityMenuOpen((open) => !open)}
+            className={cn(
+              "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--hero-ink)]/15",
+              selected || isCommunityMenuOpen ? "text-[var(--hero-ink)]" : "text-[var(--hero-muted)]",
+            )}
+          >
+            <Newspaper className="h-3.5 w-3.5" />
+            <span className={desktopNavLabelClass}>{copy.profile}</span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isCommunityMenuOpen && "rotate-180")} />
+          </button>
+          {isCommunityMenuOpen ? (
+            <div className="absolute left-0 top-full z-[70] min-w-[190px] pt-2">
+              <div
+                id="desktop-community-news-menu"
+                role="menu"
+                aria-label={copy.profile}
+                className="rounded-[10px] border border-[var(--hero-border)] bg-[var(--hero-surface)] p-1 shadow-lg"
+              >
+                {communityNewsItems.map((item) => {
+                  const Icon = item.icon;
+
+                  return (
+                    <button
+                      key={item.id}
+                      role="menuitem"
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => handleSelection(item)}
+                      className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-[6px] px-3 text-left text-[var(--hero-ink)] hover:bg-[var(--hero-ink)]/[0.06] focus-visible:bg-[var(--hero-ink)]/[0.06] focus-visible:outline-none"
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span className="whitespace-nowrap text-[14px]">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+
+    return (
+      <Select
+        key="community-news"
+        value={selected?.id || ""}
+        onValueChange={(value) => {
+          const item = communityNewsItems.find((option) => option.id === value);
+
+          if (!item) {
+            return;
+          }
+
+          handleSelection(item);
+        }}
+      >
+        <SelectTrigger
+          aria-label={copy.profile}
+          className={cn(
+            "h-8 w-auto justify-between gap-1.5 border-transparent bg-transparent px-3 shadow-none hover:bg-[var(--hero-ink)]/[0.045]",
+            mobile
+              ? "w-full rounded-[8px] border-[var(--hero-ink)]/8 bg-[var(--hero-surface)]/80 px-2.5"
+              : "rounded-full",
+            selected || mobile ? "text-[var(--hero-ink)]" : "text-[var(--hero-muted)]",
+          )}
+        >
+          <span className={cn("relative inline-flex items-center gap-1.5", mobile ? mobileNavLabelClass : desktopNavLabelClass)}>
+            <Newspaper className="h-3.5 w-3.5" />
+            {copy.profile}
+            {selected && !mobile ? (
+              <span className="absolute bottom-[-2px] left-1/2 h-[2px] w-3 rounded-full bg-current opacity-80" />
+            ) : null}
+          </span>
+        </SelectTrigger>
+        <SelectContent
+          className="min-w-[190px] rounded-[10px] border-[var(--hero-border)] bg-[var(--hero-surface)] p-1 text-[var(--hero-ink)] shadow-lg"
+          sideOffset={8}
+        >
+          {communityNewsItems.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <SelectItem
+                key={item.id}
+                value={item.id}
+                className="min-h-9 rounded-[6px] py-2 text-[14px] data-[highlighted]:bg-[var(--hero-ink)]/[0.06]"
+              >
+                <span className="inline-flex items-center gap-2 text-[14px]">
+                  <Icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </span>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+    );
+  };
+
   const handleLoginClick = () => {
     navigate("/auth/login");
   };
@@ -511,6 +706,7 @@ export function Navbar() {
             <div className="inline-flex items-center gap-1 rounded-full border border-[var(--hero-ink)]/6 bg-[var(--hero-surface)]/66 p-1 backdrop-blur-[10px]">
               {desktopNavItems.map((item) => {
                 if (item.id === "frontendPrompts") return renderPromptLibrarySelect();
+                if (item.id === "profile") return renderCommunityNewsSelect();
                 const Icon = item.icon;
                 const isActive = activeId === item.id;
                 const isHighlighted = highlightedId === item.id;
@@ -794,6 +990,7 @@ export function Navbar() {
                   </div>
                   {desktopNavItems.map((item) => {
                     if (item.id === "frontendPrompts") return renderPromptLibrarySelect(true);
+                    if (item.id === "profile") return renderCommunityNewsSelect(true);
                     const Icon = item.icon;
                     const isActive = activeId === item.id;
 

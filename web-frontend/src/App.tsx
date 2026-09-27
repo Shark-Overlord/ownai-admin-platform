@@ -20,6 +20,7 @@ const TutorialLibraryPage = lazy(() => import("@/pages/TutorialLibraryPage").the
 const TutorialPostPage = lazy(() => import("@/pages/TutorialPostPage").then(module => ({ default: module.TutorialPostPage })));
 const VideoBackgroundLibraryPage = lazy(() => import("@/pages/VideoBackgroundLibraryPage").then(module => ({ default: module.VideoBackgroundLibraryPage })));
 const McpAuthPage = lazy(() => import("@/pages/McpAuthPage").then(module => ({ default: module.McpAuthPage })));
+const CodexResetMonitorPage = lazy(() => import("@/pages/CodexResetMonitorPage").then(module => ({ default: module.CodexResetMonitorPage })));
 import { useRobotsMeta } from "@/hooks/useDocumentMeta";
 import { useTheme } from "@/lib/theme";
 import { AnnouncementPopup } from "@/components/home/AnnouncementPopup";
@@ -29,6 +30,7 @@ function RouteRobotsPolicy() {
   const potentiallyIndexable =
     location.pathname === "/" ||
     location.pathname === "/ownai-design" ||
+    location.pathname === "/codex-reset" ||
     location.pathname === "/tutorials" ||
     location.pathname.startsWith("/tutorials/books/") ||
     location.pathname.startsWith("/tutorials/posts/");
@@ -53,6 +55,7 @@ function App() {
       <RouteLoadBoundary><Suspense fallback={<main className="flex min-h-[60vh] items-center justify-center gap-3 bg-[var(--hero-surface)] text-[14px] text-[var(--hero-muted)]" role="status">正在加载页面…</main>}><Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/ownai-design" element={<OwnAIDesignPage />} />
+      <Route path="/codex-reset" element={<CodexResetMonitorPage />} />
       <Route path="/image-studio" element={<Navigate to="/image-studio-2" replace />} />
       <Route
         path="/image-studio-2"
