@@ -25,5 +25,16 @@
 .prompt-unlock-dialog .prompt-unlock-primary:hover { background: color-mix(in srgb, var(--hero-ink), var(--hero-surface) 12%); }
 .prompt-unlock-dialog button:disabled { cursor: not-allowed; }
 .prompt-unlock-dialog .prompt-unlock-primary:disabled { border-color: var(--hero-border); background: color-mix(in srgb, var(--hero-surface), var(--hero-ink) 7%); color: var(--hero-muted); }
+
+.prompt-unlock-quickpay { margin-top: 16px; padding: 12px 14px; border: 1px solid rgba(16, 185, 129, 0.28); border-radius: 9px; background: rgba(16, 185, 129, 0.05); }
+.prompt-unlock-quickpay-header { display: flex; align-items: center; justify-content: space-between; }
+.prompt-unlock-checkin-line { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--hero-border); font-size: 11px; color: var(--hero-muted); }
+.prompt-unlock-paying { margin-top: 16px; padding: 14px 16px; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 9px; background: rgba(59, 130, 246, 0.06); }
+.prompt-unlock-verify-link { font-size: 12px; color: #3b82f6; background: none; border: none; padding: 0; cursor: pointer; display: inline-flex; align-items: center; }
+.prompt-unlock-verify-link:hover { text-decoration: underline; }
+.prompt-unlock-dialog .prompt-unlock-pay-action { border-color: transparent; background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%); color: #ffffff !important; font-weight: 600; box-shadow: 0 4px 14px rgba(22, 119, 255, 0.35); }
+.prompt-unlock-dialog .prompt-unlock-pay-action:hover:not(:disabled) { background: linear-gradient(135deg, #4096ff 0%, #1677ff 100%); box-shadow: 0 6px 18px rgba(22, 119, 255, 0.45); }
+.prompt-unlock-dialog .prompt-unlock-pay-action:disabled { opacity: 0.65; cursor: wait; }
+
 @media (max-width: 480px) { .prompt-unlock-header { padding-left: 20px; } .prompt-unlock-body { padding: 20px; } .prompt-unlock-footer { padding: 16px 20px; } }
 @media (prefers-reduced-motion: reduce) { .prompt-unlock-dialog button { transition: none; } }

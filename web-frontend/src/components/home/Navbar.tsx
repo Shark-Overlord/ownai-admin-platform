@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -22,6 +22,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { listMemberPricePlans } from "@/lib/member";
+import type { MemberPriceConfigPlan } from "@/lib/types";
 import { AnnouncementPanel } from "@/components/home/AnnouncementPanel";
 import { AuthenticatedUserMenu } from "@/components/home/AuthenticatedUserMenu";
 import { CheckInButton } from "@/components/home/CheckInButton";
@@ -159,7 +161,7 @@ function getUserInitial(user: PersistedLoginUser) {
   return getUserDisplayName(user).charAt(0).toUpperCase() || "D";
 }
 
-export function Navbar() {
+export function Navbar({ banner }: { banner?: ReactNode } = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const { locale } = usePreferredLocale();
@@ -179,6 +181,50 @@ export function Navbar() {
   const [unreadAnnouncementCount, setUnreadAnnouncementCount] = useState(0);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [isMobileAnnouncementView, setIsMobileAnnouncementView] = useState(false);
+  const [campaignPlans, setCampaignPlans] = useState<MemberPriceConfigPlan[]>([]);
+  const [countdown, setCountdown] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+  }>({ days: 30, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listMemberPricePlans({ signal: controller.signal })
+      .then(setCampaignPlans)
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const STORAGE_KEY = "ownai_pricing_countdown_end";
+    let endTime = Number(localStorage.getItem(STORAGE_KEY));
+    const now = Date.now();
+    if (!endTime || endTime <= now) {
+      endTime = now + 30 * 24 * 60 * 60 * 1000;
+      localStorage.setItem(STORAGE_KEY, String(endTime));
+    }
+
+    const calcTime = () => {
+      const remaining = Math.max(0, endTime - Date.now());
+      const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((remaining / (1000 * 60)) % 60);
+      const seconds = Math.floor((remaining / 1000) % 60);
+      setCountdown({ days, hours, minutes, seconds });
+    };
+
+    calcTime();
+    const timer = window.setInterval(calcTime, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const yearPlan = campaignPlans.find((p) => p.planType === "year");
+  const lifetimePlan = campaignPlans.find((p) => p.planType === "lifetime");
+  const formatPriceVal = (val?: number | null) => Number(val || 0).toFixed(2).replace(/\.00$/, "");
+  const yearPriceText = yearPlan ? formatPriceVal(yearPlan.cashPrice) : "...";
+  const lifetimePriceText = lifetimePlan ? formatPriceVal(lifetimePlan.cashPrice) : "...";
   const copy = NAV_COPY[locale];
   const nextTheme = theme === "light" ? "dark" : "light";
   const desktopNavLabelClass = "whitespace-nowrap text-[14px] tracking-[-0.01em]";
@@ -683,12 +729,46 @@ export function Navbar() {
     navigate("/profile?tab=mcp");
   };
 
+  const defaultBanner = (
+    <aside
+      aria-label="会员限时优惠"
+      onClick={() => navigate("/pricing")}
+      className="group relative flex min-h-[36px] w-full cursor-pointer items-center justify-center overflow-hidden border-b border-white/20 bg-[linear-gradient(100deg,#7047eb_0%,#4d5ff0_38%,#2479e8_70%,#169ed8_100%)] px-3 py-1 text-center text-[12px] font-medium tracking-[0.02em] text-white shadow-[0_8px_30px_-14px_rgba(70,105,240,0.95)] transition-opacity hover:opacity-95 sm:text-[13px]"
+    >
+      <div className="relative z-10 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-0.5">
+        <span className="font-semibold">限时早鸟特惠：</span>
+        <span>
+          年费会员限时 <strong className="font-bold underline decoration-white/50">¥{yearPriceText}</strong> 元，终身会员限时 <strong className="font-bold underline decoration-white/50">¥{lifetimePriceText}</strong> 元
+          <span className="ml-1 text-[11px] text-white/75 line-through decoration-white/60">原价 ¥598</span>
+        </span>
+        <span className="hidden sm:inline text-white/40">|</span>
+        <span className="inline-flex items-center font-mono text-[12px] text-amber-200">
+          <span className="rounded bg-black/30 px-1.5 py-0.5 font-bold text-white tracking-wider">
+            {countdown.days}天 {String(countdown.hours).padStart(2, "0")}时{String(countdown.minutes).padStart(2, "0")}分{String(countdown.seconds).padStart(2, "0")}秒
+          </span>
+        </span>
+        <span className="hidden md:inline-flex items-center gap-0.5 text-[11px] text-white/90 underline decoration-white/50 group-hover:text-white">
+          立即查看 &rarr;
+        </span>
+      </div>
+      <span
+        className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent_8%,rgba(255,255,255,0.18)_50%,transparent_92%)]"
+        aria-hidden="true"
+      />
+    </aside>
+  );
+
+  const activeBanner = banner !== undefined ? banner : defaultBanner;
+
   return (
     <>
       {location.pathname !== "/" ? (
-        <div className="h-16 w-full shrink-0" aria-hidden="true" />
-      ) : null}
+        <div className={cn("w-full shrink-0", activeBanner ? "h-[102px] sm:h-[100px]" : "h-16")} aria-hidden="true" />
+      ) : (
+        <div className={cn("w-full shrink-0", activeBanner ? "h-[36px]" : "h-0")} aria-hidden="true" />
+      )}
       <header className="site-navbar fixed inset-x-0 top-0 z-50">
+        {activeBanner}
         <div className="relative mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <button
             type="button"

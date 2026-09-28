@@ -14,7 +14,10 @@ export function PointRechargeCard({ config, error, quantity, onQuantityChange, b
   return <section className="point-recharge-card" aria-labelledby="recharge-title">
     <div className="point-recharge-intro">
       <span className="point-recharge-icon"><Coins size={20} aria-hidden="true" /></span>
-      <div><h2 id="recharge-title">充值积分</h2><p>按需补充积分，兑换喜欢的提示词与作品</p></div>
+      <div>
+        <h2 id="recharge-title">按需轻量体验包</h2>
+        <p>按需补充积分，立即可解锁任意高阶组件源码包与完整提示词，即充即用</p>
+      </div>
     </div>
     {error ? <div role="alert">{error} <button type="button" onClick={onRetry}>重新加载</button></div>
       : !config ? <p role="status">正在加载充值价格</p>
@@ -32,6 +35,6 @@ export function PointRechargeCard({ config, error, quantity, onQuantityChange, b
           <div aria-live="polite"><p className="point-recharge-label">到账积分</p><strong>{valid ? (count * config.pointsPerUnit).toLocaleString() : '—'} <small>积分</small></strong></div>
           <button type="button" className="point-recharge-pay" disabled={busy || !valid} onClick={onPurchase}>{creating ? <LoaderCircle size={16} className="animate-spin" /> : `支付宝支付 ¥${total}`}</button>
         </div>}
-    <p className="point-recharge-footnote">支付成功后自动到账，可在「我的社区 → 订单」查看充值记录</p>
+    <p className="point-recharge-footnote">一次性支付即时到账，无任何自动扣费，可在「我的社区 → 订单」查看充值记录</p>
   </section>;
 }

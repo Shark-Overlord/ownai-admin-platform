@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, CircleAlert, LoaderCircle } from "lucide-react";
+import { CheckCircle2, CircleAlert, Copy, LoaderCircle } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Navbar } from "@/components/home/Navbar";
 import { getPersistedAuthToken, updatePersistedLoginUser } from "@/lib/auth-session";
@@ -25,6 +25,7 @@ export function PricingPaymentResultPage() {
   const [status, setStatus] = useState<MemberPaymentStatus | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [wechatCopied, setWechatCopied] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!orderNo) {
@@ -117,6 +118,33 @@ export function PricingPaymentResultPage() {
           ) : null}
           {status?.failureReason ? <p className="mt-2 text-sm text-red-500">{status.failureReason}</p> : null}
           {error ? <p className="mt-2 text-sm text-red-500">{error}</p> : null}
+
+          {isComplete && !isRecharge && (
+            <div className="mt-6 rounded-[12px] border border-amber-500/30 bg-amber-500/10 p-5 text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-[15px] font-semibold text-amber-300">🎉 会员专属社群已解锁</p>
+                  <p className="mt-1 text-[13px] leading-5 text-[var(--hero-muted)]">
+                    添加站长微信（备注「已开通会员」），凭订单号进入【OwnAI 核心会员专属微信群】，第一时间获取最新源码与提示词更新。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText("xh1092968780");
+                    setWechatCopied(true);
+                    window.setTimeout(() => setWechatCopied(false), 2000);
+                  }}
+                  className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[8px] bg-white px-3.5 text-[13px] font-semibold !text-black transition-colors hover:bg-white/90"
+                >
+                  {wechatCopied ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                  {wechatCopied ? "已复制微信号" : "复制站长微信"}
+                </button>
+              </div>
+              <p className="mt-2 text-[12px] text-amber-200/60">微信号：xh1092968780</p>
+            </div>
+          )}
+
           <div className="mt-7 flex justify-center gap-3">
             {!isTerminal || error ? (
               <button type="button" onClick={() => void refresh()} className="pricing-success-primary-action rounded-[8px] px-4 py-2 text-sm font-semibold">

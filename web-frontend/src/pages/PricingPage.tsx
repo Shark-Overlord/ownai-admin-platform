@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
-import { Check, CheckCircle2, Copy, LoaderCircle, MessageCircle, X } from "lucide-react";
+import { Check, CheckCircle2, Clock, Copy, LoaderCircle, MessageCircle, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Navbar } from "@/components/home/Navbar";
 import { openAlipayCheckoutWindow, submitAlipayPaymentForm } from "@/lib/alipay-checkout";
@@ -22,29 +22,41 @@ const PLAN_COPY = {
   month: {
     name: "月费会员",
     billing: "一次性开通，30 天有效，不自动续费",
-    description: "30 天解锁 1,000+ 提示词、会员作品与源码。",
+    description: "适合短期急需交付项目、选型组件库的开发者，30 天全站资源自由下载。",
     tone: "standard",
+    features: [
+      "解锁全部会员专享 Prompt 完整提示词",
+      "商业级高阶组件完整源码包下载",
+      "访问持续更新的前端设计资产与视频背景",
+      "单月随用随走，无任何自动续费风险",
+    ],
   },
   year: {
     name: "年费会员",
     billing: "一次性开通，365 天有效，不自动续费",
-    description: "365 天解锁未来 1,000+ 提示词及持续更新的会员素材。",
+    description: "专为独立开发者与前端工程师打造，365 天持续同步最新商业级 UI 资产。",
     tone: "recommended",
+    features: [
+      "包含月费会员全部资源下载特权",
+      "赠送 OwnAI Design 官方插件（1年无限次调用）",
+      "全年每周上新组件与提示词第一时间优先体验",
+      "折合每天仅需 ¥0.35，成本近乎为零",
+    ],
   },
   lifetime: {
     name: "永久会员",
     billing: "一次性开通，永久有效",
-    description: "永久解锁未来 1,000+ 提示词，并享 1v1 制作课程。",
+    description: "一次买断终身受益，锁定未来全部资产更新，加入核心会员专属微信群。",
     tone: "professional",
+    features: [
+      "终身免费下载全站现存及未来新增全部源码资产",
+      "终身无限使用 OwnAI Design 官方设计插件",
+      "加入【OwnAI 核心会员专属微信群】（资源互通、优先同步）",
+      "新组件与提示词需求优先排期开发",
+      "永久买断，彻底告别后续任何续费支出",
+    ],
   },
 } as const;
-
-const COMMON_FEATURES = [
-  "解锁全部会员专享 Prompt",
-  "解锁会员专属作品和源码",
-  "访问持续更新的前端设计资产",
-  "会员有效期内不限内容浏览",
-];
 
 function formatPrice(value?: number | null) {
   return Number(value || 0).toFixed(2).replace(/\.00$/, "");
@@ -70,9 +82,7 @@ function PricingCard({ plan, activePlanType, creatingPlanType, onPurchase }: {
   const isDowngrade = activePlanType !== null && PLAN_RANK[plan.planType] < PLAN_RANK[activePlanType];
   const isLifetimeActive = activePlanType === "lifetime";
   const disabled = creatingPlanType !== null || isDowngrade || isLifetimeActive;
-  const features = plan.planType === "month"
-    ? COMMON_FEATURES
-    : [...COMMON_FEATURES, "解锁 OwnAI Design 插件，无限使用、不限时间"];
+  const features = copy.features;
   const buttonLabel = isCurrentPlan
     ? plan.planType === "lifetime" ? "永久会员已生效" : "续费当前套餐"
     : isDowngrade ? "有效期内不可降级"
@@ -94,6 +104,11 @@ function PricingCard({ plan, activePlanType, creatingPlanType, onPurchase }: {
               推荐
             </span>
           ) : null}
+          {plan.planType === "lifetime" ? (
+            <span className="inline-flex h-6 items-center rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 text-[12px] font-semibold text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.18)]">
+              早鸟特惠
+            </span>
+          ) : null}
           {isCurrentPlan ? (
             <span className="inline-flex h-6 items-center rounded-full border border-[var(--plan-divider)] px-2.5 text-[12px] font-semibold">
               当前套餐
@@ -108,6 +123,11 @@ function PricingCard({ plan, activePlanType, creatingPlanType, onPurchase }: {
           {formatPrice(plan.cashPrice)}
         </span>
         <span className="pb-1 text-[18px] font-semibold text-[var(--plan-text)]">元</span>
+        {plan.planType === "lifetime" ? (
+          <span className="pb-1 text-[15px] font-medium text-[var(--plan-muted)] line-through decoration-white/40">
+            原价 ¥598
+          </span>
+        ) : null}
       </div>
       <p className="mt-2 text-[13px] leading-6 text-[var(--plan-muted)]">{copy.billing}</p>
       <button
@@ -291,9 +311,9 @@ export function PricingPage() {
           <PointRechargeCard config={rechargeConfig} error={rechargeError} quantity={quantity} onQuantityChange={setQuantity}
             busy={creatingPlanType !== null} creating={creatingPlanType === 'points'} onRetry={() => void loadRechargeConfig()} onPurchase={() => void handlePurchase('points')} />
           <motion.div variants={revealVariants} className="mx-auto max-w-[720px] text-center">
-            <h1 className="font-display text-[clamp(1.9rem,3.6vw,3.1rem)] font-semibold leading-tight">选择会员有效期</h1>
+            <h1 className="font-display text-[clamp(1.9rem,3.6vw,3.1rem)] font-semibold leading-tight">开通 OwnAI 会员，全站资产无限畅享</h1>
             <p className="mx-auto mt-4 max-w-[620px] text-[14px] leading-7 text-[var(--hero-muted)]">
-              月费、年费和永久会员均为一次性开通，不自动续费。支付由支付宝安全收银台处理。
+              解锁 1,000+ 商业级高阶组件源码、VibeCoding 实战提示词与专属设计插件，告别重复造轮子。
             </p>
           </motion.div>
           {error ? <p role="alert" className="mx-auto mt-6 max-w-[720px] text-center text-[14px] text-red-500">{error}</p> : null}
@@ -341,10 +361,10 @@ export function PricingPage() {
               <MessageCircle className="h-5 w-5" />
             </div>
             <DialogPrimitive.Title className="mt-5 text-[20px] font-semibold">
-              联系客服
+              联系站长
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="mt-2 text-[13px] leading-6 text-white/58">
-              套餐购买或使用过程中遇到问题，可以添加微信联系解决。
+              遇到支付问题、咨询定制需求，或加微信进入核心会员专属交流群。
             </DialogPrimitive.Description>
             <div className="mt-5 flex items-center justify-between gap-3 rounded-[10px] border border-white/10 bg-white/[0.045] px-4 py-3">
               <div>
