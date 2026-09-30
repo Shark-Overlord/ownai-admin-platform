@@ -1883,6 +1883,7 @@ function PromptDetailDialog({
                 <video
                   controls
                   playsInline
+                  preload="none"
                   poster={detail.item.image}
                   className="h-full w-full bg-black object-cover"
                   onError={() => setIsVideoUnavailable(true)}

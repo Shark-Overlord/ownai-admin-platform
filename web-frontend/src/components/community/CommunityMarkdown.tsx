@@ -12,7 +12,7 @@ export function CommunityImage({ src, alt }: { src?: string; alt: string }) {
 export function CommunityVideo({ src }: { src: string }) {
   const [failed, setFailed] = useState(false);
   return failed ? <a href={src} target="_blank" rel="noopener noreferrer">视频暂时无法播放，打开原视频</a>
-    : <video src={src} controls playsInline preload="metadata" aria-label="帖子视频" onError={() => setFailed(true)} />;
+    : <video src={src} controls playsInline preload="none" aria-label="帖子视频" onError={() => setFailed(true)} />;
 }
 export function CommunityMarkdown({ content, title }: { content: string; title?: string }) {
   // Remove only a duplicate opening H1; never strip headings elsewhere in the document.

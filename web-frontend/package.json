@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build && node scripts/generate-sitemap.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",
+    "push:baidu": "node scripts/baidu-push.mjs",
     "preview": "vite preview"
   },
   "keywords": [],

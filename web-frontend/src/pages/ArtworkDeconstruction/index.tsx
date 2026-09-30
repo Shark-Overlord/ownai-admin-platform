@@ -779,7 +779,7 @@ function AssetsPane({
                       <video
                         src={item.url}
                         controls
-                        preload="metadata"
+                        preload="none"
                         playsInline
                         className="dc-media-video-element"
                       />
