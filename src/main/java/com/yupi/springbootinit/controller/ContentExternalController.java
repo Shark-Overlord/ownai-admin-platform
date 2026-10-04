@@ -210,6 +210,27 @@ public class ContentExternalController {
         return ResultUtils.success(contentExternalService.addTagToCategory(id, tagName));
     }
 
+    @PatchMapping("/categories/{id}/tags/order")
+    @OperationLog(module = "content_external", action = "reorder_category_tags")
+    @ApiOperation("使用密钥调整分类下二级标签顺序")
+    public BaseResponse<Boolean> reorderCategoryTags(@PathVariable Long id,
+            @RequestBody JsonNode fields, HttpServletRequest request) {
+        contentApiKeyService.requireRequestKey(request,
+                Collections.singletonList(ContentApiKeyService.SCOPE_CATEGORY_MANAGE));
+        if (fields == null || !fields.isObject() || fields.size() != 1
+                || !fields.has("tagIdList") || !fields.get("tagIdList").isArray()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求体只能包含数组字段 tagIdList");
+        }
+        List<Long> tagIdList = new java.util.ArrayList<>();
+        for (JsonNode item : fields.get("tagIdList")) {
+            if (!item.canConvertToLong() || item.asLong() <= 0) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "标签 ID 不合法");
+            }
+            tagIdList.add(item.asLong());
+        }
+        return ResultUtils.success(contentExternalService.reorderCategoryTags(id, tagIdList));
+    }
+
     @DeleteMapping("/categories/{id}/tags/{tagId}")
     @OperationLog(module = "content_external", action = "remove_category_tag")
     @ApiOperation("使用密钥解绑分类下的二级标签")

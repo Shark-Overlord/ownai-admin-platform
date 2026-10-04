@@ -19,7 +19,10 @@ import com.yupi.springbootinit.model.dto.contentapi.ContentResourceQuery;
 import com.yupi.springbootinit.model.dto.traffictag.TrafficTagUpdateRequest;
 import com.yupi.springbootinit.model.entity.ContentApiKey;
 import com.yupi.springbootinit.model.entity.Artwork;
+import com.yupi.springbootinit.model.entity.Category;
+import com.yupi.springbootinit.model.entity.CategoryTag;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.mapper.CategoryTagMapper;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.model.vo.contentapi.ContentResourceVO;
 import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
@@ -38,6 +41,8 @@ class ContentExternalServiceTest {
     @Mock private UserService userService;
     @Mock private ArtworkService artworkService;
     @Mock private PromptAssetService promptAssetService;
+    @Mock private CategoryService categoryService;
+    @Mock private CategoryTagMapper categoryTagMapper;
     @Mock private TrafficTagService trafficTagService;
     @Mock private ContentModuleDraftBridgeService draftBridgeService;
     private ContentExternalService service;
@@ -53,6 +58,8 @@ class ContentExternalServiceTest {
         ReflectionTestUtils.setField(service, "userService", userService);
         ReflectionTestUtils.setField(service, "artworkService", artworkService);
         ReflectionTestUtils.setField(service, "promptAssetService", promptAssetService);
+        ReflectionTestUtils.setField(service, "categoryService", categoryService);
+        ReflectionTestUtils.setField(service, "categoryTagMapper", categoryTagMapper);
         ReflectionTestUtils.setField(service, "trafficTagService", trafficTagService);
         ReflectionTestUtils.setField(service, "draftBridgeService", draftBridgeService);
     }
@@ -172,6 +179,25 @@ class ContentExternalServiceTest {
 
         verify(promptAssetService).replacePromptAssetSceneTags(31L, Arrays.asList(201L, 202L));
         verify(draftBridgeService, never()).create(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void categoryTagOrderMustCoverEveryCurrentBinding() {
+        Category category = new Category(); category.setId(9L);
+        CategoryTag first = new CategoryTag(); first.setId(1L); first.setTagId(201L);
+        CategoryTag second = new CategoryTag(); second.setId(2L); second.setTagId(202L);
+        when(categoryService.getById(9L)).thenReturn(category);
+        when(categoryTagMapper.selectList(any())).thenReturn(Arrays.asList(first, second));
+        when(categoryTagMapper.updateById(any(CategoryTag.class))).thenReturn(1);
+
+        service.reorderCategoryTags(9L, Arrays.asList(202L, 201L));
+
+        ArgumentCaptor<CategoryTag> updates = ArgumentCaptor.forClass(CategoryTag.class);
+        verify(categoryTagMapper, org.mockito.Mockito.times(2)).updateById(updates.capture());
+        assertEquals(2L, updates.getAllValues().get(0).getId());
+        assertEquals(0, updates.getAllValues().get(0).getSort());
+        assertEquals(1L, updates.getAllValues().get(1).getId());
+        assertEquals(1, updates.getAllValues().get(1).getSort());
     }
 
     private ArtworkDetailVO artwork(Long id, int status) {

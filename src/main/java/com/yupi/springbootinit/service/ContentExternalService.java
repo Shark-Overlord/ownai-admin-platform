@@ -170,7 +170,7 @@ public class ContentExternalService {
         result.put("resources", resources);
         result.put("taxonomyRead", Arrays.asList("siteCategories", "siteTags", "blogCategories", "blogTags",
                 "communityCategories", "communityTags"));
-        result.put("categoryManage", Arrays.asList("list", "add", "update", "addTag", "unbindTag"));
+        result.put("categoryManage", Arrays.asList("list", "add", "update", "addTag", "reorderTags", "unbindTag"));
         result.put("publishByApiKey", false);
         return result;
     }
@@ -724,6 +724,37 @@ public class ContentExternalService {
             tagService.removeById(tagId);
         }
         return result;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean reorderCategoryTags(Long categoryId, List<Long> tagIdList) {
+        if (categoryId == null || categoryId <= 0 || tagIdList == null || tagIdList.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "分类 ID 和标签顺序不能为空");
+        }
+        if (categoryService.getById(categoryId) == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "分类不存在");
+        }
+        List<Long> orderedIds = tagIdList.stream().distinct().collect(Collectors.toList());
+        if (orderedIds.size() != tagIdList.size()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "标签顺序不能包含重复 ID");
+        }
+        List<CategoryTag> bindings = categoryTagMapper.selectList(
+                new QueryWrapper<CategoryTag>().eq("categoryId", categoryId));
+        Map<Long, CategoryTag> bindingByTagId = bindings.stream().collect(Collectors.toMap(
+                CategoryTag::getTagId, item -> item));
+        if (bindingByTagId.size() != orderedIds.size()
+                || !bindingByTagId.keySet().equals(new LinkedHashSet<>(orderedIds))) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "标签顺序必须完整覆盖当前分类下的全部标签");
+        }
+        for (int index = 0; index < orderedIds.size(); index++) {
+            CategoryTag update = new CategoryTag();
+            update.setId(bindingByTagId.get(orderedIds.get(index)).getId());
+            update.setSort(index);
+            if (categoryTagMapper.updateById(update) <= 0) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "更新标签顺序失败");
+            }
+        }
+        return true;
     }
 
     private ObjectNode communityDraft(Long id) {
