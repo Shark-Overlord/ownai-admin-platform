@@ -51,7 +51,7 @@ export function Hero({ content }: { content: HomeHeroContent }) {
       ref={containerRef}
       className="hero-scroll-surface relative flex items-center justify-center overflow-hidden bg-black px-4 pb-8 pt-8 text-white sm:px-6 sm:pb-10 sm:pt-10 lg:px-8 lg:pb-12 lg:pt-12"
     >
-      <DiagonalVideoGallery hero videos={content.videoList} />
+      <DiagonalVideoGallery hero videos={content.videoList} disableVideo />
       <div className="absolute inset-0 z-[1] bg-black/[0.58]" aria-hidden="true" />
 
       <div className="relative z-[2] mx-auto flex w-full max-w-[1200px] justify-center">

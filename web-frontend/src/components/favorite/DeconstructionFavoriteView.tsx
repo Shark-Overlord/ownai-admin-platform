@@ -301,7 +301,7 @@ export function DeconstructionFavoriteView({
                           <video
                             src={item.content}
                             controls
-                            preload="metadata"
+                            preload="none"
                             poster=""
                           />
                         ) : (

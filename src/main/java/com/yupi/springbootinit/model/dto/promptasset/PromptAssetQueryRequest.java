@@ -18,6 +18,9 @@ public class PromptAssetQueryRequest extends PageRequest implements Serializable
 
     private Long categoryId;
 
+    /** Channel id from the currently active versioned image catalog. */
+    private Long imageChannelId;
+
     private List<Long> tagIdList;
 
     private List<Long> sceneTagIdList;

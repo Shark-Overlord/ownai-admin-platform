@@ -6,6 +6,8 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 const demoVideo =
   "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_source/1/pRbkiu98-8%E6%9C%8822%E6%97%A5%20(2)(1).mp4";
+const demoVideoPoster =
+  "https://bead-master-1316504135.cos.ap-guangzhou.myqcloud.com/video_background_cover/1/2091163718929403906-cover.jpg";
 
 const supportedEditors = ["Codex", "Claude", "Cursor", "Gemini", "Lovable"] as const;
 
@@ -70,15 +72,13 @@ export function OwnAIDesignPage() {
 
       <main className="px-2 pb-3 pt-2 sm:px-3 sm:pb-4">
         <section className="relative min-h-[calc(100vh-48px)] overflow-hidden rounded-[24px] border border-white/10 bg-[#080808] sm:rounded-[30px]">
-          <video
-            src={demoVideo}
+          <img
+            src={demoVideoPoster}
+            alt=""
             aria-hidden="true"
-            muted
-            autoPlay
-            loop
-            playsInline
-            preload="metadata"
-            className="absolute inset-0 h-full w-full scale-[1.04] object-cover opacity-35 blur-[1px]"
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full scale-[1.04] object-cover opacity-35 blur-[2px]"
           />
           <div
             className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,3,8,0.96)_0%,rgba(8,7,16,0.64)_35%,rgba(32,15,54,0.36)_72%,rgba(5,5,7,0.74)_100%)]"
@@ -149,11 +149,12 @@ export function OwnAIDesignPage() {
                 <div className="relative aspect-video bg-black">
                   <video
                     src={demoVideo}
+                    poster={demoVideoPoster}
                     aria-label="OwnAI Design 浏览器扩展演示视频"
                     controls
                     muted
                     playsInline
-                    preload="metadata"
+                    preload="none"
                     className="h-full w-full bg-black object-contain"
                   />
                 </div>

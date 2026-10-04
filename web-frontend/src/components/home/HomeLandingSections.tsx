@@ -47,11 +47,11 @@ function createCoverLanes(videos: HomeVideoItem[]): HomeVideoItem[][] {
 export function DiagonalVideoGallery({
   hero = false,
   videos,
-  disableVideo = false,
+  disableVideo = true,
 }: {
   hero?: boolean;
   videos: HomeVideoItem[];
-  /** 禁用视频播放，只渲染封面图（用于认证页，消除不必要的 COS 视频流量） */
+  /** 禁用视频播放，只渲染封面图（避免产生大量 COS 视频下行流量） */
   disableVideo?: boolean;
 }) {
   // 1. 每次进入随机洗牌封面顺序，打破固定死板的排布
@@ -277,10 +277,11 @@ export function HomeLandingSections({ content }: { content: HomeContentVO }) {
                 <video
                   key={design.demoVideoUrl}
                   src={design.demoVideoUrl}
+                  poster={design.demoVideoPosterUrl}
                   aria-label="OwnAI Design 产品演示视频"
                   controls
                   playsInline
-                  preload="metadata"
+                  preload="none"
                   className="h-full w-full bg-black object-contain"
                 />
               ) : (
