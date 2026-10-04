@@ -115,6 +115,17 @@ public class ContentExternalController {
                 contentExternalService.requireOperator(key)));
     }
 
+    @PatchMapping("/resources/prompt_asset/{id}/scene-tags")
+    @OperationLog(module = "content_external", action = "update_prompt_scene_tags")
+    @ApiOperation("使用密钥直接替换 Prompt 场景标签，不修改内容和发布状态")
+    public BaseResponse<ContentResourceVO> updatePromptAssetSceneTags(@PathVariable Long id,
+            @RequestHeader(value = "If-Match", required = false) String baseVersion,
+            @RequestBody JsonNode fields, HttpServletRequest request) {
+        ContentApiKey key = authenticate(request, ContentExternalService.PROMPT_ASSET, "update");
+        return ResultUtils.success(contentExternalService.updatePromptAssetSceneTags(
+                id, baseVersion, fields, contentExternalService.requireOperator(key)));
+    }
+
     @GetMapping("/taxonomy")
     @ApiOperation("使用密钥查询创建内容所需的分类和标签")
     public BaseResponse<Map<String, Object>> taxonomy(HttpServletRequest request) {

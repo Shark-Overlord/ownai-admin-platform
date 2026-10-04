@@ -56,6 +56,7 @@ import com.yupi.springbootinit.model.entity.Tag;
 import com.yupi.springbootinit.model.vo.CategoryVO;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -72,8 +73,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Direct, key-authenticated content API. It reuses the existing module services and always creates drafts.
- * Published rows that do not have native draft revisions are deliberately protected from direct updates.
+ * Direct, key-authenticated content API. It reuses the existing module services and preserves each module's
+ * publication workflow. Narrow operational updates are exposed separately when they must not alter content status.
  */
 @Service
 public class ContentExternalService {
@@ -160,6 +161,10 @@ public class ContentExternalService {
                     : BRIDGED_TYPES.contains(type)
                     ? "supported: a native draft clone is reviewed and published in the original module"
                     : "temporarily rejected until the tutorial structure draft bridge is installed");
+            if (PROMPT_ASSET.equals(type)) {
+                contract.put("sceneTagUpdate",
+                        "supported: replace category-bound scene tags directly without changing prompt content or status");
+            }
             resources.put(type, contract);
         }
         result.put("resources", resources);
@@ -468,6 +473,31 @@ public class ContentExternalService {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         return get(type, targetBridge == null ? id : targetBridge.getTargetId(), operator);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ContentResourceVO updatePromptAssetSceneTags(Long id, String baseVersion,
+            JsonNode fields, User operator) {
+        if (fields == null || !fields.isObject() || fields.size() != 1
+                || !fields.has("sceneTagIdList") || !fields.get("sceneTagIdList").isArray()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,
+                    "请求体只能包含数组字段 sceneTagIdList");
+        }
+        ContentResourceVO current = get(PROMPT_ASSET, id, operator);
+        verifyVersion(baseVersion, current.getVersion());
+        JsonNode resourceIdNode = current.getResource().get("id");
+        Long editId = resourceIdNode == null ? id : resourceIdNode.asLong();
+        List<Long> sceneTagIds = new ArrayList<>();
+        for (JsonNode item : fields.get("sceneTagIdList")) {
+            if (!item.canConvertToLong() || item.asLong() <= 0) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "场景标签 ID 不合法");
+            }
+            sceneTagIds.add(item.asLong());
+        }
+        promptAssetService.replacePromptAssetSceneTags(editId, sceneTagIds);
+        ContentModuleDraftBridge bridge = draftBridgeService.findByDraft(PROMPT_ASSET, editId);
+        Long responseId = bridge == null ? id : bridge.getTargetId();
+        return get(PROMPT_ASSET, responseId, operator);
     }
 
     private ContentResourceVO createReplacementDraft(String type, Long targetId, ContentResourceVO current,
