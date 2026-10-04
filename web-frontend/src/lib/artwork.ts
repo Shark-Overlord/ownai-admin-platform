@@ -689,7 +689,6 @@ export async function listHomeArtworks(options?: {
 export async function listHomePromptAssets(options: {
   hotDays?: number;
   categoryId?: string | number;
-  imageChannelId?: string | number;
   current?: number;
   isFeatured?: "1";
   pageSize?: number;
@@ -708,7 +707,6 @@ export async function listHomePromptAssets(options: {
       current,
       pageSize,
       ...(options.categoryId !== undefined ? { categoryId: options.categoryId } : {}),
-      ...(options.imageChannelId !== undefined ? { imageChannelId: options.imageChannelId } : {}),
       ...(options.isFeatured !== undefined ? { isFeatured: options.isFeatured } : {}),
       ...(searchText ? { searchText } : {}),
       ...(options.sceneTagIdList?.length ? { sceneTagIdList: options.sceneTagIdList } : {}),
