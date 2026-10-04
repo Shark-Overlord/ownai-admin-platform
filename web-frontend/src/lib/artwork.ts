@@ -695,6 +695,7 @@ export async function listHomePromptAssets(options: {
   sceneTagIdList?: string[];
   searchText?: string;
   signal?: AbortSignal;
+  sortByNewest?: boolean;
 }) {
   const searchText = options.searchText?.trim();
   const current = options.current ?? HOME_PROMPT_ASSET_QUERY.current;
@@ -704,6 +705,7 @@ export async function listHomePromptAssets(options: {
     {
       ...HOME_PROMPT_ASSET_QUERY,
       ...(options.hotDays ? { sortField: "hot", hotDays: options.hotDays } : {}),
+      ...(options.sortByNewest ? { sortField: "createTime", sortOrder: "desc" } : {}),
       current,
       pageSize,
       ...(options.categoryId !== undefined ? { categoryId: options.categoryId } : {}),

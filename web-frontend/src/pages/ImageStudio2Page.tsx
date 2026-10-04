@@ -1,4 +1,3 @@
-import ResourceHotSort from "@/components/ResourceHotSort";
 import PromptImageDownload from "@/components/PromptImageDownload";
 import { trackResource, useResourceView } from "@/lib/resource-analytics";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +8,8 @@ import {
   ArrowUp,
   Camera,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Download,
   Home,
@@ -22,6 +23,7 @@ import {
   Quote,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   Sparkles,
   Star,
   X,
@@ -377,7 +379,6 @@ const MODE_OPTIONS: ModeOption[] = [
 ];
 
 const PROMPT_MARKET_FILTERS: PromptMarketFilter[] = ["latest", "featured"];
-const PROMPT_MARKET_VISIBLE_CATEGORY_COUNT = 12;
 
 const MEMBER_LABELS: Record<string, string> = {
   NORMAL: "Normal",
@@ -453,6 +454,37 @@ function usePromptMasonryColumnCount(maxColumns: number) {
       window.removeEventListener("resize", syncColumnCount);
     };
   }, [maxColumns]);
+
+  return columnCount;
+}
+
+function getResponsivePromptCategoryColumnCount() {
+  if (typeof window === "undefined") {
+    return 10;
+  }
+
+  const width = window.innerWidth;
+
+  if (width >= 1536) return 10;
+  if (width >= 1280) return 8;
+  if (width >= 1024) return 6;
+  if (width >= 768) return 5;
+  if (width >= 640) return 4;
+  return 3;
+}
+
+function usePromptCategoryColumnCount() {
+  const [columnCount, setColumnCount] = useState(getResponsivePromptCategoryColumnCount);
+
+  useEffect(() => {
+    const syncColumnCount = () => setColumnCount(getResponsivePromptCategoryColumnCount());
+
+    window.addEventListener("resize", syncColumnCount);
+
+    return () => {
+      window.removeEventListener("resize", syncColumnCount);
+    };
+  }, []);
 
   return columnCount;
 }
@@ -2409,7 +2441,9 @@ function PromptMarketView({
   onFilterChange,
   onFeedback,
   onOpenPrompt,
+  onSearchTextChange,
   onUsePrompt,
+  searchText,
 }: {
   activeCategoryId: PromptMarketCategoryKey;
   categories: HomeTagOption[];
@@ -2423,105 +2457,141 @@ function PromptMarketView({
   onFilterChange: (filter: PromptMarketFilter) => void;
   onFeedback: (feedback: FeedbackState) => void;
   onOpenPrompt: (item: SiteItem) => void;
+  onSearchTextChange: (value: string) => void;
   onUsePrompt: (item: SiteItem) => void;
+  searchText: string;
 }) {
   const [areCategoriesExpanded, setAreCategoriesExpanded] = useState(false);
-  const hiddenCategories = categories.slice(PROMPT_MARKET_VISIBLE_CATEGORY_COUNT);
+  const categoryColumnCount = usePromptCategoryColumnCount();
   const visibleCategories = areCategoriesExpanded
     ? categories
-    : categories.slice(0, PROMPT_MARKET_VISIBLE_CATEGORY_COUNT);
+    : categories.slice(0, categoryColumnCount * 2);
   const activeCategoryLabel =
     activeCategoryId === "all"
       ? "全部"
       : categories.find((category) => category.id === activeCategoryId)?.name ?? "";
+  const filterLabels: Record<PromptMarketFilter, string> = {
+    latest: copy.latest,
+    featured: copy.featured,
+  };
 
   return (
     <section className="w-full">
-      <div className="overflow-hidden rounded-[24px] border border-[var(--chat-border)] bg-[var(--chat-panel-bg)] shadow-[var(--chat-panel-shadow)]">
-        <div className="border-b border-transparent bg-[var(--chat-panel-bg)] px-4 py-3 sm:px-5">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap gap-2">
+      <div className="overflow-hidden rounded-[18px] border border-[var(--chat-border)] bg-[var(--chat-panel-bg)] shadow-[var(--chat-panel-shadow)]">
+        <header className="flex flex-col gap-3 border-b border-[var(--chat-border)] px-4 py-3 sm:px-5 lg:min-h-[64px] lg:flex-row lg:items-center">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[16px] font-semibold text-[var(--chat-ink)]">图像提示词</h1>
+            <p className="mt-0.5 text-[12px] text-[var(--chat-muted)]">
+              浏览提示词预览，收藏灵感并一键用于创作
+            </p>
+          </div>
+          <label className="flex h-9 w-full min-w-0 items-center gap-2 rounded-[9px] bg-[var(--chat-control-soft)] px-3 text-[var(--chat-muted)] lg:max-w-[380px]">
+            <Search className="h-4 w-4 shrink-0" />
+            <input
+              value={searchText}
+              onChange={(event) => onSearchTextChange(event.target.value)}
+              aria-label={activeCategoryId === "all" ? "搜索全部图像提示词" : `搜索${activeCategoryLabel}提示词`}
+              placeholder={activeCategoryId === "all" ? "搜索图像提示词" : `搜索${activeCategoryLabel}`}
+              className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-[var(--chat-ink)] outline-none placeholder:text-[var(--chat-input-placeholder)]"
+            />
+            {searchText ? (
+              <button
+                type="button"
+                onClick={() => onSearchTextChange("")}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-[var(--chat-control-muted)] transition-colors hover:bg-[var(--chat-control-hover)] hover:text-[var(--chat-control-text)]"
+                aria-label="清空搜索"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </label>
+        </header>
+
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--chat-border)] px-4 py-2.5 sm:px-5">
+          <span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--chat-muted)]">
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            筛选
+          </span>
+          {PROMPT_MARKET_FILTERS.map((option) => {
+            const active = filter === option;
+
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onFilterChange(option)}
+                className={cn(
+                  "inline-flex h-8 items-center rounded-[7px] px-2.5 text-[12px] font-medium transition-colors",
+                  active
+                    ? "bg-[var(--chat-sidebar-active)] text-[var(--chat-ink)]"
+                    : "text-[var(--chat-muted)] hover:bg-[var(--chat-control-soft)] hover:text-[var(--chat-ink)]",
+                )}
+                aria-pressed={active}
+              >
+                {filterLabels[option]}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="border-b border-[var(--chat-border)] px-4 py-3 sm:px-5">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <span className="text-[12px] font-semibold text-[var(--chat-ink)]">类别</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onCategoryChange("all")}
+                className={cn(
+                  "inline-flex h-8 items-center rounded-[7px] px-2.5 text-[12px] font-medium transition-colors",
+                  activeCategoryId === "all"
+                    ? "bg-[var(--chat-sidebar-active)] text-[var(--chat-ink)]"
+                    : "text-[var(--chat-muted)] hover:bg-[var(--chat-control-soft)] hover:text-[var(--chat-ink)]",
+                )}
+                aria-pressed={activeCategoryId === "all"}
+              >
+                全部类别
+              </button>
+              <button
+                type="button"
+                onClick={() => setAreCategoriesExpanded((expanded) => !expanded)}
+                className="inline-flex h-8 items-center gap-1 rounded-[7px] px-2.5 text-[12px] font-medium text-[var(--chat-muted)] transition-colors hover:bg-[var(--chat-control-soft)] hover:text-[var(--chat-ink)]"
+                aria-expanded={areCategoriesExpanded}
+                aria-controls="image-prompt-category-grid"
+              >
+                {areCategoriesExpanded ? "收起" : "展开"}
+                {areCategoriesExpanded ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+          <div
+            id="image-prompt-category-grid"
+            className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10"
+          >
+            {visibleCategories.map((category) => {
+              const active = category.id === activeCategoryId;
+
+              return (
                 <button
+                  key={category.id}
                   type="button"
-                  onClick={() => onCategoryChange("all")}
+                  onClick={() => onCategoryChange(active ? "all" : category.id)}
+                  title={category.description || category.name}
                   className={cn(
-                    "inline-flex h-9 shrink-0 items-center justify-center rounded-full px-4 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150",
-                    activeCategoryId === "all"
+                    "inline-flex h-8 min-w-0 items-center justify-center rounded-[7px] px-1.5 text-[11px] font-medium transition-[background-color,color,box-shadow] duration-150 sm:px-2 sm:text-[12px]",
+                    active
                       ? "bg-[var(--chat-pill-active-bg)] text-[var(--chat-pill-active-text)] shadow-[var(--chat-pill-active-shadow)]"
-                      : "bg-[var(--chat-control-soft)] text-[var(--chat-control-muted)] hover:bg-[var(--chat-pill-active-bg)] hover:text-[var(--chat-control-text)]",
+                      : "bg-[var(--chat-control-soft)] text-[var(--chat-control-muted)] hover:bg-[var(--chat-control-hover)] hover:text-[var(--chat-control-text)]",
                   )}
-                  aria-pressed={activeCategoryId === "all"}
+                  aria-pressed={active}
                 >
-                  全部
+                  <span className="truncate">{category.name}</span>
                 </button>
-                {visibleCategories.map((category) => {
-                  const active = category.id === activeCategoryId;
-
-                  return (
-                    <button
-                      key={category.id}
-                      type="button"
-                      onClick={() =>
-                        onCategoryChange(activeCategoryId === category.id ? "all" : category.id)
-                      }
-                      title={category.description || category.name}
-                      className={cn(
-                        "inline-flex h-9 shrink-0 items-center justify-center rounded-full px-4 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150",
-                        active
-                          ? "bg-[var(--chat-pill-active-bg)] text-[var(--chat-pill-active-text)] shadow-[var(--chat-pill-active-shadow)]"
-                          : "bg-[var(--chat-control-soft)] text-[var(--chat-control-muted)] hover:bg-[var(--chat-pill-active-bg)] hover:text-[var(--chat-control-text)]",
-                      )}
-                      aria-pressed={active}
-                    >
-                      {category.name}
-                    </button>
-                  );
-                })}
-                {hiddenCategories.length ? (
-                  <button
-                    type="button"
-                    onClick={() => setAreCategoriesExpanded((value) => !value)}
-                    className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[var(--chat-pill-active-bg)] px-4 text-[13px] font-semibold text-[var(--chat-pill-active-text)] shadow-[var(--chat-pill-active-shadow)] transition-[background-color,box-shadow] duration-150 hover:bg-[var(--chat-control-soft)]"
-                    aria-expanded={areCategoriesExpanded}
-                  >
-                    {areCategoriesExpanded ? "收起" : `更多 ${hiddenCategories.length}`}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex h-[33px] shrink-0 items-center justify-end">
-              <div className="relative inline-grid h-[33px] w-[101px] grid-cols-2 items-center rounded-[10px] bg-[var(--chat-mode-bg)] p-0.5">
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute left-0.5 top-0.5 h-[29px] w-[calc(50%-2px)] rounded-[8px] bg-[var(--chat-mode-active-bg)] shadow-[var(--chat-mode-active-shadow)] transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] will-change-transform motion-reduce:transition-none",
-                    filter === "latest" ? "translate-x-0" : "translate-x-full",
-                  )}
-                />
-                {PROMPT_MARKET_FILTERS.map((option) => {
-                  const active = filter === option;
-
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => onFilterChange(option)}
-                      className={cn(
-                        "relative z-10 inline-flex h-[29px] items-center justify-center rounded-[8px] px-2 text-[12px] font-medium whitespace-nowrap transition-colors duration-200 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
-                        active
-                          ? "text-[var(--chat-mode-active-text)]"
-                          : "text-[var(--chat-control-muted)] hover:text-[var(--chat-control-text)]",
-                      )}
-                      aria-pressed={active}
-                    >
-                      {option === "latest" ? copy.allAssets : copy.featured}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
 
@@ -2546,9 +2616,11 @@ function PromptMarketView({
             <div className="mt-4 flex min-h-[180px] flex-col items-center justify-center rounded-[14px] border border-[var(--chat-border)] bg-[var(--chat-control-bg)] px-4 text-center">
               <ImageIcon className="h-5 w-5 text-[var(--chat-muted-2)]" />
               <p className="mt-3 text-[13px] text-[var(--chat-muted)]">
-                {activeCategoryId !== "all" && activeCategoryLabel
-                  ? `${activeCategoryLabel} 暂无匹配作品`
-                  : copy.emptyPrompts}
+                {searchText.trim()
+                  ? "没有找到匹配内容，试试其他关键词"
+                  : activeCategoryId !== "all" && activeCategoryLabel
+                    ? `${activeCategoryLabel} 暂无匹配作品`
+                    : copy.emptyPrompts}
               </p>
             </div>
           ) : null}
@@ -3259,6 +3331,7 @@ export function ImageStudio2Page() {
   const [promptMarketFilter, setPromptMarketFilter] = useState<PromptMarketFilter>("latest");
   const [promptMarketCategoryId, setPromptMarketCategoryId] =
     useState<PromptMarketCategoryKey>("all");
+  const [promptMarketSearchText, setPromptMarketSearchText] = useState("");
   const [promptMarketCategories, setPromptMarketCategories] = useState<HomeTagOption[]>([]);
   const [promptMarketItems, setPromptMarketItems] = useState<SiteItem[]>([]);
   const [promptMarketMessage, setPromptMarketMessage] = useState<string | null>(null);
@@ -3292,7 +3365,6 @@ export function ImageStudio2Page() {
   const [activeHistoryId, setActiveHistoryId] = useState("");
   const [activePromptId, setActivePromptId] = useState("");
   const [promptDetailItem, setPromptDetailItem] = useState<SiteItem | null>(null);
-  const [hotDays, setHotDays] = useState(0);
   useResourceView("image_prompt", promptDetailItem?.id);
   const [promptCopyStatus, setPromptCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -3449,6 +3521,7 @@ export function ImageStudio2Page() {
   const loadPromptMarketItems = async (
     filter: PromptMarketFilter,
     categoryId: PromptMarketCategoryKey,
+    searchText: string,
     page = 1,
     signal?: AbortSignal,
   ) => {
@@ -3465,10 +3538,11 @@ export function ImageStudio2Page() {
         categoryId: IMAGE_PROMPT_CATEGORY_ID,
         current: page,
         isFeatured: filter === "featured" ? "1" : undefined,
-        hotDays,
         pageSize: PROMPT_PAGE_SIZE,
+        searchText: searchText.trim() || undefined,
         sceneTagIdList: categoryId === "all" ? undefined : [categoryId],
         signal,
+        sortByNewest: true,
       });
 
       if (signal?.aborted) {
@@ -3749,6 +3823,7 @@ export function ImageStudio2Page() {
     void loadPromptMarketItems(
       promptMarketFilter,
       promptMarketCategoryId,
+      promptMarketSearchText,
       1,
       abortController.signal,
     );
@@ -3756,7 +3831,7 @@ export function ImageStudio2Page() {
     return () => {
       abortController.abort();
     };
-  }, [mainView, promptMarketCategoryId, promptMarketFilter, hotDays]);
+  }, [mainView, promptMarketCategoryId, promptMarketFilter, promptMarketSearchText]);
 
   useEffect(() => {
     if (mainView !== "promptSearch") {
@@ -4460,7 +4535,12 @@ export function ImageStudio2Page() {
       !isPromptMarketFetchingMore &&
       promptMarketHasMore
     ) {
-      void loadPromptMarketItems(promptMarketFilter, promptMarketCategoryId, promptMarketPage + 1);
+      void loadPromptMarketItems(
+        promptMarketFilter,
+        promptMarketCategoryId,
+        promptMarketSearchText,
+        promptMarketPage + 1,
+      );
       return;
     }
 
@@ -4642,8 +4722,6 @@ export function ImageStudio2Page() {
                   totalCount={homeTotalPromptCount}
                 />
               ) : isPromptMarketView ? (
-                <>
-                <div className="mb-3"><ResourceHotSort value={hotDays} onChange={setHotDays} /></div>
                 <PromptMarketView
                   activeCategoryId={promptMarketCategoryId}
                   categories={promptMarketCategories}
@@ -4657,9 +4735,10 @@ export function ImageStudio2Page() {
                   onFilterChange={setPromptMarketFilter}
                   onFeedback={setFeedback}
                   onOpenPrompt={handlePromptMarketPick}
+                  onSearchTextChange={setPromptMarketSearchText}
                   onUsePrompt={handleUsePromptItem}
+                  searchText={promptMarketSearchText}
                 />
-                </>
               ) : isPromptSearchView ? (
                 <PromptSearchView
                   copy={copy}
