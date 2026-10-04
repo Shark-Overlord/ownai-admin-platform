@@ -133,6 +133,5 @@ export async function listCategoryTags(
 
   return (result.data ?? [])
     .map(normalizeTag)
-    .filter((tag): tag is HomeTagOption => Boolean(tag))
-    .sort(compareTagOrder);
+    .filter((tag): tag is HomeTagOption => Boolean(tag));
 }
