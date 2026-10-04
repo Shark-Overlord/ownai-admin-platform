@@ -22,6 +22,7 @@ import {
   message,
 } from 'antd';
 import {
+  AuditOutlined,
   CheckCircleOutlined,
   CloudUploadOutlined,
   DeleteOutlined,
@@ -32,6 +33,7 @@ import {
   ReloadOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import type { UploadFile } from 'antd';
 import { listCategory, listTagsByCategory, type CategoryVO } from '../../api/category';
 import { addTag, listTag, type TagVO } from '../../api/tag';
@@ -94,6 +96,7 @@ const renderAiTagStatus = (value?: number) => {
 };
 
 export default function PromptAssetManage() {
+  const navigate = useNavigate();
   const actionRef = useRef<any>(null);
   const batchActionRef = useRef<any>(null);
   const [form] = Form.useForm();
@@ -663,6 +666,9 @@ export default function PromptAssetManage() {
           pageSizeOptions: [10, 20, 30, 50, 100],
         }}
         toolBarRender={() => [
+          <Button key="review" icon={<AuditOutlined />} onClick={() => navigate('/prompt-asset-review')}>
+            键盘审核
+          </Button>,
           <Button key="create" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新增 Prompt
           </Button>,
