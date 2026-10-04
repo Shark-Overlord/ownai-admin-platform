@@ -422,6 +422,48 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean replacePromptAssetSceneTags(Long id, List<Long> sceneTagIdList) {
+        if (id == null || id <= 0 || sceneTagIdList == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        PromptAsset asset = this.getById(id);
+        if (asset == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+        List<Long> desiredSceneTagIds = normalizeTagIds(sceneTagIdList);
+        Set<Long> categoryTagIds = getSceneTagIdsByCategory(asset.getCategoryId());
+        if (!categoryTagIds.containsAll(desiredSceneTagIds)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "二级场景标签不属于当前分类");
+        }
+        List<Long> currentTagIds = promptAssetTagMapper.selectList(
+                        new QueryWrapper<PromptAssetTag>().eq("promptAssetId", id).orderByAsc("createTime", "id"))
+                .stream()
+                .map(PromptAssetTag::getTagId)
+                .collect(Collectors.toList());
+        syncPromptAssetTags(id, mergeSceneAndAssetTagIds(
+                currentTagIds, categoryTagIds, desiredSceneTagIds));
+        return true;
+    }
+
+    static List<Long> mergeSceneAndAssetTagIds(List<Long> currentTagIds,
+            Set<Long> categoryTagIds, List<Long> desiredSceneTagIds) {
+        LinkedHashSet<Long> merged = new LinkedHashSet<>();
+        if (desiredSceneTagIds != null) {
+            desiredSceneTagIds.stream()
+                    .filter(tagId -> tagId != null && tagId > 0)
+                    .forEach(merged::add);
+        }
+        if (currentTagIds != null) {
+            currentTagIds.stream()
+                    .filter(tagId -> tagId != null && tagId > 0)
+                    .filter(tagId -> categoryTagIds == null || !categoryTagIds.contains(tagId))
+                    .forEach(merged::add);
+        }
+        return new ArrayList<>(merged);
+    }
+
+    @Override
     public Boolean deletePromptAsset(Long id) {
         if (id == null || id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);

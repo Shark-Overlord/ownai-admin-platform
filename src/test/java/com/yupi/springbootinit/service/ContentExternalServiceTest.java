@@ -22,7 +22,9 @@ import com.yupi.springbootinit.model.entity.Artwork;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
 import com.yupi.springbootinit.model.vo.contentapi.ContentResourceVO;
+import com.yupi.springbootinit.model.vo.promptasset.PromptAssetVO;
 import com.yupi.springbootinit.model.vo.traffictag.TrafficTagVO;
+import java.util.Arrays;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +37,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class ContentExternalServiceTest {
     @Mock private UserService userService;
     @Mock private ArtworkService artworkService;
+    @Mock private PromptAssetService promptAssetService;
     @Mock private TrafficTagService trafficTagService;
     @Mock private ContentModuleDraftBridgeService draftBridgeService;
     private ContentExternalService service;
@@ -49,6 +52,7 @@ class ContentExternalServiceTest {
         ReflectionTestUtils.setField(service, "objectMapper", objectMapper);
         ReflectionTestUtils.setField(service, "userService", userService);
         ReflectionTestUtils.setField(service, "artworkService", artworkService);
+        ReflectionTestUtils.setField(service, "promptAssetService", promptAssetService);
         ReflectionTestUtils.setField(service, "trafficTagService", trafficTagService);
         ReflectionTestUtils.setField(service, "draftBridgeService", draftBridgeService);
     }
@@ -152,6 +156,22 @@ class ContentExternalServiceTest {
         assertEquals(21L, request.getValue().getId());
         assertEquals(880, request.getValue().getHeat());
         assertEquals("原标题", request.getValue().getTitle());
+    }
+
+    @Test
+    void sceneTagUpdateChangesOnlyRelationsWithoutCreatingDraft() {
+        PromptAssetVO prompt = new PromptAssetVO();
+        prompt.setId(31L); prompt.setCategoryId(9L); prompt.setAssetType("image_prompt");
+        prompt.setTitle("图像提示词"); prompt.setStatus(1);
+        when(promptAssetService.getPromptAssetVO(31L)).thenReturn(prompt);
+        ContentResourceVO current = service.get(ContentExternalService.PROMPT_ASSET, 31L, operator);
+        ObjectNode patch = objectMapper.createObjectNode();
+        patch.putArray("sceneTagIdList").add(201L).add(202L);
+
+        service.updatePromptAssetSceneTags(31L, current.getVersion(), patch, operator);
+
+        verify(promptAssetService).replacePromptAssetSceneTags(31L, Arrays.asList(201L, 202L));
+        verify(draftBridgeService, never()).create(any(), any(), any(), any(), any(), any());
     }
 
     private ArtworkDetailVO artwork(Long id, int status) {

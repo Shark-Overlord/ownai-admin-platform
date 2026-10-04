@@ -46,6 +46,9 @@ public interface PromptAssetService extends IService<PromptAsset> {
 
     Boolean updatePromptAssetTags(PromptAssetUpdateRequest request);
 
+    /** Replace category-bound scene tags while preserving unrelated asset tags and prompt content. */
+    Boolean replacePromptAssetSceneTags(Long id, List<Long> sceneTagIdList);
+
     Boolean deletePromptAsset(Long id);
 
     Boolean deletePromptAssetBatch(List<Long> ids);
