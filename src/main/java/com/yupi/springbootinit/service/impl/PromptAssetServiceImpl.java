@@ -615,16 +615,6 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         QueryWrapper<PromptAsset> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq(StringUtils.isNotBlank(request.getAssetType()), "assetType", request.getAssetType());
         queryWrapper.eq(request.getCategoryId() != null, "categoryId", request.getCategoryId());
-        if (request.getImageChannelId() != null) {
-            if (request.getImageChannelId() <= 0) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR, "Invalid imageChannelId");
-            }
-            queryWrapper.inSql("id", "SELECT m.promptAssetId FROM image_channel_member m "
-                    + "INNER JOIN image_channel c ON c.id=m.channelId AND c.isDelete=0 "
-                    + "INNER JOIN image_catalog_version v ON v.id=m.catalogVersionId "
-                    + "AND v.id=c.catalogVersionId AND v.status='ACTIVE' AND v.isDelete=0 "
-                    + "WHERE m.channelId=" + request.getImageChannelId() + " AND m.isDelete=0");
-        }
         queryWrapper.eq(StringUtils.isNotBlank(request.getMediaType()), "mediaType", request.getMediaType());
         queryWrapper.eq(StringUtils.isNotBlank(request.getVisualAssetType()), "visualAssetType", request.getVisualAssetType());
         queryWrapper.eq(StringUtils.isNotBlank(request.getSelectionStatus()), "selectionStatus", request.getSelectionStatus());
