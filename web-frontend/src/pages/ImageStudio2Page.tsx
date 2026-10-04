@@ -60,6 +60,7 @@ import {
   markAnnouncementRead,
 } from "@/lib/announcement";
 import { listCategoryTags } from "@/lib/category";
+import { getActiveImageCatalog } from "@/lib/image-catalog";
 import {
   clearPersistedLoginUser,
   getPersistedLoginUser,
@@ -3260,6 +3261,7 @@ export function ImageStudio2Page() {
   const [promptMarketCategoryId, setPromptMarketCategoryId] =
     useState<PromptMarketCategoryKey>("all");
   const [promptMarketCategories, setPromptMarketCategories] = useState<HomeTagOption[]>([]);
+  const [usesVersionedImageCatalog, setUsesVersionedImageCatalog] = useState(false);
   const [promptMarketItems, setPromptMarketItems] = useState<SiteItem[]>([]);
   const [promptMarketMessage, setPromptMarketMessage] = useState<string | null>(null);
   const [promptMarketPage, setPromptMarketPage] = useState(1);
@@ -3467,7 +3469,10 @@ export function ImageStudio2Page() {
         isFeatured: filter === "featured" ? "1" : undefined,
         hotDays,
         pageSize: PROMPT_PAGE_SIZE,
-        sceneTagIdList: categoryId === "all" ? undefined : [categoryId],
+        imageChannelId:
+          usesVersionedImageCatalog && categoryId !== "all" ? categoryId : undefined,
+        sceneTagIdList:
+          !usesVersionedImageCatalog && categoryId !== "all" ? [categoryId] : undefined,
         signal,
       });
 
@@ -3722,17 +3727,41 @@ export function ImageStudio2Page() {
   useEffect(() => {
     const abortController = new AbortController();
 
-    void listCategoryTags(IMAGE_PROMPT_CATEGORY_ID, { signal: abortController.signal })
-      .then((categories) => {
+    const loadCategories = async () => {
+      try {
+        const catalog = await getActiveImageCatalog(IMAGE_PROMPT_CATEGORY_ID, "image_prompt", {
+          signal: abortController.signal,
+        });
+        if (catalog?.channels.length) {
+          if (!abortController.signal.aborted) {
+            setPromptMarketCategories(catalog.channels);
+            setPromptMarketCategoryId("all");
+            setUsesVersionedImageCatalog(true);
+          }
+          return;
+        }
+      } catch {
+        if (abortController.signal.aborted) return;
+      }
+
+      try {
+        const categories = await listCategoryTags(IMAGE_PROMPT_CATEGORY_ID, {
+          signal: abortController.signal,
+        });
         if (!abortController.signal.aborted) {
           setPromptMarketCategories(categories);
+          setPromptMarketCategoryId("all");
+          setUsesVersionedImageCatalog(false);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!abortController.signal.aborted) {
           setPromptMarketCategories([]);
+          setUsesVersionedImageCatalog(false);
         }
-      });
+      }
+    };
+
+    void loadCategories();
 
     return () => {
       abortController.abort();
@@ -3756,7 +3785,7 @@ export function ImageStudio2Page() {
     return () => {
       abortController.abort();
     };
-  }, [mainView, promptMarketCategoryId, promptMarketFilter, hotDays]);
+  }, [mainView, promptMarketCategoryId, promptMarketFilter, hotDays, usesVersionedImageCatalog]);
 
   useEffect(() => {
     if (mainView !== "promptSearch") {

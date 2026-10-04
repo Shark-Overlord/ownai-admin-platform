@@ -43,6 +43,7 @@ sql/*.sql
 !sql/blog_post_read_event_migration.sql
 !sql/blog_post_remove_view_count_migration.sql
 !sql/content_api_external_id_migration.sql
+!sql/image_catalog_versioned_channels.sql
 web-admin/node_modules/
 web-admin/dist/
 !.mvn/wrapper/maven-wrapper.jar
