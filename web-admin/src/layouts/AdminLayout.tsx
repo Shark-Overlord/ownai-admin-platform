@@ -4,6 +4,7 @@ import { ProLayout } from '@ant-design/pro-components';
 import { message, Spin } from 'antd';
 import {
   AppstoreOutlined,
+  AuditOutlined,
   BarChartOutlined,
   BookOutlined,
   ClusterOutlined,
@@ -46,6 +47,7 @@ const iconMap: Record<string, React.ReactNode> = {
   BarChartOutlined: <BarChartOutlined />,
   ReadOutlined: <ReadOutlined />,
   HomeOutlined: <HomeOutlined />,
+  AuditOutlined: <AuditOutlined />,
 };
 
 type MenuRoute = {

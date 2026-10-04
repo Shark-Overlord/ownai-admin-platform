@@ -20,6 +20,7 @@ import CommunityManage from '../pages/CommunityManage';
 import CommentManage from '../pages/CommunityManage/CommentManage';
 import ContentApiKeyManage from '../pages/ContentApiKeyManage';
 import PromptAssetManage from '../pages/PromptAssetManage';
+import PromptAssetReview from '../pages/PromptAssetReview';
 import PromptAssetAiTaggingManage from '../pages/PromptAssetAiTaggingManage';
 import ImageGenerationMessageManage from '../pages/ImageGenerationMessageManage';
 import ImageGenerationConfigManage from '../pages/ImageGenerationConfigManage';
@@ -86,6 +87,11 @@ export const routes = [
       {
         path: 'prompt-asset',
         element: <PromptAssetManage />,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'prompt-asset-review',
+        element: <PromptAssetReview />,
         meta: { requiresAdmin: true },
       },
       {
@@ -263,6 +269,11 @@ export const menuRoutes = [
         path: '/prompt-asset',
         name: 'Prompt 资产',
         icon: 'DatabaseOutlined',
+      },
+      {
+        path: '/prompt-asset-review',
+        name: 'Prompt 审核',
+        icon: 'AuditOutlined',
       },
       {
         path: '/prompt-asset-ai-tagging',
