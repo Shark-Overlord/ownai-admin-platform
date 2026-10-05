@@ -53,6 +53,9 @@ public interface PromptAssetService extends IService<PromptAsset> {
 
     Boolean deletePromptAssetBatch(List<Long> ids);
 
+    /** Approve the retained assets and delete the rejected assets as one review batch. */
+    Boolean reviewPromptAssetBatch(List<Long> approveIds, List<Long> deleteIds);
+
     Boolean publishPromptAssetBatch(List<Long> ids);
 
     PromptAssetImageSyncResultVO syncImagesToCos(List<Long> ids);

@@ -652,6 +652,7 @@ export default function PromptAssetManage() {
           const res = await listPromptAssetByPageForAdmin({
             current: params.current || 1,
             pageSize: params.pageSize || 10,
+            listType: 'admin_latest_unpublished',
             ...params,
           });
           return {

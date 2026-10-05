@@ -44,6 +44,9 @@ public class PromptAssetQueryRequest extends PageRequest implements Serializable
 
     private String sourceRepoName;
 
+    /** Admin list optimization: return only fields needed by the image review grid. */
+    private Boolean imageOnly;
+
     private Integer hotDays;
 
     private static final long serialVersionUID = 1L;
