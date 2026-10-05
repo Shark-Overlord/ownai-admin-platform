@@ -4,10 +4,9 @@
 
 .prompt-review-toolbar {
   display: grid;
-  grid-template-columns: minmax(240px, 1.3fr) minmax(160px, 0.7fr) minmax(160px, 0.7fr) auto;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 0.8fr) minmax(150px, 0.8fr) 110px;
   gap: 12px;
   align-items: center;
-  margin-bottom: 12px;
   padding: 14px;
   border: 1px solid #f0f0f0;
   border-radius: 12px;
@@ -15,17 +14,39 @@
 }
 
 .prompt-review-search,
-.prompt-review-filter {
+.prompt-review-filter,
+.prompt-review-size {
   width: 100%;
 }
 
-.prompt-review-progress {
+.prompt-review-batchbar {
+  position: sticky;
+  z-index: 5;
+  top: 0;
   display: flex;
-  gap: 14px;
-  justify-content: flex-end;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(12px);
+}
+
+.prompt-review-progress,
+.prompt-review-batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+}
+
+.prompt-review-progress {
   color: rgba(0, 0, 0, 0.65);
   font-size: 13px;
-  white-space: nowrap;
 }
 
 .prompt-review-progress strong {
@@ -33,135 +54,89 @@
   font-size: 16px;
 }
 
+.prompt-review-delete-count,
+.prompt-review-delete-count strong {
+  color: #ff4d4f;
+}
+
 .prompt-review-help {
   margin-bottom: 12px;
 }
 
-.prompt-review-workspace {
+.prompt-review-grid {
   display: grid;
-  grid-template-columns: minmax(420px, 1.35fr) minmax(360px, 1fr);
-  min-height: calc(100vh - 310px);
-  overflow: hidden;
-  border: 1px solid #e8e8e8;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.05);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
 }
 
-.prompt-review-media {
+.prompt-review-card {
   position: relative;
   display: flex;
-  min-height: 520px;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  overflow: hidden;
-  background:
-    linear-gradient(45deg, #f2f3f5 25%, transparent 25%),
-    linear-gradient(-45deg, #f2f3f5 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #f2f3f5 75%),
-    linear-gradient(-45deg, transparent 75%, #f2f3f5 75%),
-    #fafafa;
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-  background-size: 16px 16px;
-}
-
-.prompt-review-media .ant-image {
-  display: flex;
-  max-width: 100%;
-  max-height: calc(100vh - 360px);
-  align-items: center;
-  justify-content: center;
-}
-
-.prompt-review-media .ant-image-img {
-  width: auto;
-  max-width: 100%;
-  max-height: calc(100vh - 360px);
-  object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-}
-
-.prompt-review-media-count {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.6);
-  font-size: 12px;
-}
-
-.prompt-review-content {
-  display: flex;
   min-width: 0;
-  flex-direction: column;
-  gap: 16px;
-  padding: 24px;
-  border-left: 1px solid #f0f0f0;
-}
-
-.prompt-review-heading h3.ant-typography {
-  margin: 5px 0 12px;
-}
-
-.prompt-review-copy-block {
-  padding: 14px 16px;
-  border: 1px solid #f0f0f0;
+  aspect-ratio: 4 / 5;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
   border-radius: 10px;
-  background: #fafafa;
+  outline: none;
+  background: #f2f3f5;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
-.prompt-review-copy-block .ant-typography {
-  margin: 6px 0 0;
-  line-height: 1.65;
-  white-space: pre-wrap;
+.prompt-review-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.11);
 }
 
-.prompt-review-original {
-  max-height: 280px;
-  overflow: auto;
+.prompt-review-card.is-focused {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.18);
 }
 
-.prompt-review-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  color: rgba(0, 0, 0, 0.45);
-  font-size: 12px;
+.prompt-review-card.is-selected {
+  border-color: #ff4d4f;
+  box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.18);
 }
 
-.prompt-review-actions {
+.prompt-review-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+
+.prompt-review-card.is-selected img {
+  opacity: 0.58;
+}
+
+.prompt-review-selected-mark {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: auto;
-  padding-top: 8px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #ff4d4f;
+  box-shadow: 0 4px 14px rgba(255, 77, 79, 0.35);
+  font-size: 17px;
 }
 
-.prompt-review-actions .ant-btn {
-  height: 50px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.prompt-review-actions kbd {
-  min-width: 24px;
-  margin-left: 8px;
-  padding: 1px 6px;
-  border: 1px solid currentColor;
-  border-radius: 5px;
-  font-family: inherit;
-  font-size: 12px;
-  opacity: 0.72;
+.prompt-review-no-image {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
 }
 
 .prompt-review-finished,
 .prompt-review-loading-placeholder {
   display: flex;
-  min-height: 520px;
+  min-height: 420px;
   align-items: center;
   justify-content: center;
   border: 1px solid #e8e8e8;
@@ -169,26 +144,14 @@
   background: #fff;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 900px) {
   .prompt-review-toolbar {
     grid-template-columns: 1fr 1fr;
   }
 
-  .prompt-review-progress {
-    justify-content: flex-start;
-  }
-
-  .prompt-review-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .prompt-review-media {
-    min-height: 440px;
-  }
-
-  .prompt-review-content {
-    border-top: 1px solid #f0f0f0;
-    border-left: 0;
+  .prompt-review-batchbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
@@ -197,17 +160,12 @@
     grid-template-columns: 1fr;
   }
 
-  .prompt-review-progress {
-    flex-wrap: wrap;
-    white-space: normal;
+  .prompt-review-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
-  .prompt-review-media {
-    min-height: 320px;
-    padding: 14px;
-  }
-
-  .prompt-review-content {
-    padding: 16px;
+  .prompt-review-batch-actions .ant-btn:last-child {
+    flex: 1 0 100%;
   }
 }

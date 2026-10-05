@@ -16,6 +16,7 @@ import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.mapper.PromptAssetImportBatchMapper;
 import com.yupi.springbootinit.manager.PublicContentAntiCrawlerManager;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetAddRequest;
+import com.yupi.springbootinit.model.dto.promptasset.PromptAssetBatchReviewRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetFavoriteRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetQueryRequest;
 import com.yupi.springbootinit.model.dto.promptasset.PromptAssetUpdateRequest;
@@ -245,6 +246,23 @@ public class PromptAssetController {
         boolean deleted = promptAssetService.deletePromptAssetBatch(request.getIds());
         if (deleted) contentModuleDraftBridgeService.removeByResources(ContentExternalService.PROMPT_ASSET, request.getIds());
         return ResultUtils.success(deleted);
+    }
+
+    @PostMapping("/admin/review/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @OperationLog(module = "prompt_asset", action = "batch_review_prompt_asset")
+    @ApiOperation("Admin batch review prompt assets")
+    @Transactional(rollbackFor = Exception.class)
+    public BaseResponse<Boolean> reviewPromptAssetBatch(@RequestBody PromptAssetBatchReviewRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean reviewed = promptAssetService.reviewPromptAssetBatch(request.getApproveIds(), request.getDeleteIds());
+        if (reviewed && CollUtil.isNotEmpty(request.getDeleteIds())) {
+            contentModuleDraftBridgeService.removeByResources(ContentExternalService.PROMPT_ASSET,
+                    request.getDeleteIds());
+        }
+        return ResultUtils.success(reviewed);
     }
 
     @PostMapping("/admin/publish/batch")

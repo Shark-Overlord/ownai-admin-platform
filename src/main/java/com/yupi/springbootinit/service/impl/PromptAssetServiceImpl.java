@@ -103,6 +103,8 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
 
     private static final String LIST_TYPE_HOT = "hot";
 
+    private static final String LIST_TYPE_ADMIN_LATEST_UNPUBLISHED = "admin_latest_unpublished";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String[] STALE_CN_MARKERS = {
@@ -153,10 +155,27 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
         PromptAssetQueryRequest safeRequest = request == null ? new PromptAssetQueryRequest() : request;
         long current = Math.max(safeRequest.getCurrent(), 1);
         long pageSize = Math.max(safeRequest.getPageSize(), 1);
-        Page<PromptAsset> page = this.page(new Page<>(current, pageSize), getQueryWrapper(safeRequest));
+        QueryWrapper<PromptAsset> queryWrapper = getQueryWrapper(safeRequest);
+        if (Boolean.TRUE.equals(safeRequest.getImageOnly())) {
+            queryWrapper.select("id", "coverUrl", "previewMediaUrl", "createTime");
+        }
+        Page<PromptAsset> page = this.page(new Page<>(current, pageSize), queryWrapper);
         Page<PromptAssetVO> voPage = new Page<>(current, pageSize, page.getTotal());
-        voPage.setRecords(toVOList(page.getRecords(), false));
+        if (Boolean.TRUE.equals(safeRequest.getImageOnly())) {
+            voPage.setRecords(page.getRecords().stream().map(this::toImageReviewVO).collect(Collectors.toList()));
+        } else {
+            voPage.setRecords(toVOList(page.getRecords(), false));
+        }
         return voPage;
+    }
+
+    private PromptAssetVO toImageReviewVO(PromptAsset asset) {
+        PromptAssetVO vo = new PromptAssetVO();
+        vo.setId(asset.getId());
+        vo.setCoverUrl(asset.getCoverUrl());
+        vo.setPreviewMediaUrl(asset.getPreviewMediaUrl());
+        vo.setCreateTime(asset.getCreateTime());
+        return vo;
     }
 
     @Override
@@ -491,6 +510,69 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean reviewPromptAssetBatch(List<Long> approveIds, List<Long> deleteIds) {
+        LinkedHashSet<Long> approved = normalizeReviewIds(approveIds);
+        LinkedHashSet<Long> deleted = normalizeReviewIds(deleteIds);
+        if (approved.isEmpty() && deleted.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "审核批次不能为空");
+        }
+        if (!Collections.disjoint(approved, deleted)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "同一资产不能同时保留和删除");
+        }
+
+        LinkedHashSet<Long> allIds = new LinkedHashSet<>(approved);
+        allIds.addAll(deleted);
+        if (allIds.size() > 100) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "单次最多审核 100 条资产");
+        }
+
+        List<PromptAsset> assets = this.listByIds(allIds);
+        if (assets.size() != allIds.size()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "部分 Prompt 资产不存在或已删除，请刷新后重试");
+        }
+        boolean containsReviewedAsset = assets.stream()
+                .anyMatch(asset -> !"pending_review".equals(asset.getSelectionStatus()));
+        if (containsReviewedAsset) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "批次中包含已审核资产，请刷新后重试");
+        }
+
+        if (!approved.isEmpty()) {
+            int updatedCount = this.baseMapper.update(null, new UpdateWrapper<PromptAsset>()
+                    .in("id", approved)
+                    .eq("selectionStatus", "pending_review")
+                    .set("selectionStatus", "approved")
+                    .set("updateTime", new Date()));
+            ThrowUtils.throwIf(updatedCount != approved.size(), ErrorCode.OPERATION_ERROR,
+                    "部分资产已被其他审核操作处理，请刷新后重试");
+        }
+        if (!deleted.isEmpty()) {
+            int updatedCount = this.baseMapper.update(null, new UpdateWrapper<PromptAsset>()
+                    .in("id", deleted)
+                    .eq("selectionStatus", "pending_review")
+                    .set("selectionStatus", "rejected")
+                    .set("updateTime", new Date()));
+            ThrowUtils.throwIf(updatedCount != deleted.size(), ErrorCode.OPERATION_ERROR,
+                    "部分资产已被其他审核操作处理，请刷新后重试");
+            deletePromptAssetBatch(new ArrayList<>(deleted));
+        }
+        return true;
+    }
+
+    private LinkedHashSet<Long> normalizeReviewIds(List<Long> ids) {
+        LinkedHashSet<Long> normalized = new LinkedHashSet<>();
+        if (ids != null) {
+            for (Long id : ids) {
+                if (id == null || id <= 0) {
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "资产 ID 无效");
+                }
+                normalized.add(id);
+            }
+        }
+        return normalized;
+    }
+
+    @Override
     public Boolean publishPromptAssetBatch(List<Long> ids) {
         List<Long> distinctIds = normalizeTagIds(ids);
         if (CollUtil.isEmpty(distinctIds)) {
@@ -731,6 +813,10 @@ public class PromptAssetServiceImpl extends ServiceImpl<PromptAssetMapper, Promp
             return;
         }
         switch (listType) {
+            case LIST_TYPE_ADMIN_LATEST_UNPUBLISHED:
+                queryWrapper.orderByAsc("status");
+                queryWrapper.orderByDesc("createTime", "id");
+                break;
             case LIST_TYPE_FEATURED:
                 queryWrapper.eq("isFeatured", 1);
                 queryWrapper.orderByDesc("featuredSort", "featuredTime", "id");
