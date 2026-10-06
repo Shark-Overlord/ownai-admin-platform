@@ -405,6 +405,13 @@ export function RegisterPage() {
             </div>
 
             <div className="shrink-0 px-5 pb-5 pt-3">
+              <p className="mb-3 text-[12px] leading-5 text-[var(--hero-muted)]">
+                请先阅读
+                <Link className="mx-1 text-[var(--hero-ink)] underline underline-offset-4" to="/legal/terms" target="_blank">《用户协议》</Link>
+                <Link className="mr-1 text-[var(--hero-ink)] underline underline-offset-4" to="/legal/privacy" target="_blank">《隐私政策》</Link>
+                和
+                <Link className="ml-1 text-[var(--hero-ink)] underline underline-offset-4" to="/legal/service-rules" target="_blank">《服务使用规范》</Link>
+              </p>
               <label className="flex cursor-pointer items-start gap-3 rounded-[12px] border border-[var(--hero-border)] bg-[var(--hero-ink)]/[0.025] px-3.5 py-3">
                 <input
                   type="checkbox"

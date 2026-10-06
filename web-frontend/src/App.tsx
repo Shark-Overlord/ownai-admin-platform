@@ -11,6 +11,7 @@ const HomePage = lazy(() => import("@/pages/HomePage").then(module => ({ default
 const OwnAIDesignPage = lazy(() => import("@/pages/OwnAIDesignPage").then(module => ({ default: module.OwnAIDesignPage })));
 const ImageStudio2Page = lazy(() => import("@/pages/ImageStudio2Page").then(module => ({ default: module.ImageStudio2Page })));
 const LoginPage = lazy(() => import("@/pages/LoginPage").then(module => ({ default: module.LoginPage })));
+const LegalPage = lazy(() => import("@/pages/LegalPage").then(module => ({ default: module.LegalPage })));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage").then(module => ({ default: module.ProfilePage })));
 const PricingPage = lazy(() => import("@/pages/PricingPage").then(module => ({ default: module.PricingPage })));
 const PricingPaymentResultPage = lazy(() => import("@/pages/PricingPaymentResultPage").then(module => ({ default: module.PricingPaymentResultPage })));
@@ -34,6 +35,7 @@ function RouteRobotsPolicy() {
     location.pathname === "/codex-reset" ||
     location.pathname === "/traffic-tags" ||
     location.pathname === "/tutorials" ||
+    location.pathname.startsWith("/legal/") ||
     location.pathname.startsWith("/tutorials/books/") ||
     location.pathname.startsWith("/tutorials/posts/");
 
@@ -98,6 +100,7 @@ function App() {
         element={<TutorialPostPage />}
       />
       <Route path="/contact" element={<ContactPage />} />
+      <Route path="/legal/:document" element={<LegalPage />} />
       <Route
         path="/profile"
         element={

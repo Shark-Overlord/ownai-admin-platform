@@ -14,7 +14,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnnouncementPanel } from "@/components/home/AnnouncementPanel";
 import { UserAvatar } from "@/components/home/UserAvatar";
 import { CommunityFeed } from "@/components/community/CommunityFeed";
@@ -50,6 +50,7 @@ import {
 import { isAuthenticationError } from "@/lib/request";
 import { cn } from "@/lib/utils";
 import { createProfileAvatarOption, createProfileAvatarOptions } from "@/lib/avatar";
+import { contactContent } from "@/data/contact";
 import type {
   MemberOrder,
   ProfileUpdateRequest,
@@ -805,6 +806,42 @@ export function ProfilePage() {
                   </section>
                   <ProfileCheckInPanel onPointBalanceChange={handlePointBalanceChange} />
                 </div>
+                <section className="profile-settings-card" aria-labelledby="profile-privacy-title">
+                  <div className="profile-card-heading">
+                    <div>
+                      <h2 id="profile-privacy-title">{locale === "zh-CN" ? "账号与隐私" : "Account & privacy"}</h2>
+                      <p>{locale === "zh-CN" ? "申请个人信息处理或账号注销" : "Request personal data handling or account closure"}</p>
+                    </div>
+                  </div>
+                  <p className="text-[13px] leading-6 text-[var(--hero-muted)]">
+                    {locale === "zh-CN"
+                      ? `账号注销通过官方微信 ${contactContent.wechat} 受理。添加后请注明账号邮箱和具体请求；完成身份核验后处理。`
+                      : `Account closure requests are handled through our official WeChat account: ${contactContent.wechat}. Include your account email and request details.`}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      className={cn(compactButtonBase, compactButtonPrimary)}
+                      onClick={() => {
+                        void navigator.clipboard.writeText(contactContent.wechat)
+                          .then(() => {
+                            setProfileFeedback({
+                              tone: "success",
+                              message: locale === "zh-CN" ? "微信号已复制" : "WeChat ID copied",
+                            });
+                          })
+                          .catch(() => {
+                            window.prompt(locale === "zh-CN" ? "请复制微信号" : "Copy WeChat ID", contactContent.wechat);
+                          });
+                      }}
+                    >
+                      {locale === "zh-CN" ? "复制微信号申请注销" : "Copy WeChat ID"}
+                    </button>
+                    <Link className={cn(compactButtonBase, compactButtonSecondary)} to="/legal/privacy">
+                      {locale === "zh-CN" ? "查看隐私政策" : "View privacy policy"}
+                    </Link>
+                  </div>
+                </section>
                 {profileFeedback && <div className="community-toast" role="status">{profileFeedback.message}<button aria-label="关闭资料提示" onClick={() => setProfileFeedback(null)}><X size={14} /></button></div>}
               </div>
             )}

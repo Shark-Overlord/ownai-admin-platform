@@ -56,6 +56,10 @@ try {
     `${siteUrl}/codex-reset`,
     `${siteUrl}/traffic-tags`,
     `${siteUrl}/tutorials`,
+    `${siteUrl}/legal/privacy`,
+    `${siteUrl}/legal/terms`,
+    `${siteUrl}/legal/service-rules`,
+    `${siteUrl}/legal/consumer`,
     ...books
       .filter((book) => publicBookIds.has(String(book.id)))
       .map((book) => `${siteUrl}/tutorials/books/${book.id}`),

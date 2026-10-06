@@ -1699,7 +1699,10 @@ function AssistantResultGrid({
               <Download className="h-4 w-4" />
             </a>
           </div>
-          <figcaption className="flex items-center justify-start border-t border-[var(--chat-result-border)] bg-[var(--chat-result-bar)] px-3 py-2.5">
+          <figcaption className="flex items-center justify-between gap-3 border-t border-[var(--chat-result-border)] bg-[var(--chat-result-bar)] px-3 py-2.5">
+            <span className="inline-flex h-6 items-center rounded-[7px] border border-[var(--chat-result-border)] bg-[var(--chat-result-button)] px-2 text-[11px] font-medium text-[var(--chat-result-text)]">
+              AI 生成
+            </span>
             <button
               type="button"
               onClick={() => onReferenceImage(imageUrl)}
