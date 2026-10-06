@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
 import { Check, CheckCircle2, Clock, Copy, LoaderCircle, MessageCircle, X } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Navbar } from "@/components/home/Navbar";
+import { Footer } from "@/components/home/Footer";
 import { openAlipayCheckoutWindow, submitAlipayPaymentForm } from "@/lib/alipay-checkout";
 import {
   getAuthSessionEventName,
@@ -173,6 +174,8 @@ export function PricingPage() {
   const [loginUser, setLoginUser] = useState(() => getPersistedLoginUser());
   const [supportOpen, setSupportOpen] = useState(false);
   const [wechatCopied, setWechatCopied] = useState(false);
+  const [pendingPurchaseType, setPendingPurchaseType] = useState<MemberPriceConfigPlan["planType"] | "points" | null>(null);
+  const [purchaseRulesAccepted, setPurchaseRulesAccepted] = useState(false);
 
   useEffect(() => {
     if (memberReturnPath) persistMemberReturnPath(memberReturnPath);
@@ -303,13 +306,25 @@ export function PricingPage() {
     }
   };
 
+  const handlePurchaseIntent = (planType: MemberPriceConfigPlan["planType"] | "points") => {
+    if (!getPersistedAuthToken()) {
+      const redirectTo = memberReturnPath
+        ? `/pricing?returnTo=${encodeURIComponent(memberReturnPath)}`
+        : "/pricing";
+      navigate("/auth/login", { state: { redirectTo } });
+      return;
+    }
+    setPurchaseRulesAccepted(false);
+    setPendingPurchaseType(planType);
+  };
+
   return (
     <div className="pricing-page page-shell relative min-h-screen text-[var(--hero-ink)]">
       <Navbar />
       <main className="relative z-10 px-4 pb-14 pt-12 sm:px-6 lg:px-8">
         <motion.section className="mx-auto w-full max-w-[1180px]" initial="hidden" animate="visible" variants={staggerContainer}>
           <PointRechargeCard config={rechargeConfig} error={rechargeError} quantity={quantity} onQuantityChange={setQuantity}
-            busy={creatingPlanType !== null} creating={creatingPlanType === 'points'} onRetry={() => void loadRechargeConfig()} onPurchase={() => void handlePurchase('points')} />
+            busy={creatingPlanType !== null} creating={creatingPlanType === 'points'} onRetry={() => void loadRechargeConfig()} onPurchase={() => handlePurchaseIntent('points')} />
           <motion.div variants={revealVariants} className="mx-auto max-w-[720px] text-center">
             <h1 className="font-display text-[clamp(1.9rem,3.6vw,3.1rem)] font-semibold leading-tight">开通 OwnAI 会员，全站资产无限畅享</h1>
             <p className="mx-auto mt-4 max-w-[620px] text-[14px] leading-7 text-[var(--hero-muted)]">
@@ -326,13 +341,69 @@ export function PricingPage() {
                   plan={plan}
                   activePlanType={activePlanType}
                   creatingPlanType={creatingPlanType}
-                  onPurchase={handlePurchase}
+                  onPurchase={handlePurchaseIntent}
                 />
               ))}
             </motion.div>
           ) : null}
+          <p className="mx-auto mt-6 max-w-[760px] text-center text-[12px] leading-6 text-[var(--hero-muted)]">
+            会员和积分均为一次性支付，不自动续费。支付前请阅读
+            <Link className="mx-1 font-medium text-[var(--hero-ink)] underline underline-offset-4" to="/legal/consumer">《会员、积分与退款规则》</Link>
+            和
+            <Link className="ml-1 font-medium text-[var(--hero-ink)] underline underline-offset-4" to="/legal/terms">《用户协议》</Link>。
+          </p>
         </motion.section>
       </main>
+      <Footer />
+
+      <DialogPrimitive.Root
+        open={pendingPurchaseType !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingPurchaseType(null);
+            setPurchaseRulesAccepted(false);
+          }
+        }}
+      >
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-black/65 backdrop-blur-[3px]" />
+          <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-[100] w-[calc(100%-32px)] max-w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-white/10 bg-[#171717] p-5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.48)] focus:outline-none">
+            <DialogPrimitive.Title className="text-[16px] font-semibold">确认购买规则</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="mt-2 text-[13px] leading-6 text-white/62">
+              {pendingPurchaseType === "points" ? "本次购买为积分充值" : "本次购买为会员服务"}，一次性支付且不自动续费。
+            </DialogPrimitive.Description>
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-[13px] leading-6 text-white/62">
+              <li>支付成功并到账后开始履行；下载、复制、解锁或消耗积分表示对应数字服务已经开始使用。</li>
+              <li>重复付款、未到账、系统错误扣费及依法应退款的情形，可联系官方邮箱申请核查。</li>
+              <li>退款结合实际履行情况处理；发票可凭订单号通过官方邮箱申请。</li>
+            </ul>
+            <Link className="mt-3 inline-block text-[12px] font-medium text-white underline underline-offset-4" to="/legal/consumer" target="_blank">
+              查看完整会员、积分与退款规则
+            </Link>
+            <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-[10px] border border-white/10 bg-white/[0.045] px-3 py-3">
+              <input className="mt-1 h-4 w-4 accent-white" type="checkbox" checked={purchaseRulesAccepted} onChange={(event) => setPurchaseRulesAccepted(event.target.checked)} />
+              <span className="text-[12px] leading-5 text-white/78">我已阅读并同意用户协议及会员、积分与退款规则</span>
+            </label>
+            <div className="mt-4 flex justify-end gap-2.5">
+              <DialogPrimitive.Close className="inline-flex h-9 items-center justify-center rounded-[8px] border border-white/12 px-4 text-[13px] font-medium text-white/72 hover:bg-white/8">取消</DialogPrimitive.Close>
+              <button
+                type="button"
+                disabled={!purchaseRulesAccepted || !pendingPurchaseType}
+                onClick={() => {
+                  const planType = pendingPurchaseType;
+                  if (!planType) return;
+                  setPendingPurchaseType(null);
+                  setPurchaseRulesAccepted(false);
+                  void handlePurchase(planType);
+                }}
+                className="inline-flex h-9 items-center justify-center rounded-[8px] bg-white px-4 text-[13px] font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                同意并前往支付
+              </button>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
       <DialogPrimitive.Root open={supportOpen} onOpenChange={setSupportOpen}>
         <DialogPrimitive.Trigger asChild>

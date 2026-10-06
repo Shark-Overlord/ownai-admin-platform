@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, LoaderCircle, MessageCircle, UserRound, X } from "lucide-react";
+import { ArrowUp, Flag, LoaderCircle, MessageCircle, UserRound, X } from "lucide-react";
 import { UserAvatar } from "@/components/home/UserAvatar";
 import { communityGet, communityPost, communityError, communityFlag, communityTime, type CommunityComment, type CommunityPage } from "@/lib/community";
 import { readCommentDraft, writeCommentDraft, scrollToCommunityElement } from "@/lib/community-state";
@@ -92,6 +92,7 @@ function CommentThread({ row, target, enabled, onReply, onNotice }: { row: Commu
   const [replies, setReplies] = useState<CommunityComment[]>([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [reportingId, setReportingId] = useState<string>();
   const [total, setTotal] = useState(Number(row.replyCount));
   async function expand() {
     if (loading) return;
@@ -103,11 +104,39 @@ function CommentThread({ row, target, enabled, onReply, onNotice }: { row: Commu
     } catch (e) { onNotice(communityError(e)); }
     finally { setLoading(false); }
   }
+  async function report(comment: CommunityComment) {
+    const reason = window.prompt("请填写举报原因（最多500字）");
+    if (reason === null) return;
+    const normalizedReason = reason.trim();
+    if (!normalizedReason) {
+      onNotice("请填写举报原因");
+      return;
+    }
+    if (normalizedReason.length > 500) {
+      onNotice("举报原因不能超过500字");
+      return;
+    }
+    setReportingId(comment.id);
+    try {
+      await communityPost<string>("report", { commentId: comment.id, reason: normalizedReason });
+      onNotice("举报已提交，我们会尽快处理");
+    } catch (error) {
+      onNotice(communityError(error));
+    } finally {
+      setReportingId(undefined);
+    }
+  }
   const render = (comment: CommunityComment) => <div className="community-comment-row" id={`community-comment-${comment.id}`} tabIndex={-1} data-target={comment.id === target?.id || undefined} key={comment.id}>
     <UserAvatar className="community-comment-avatar" src={comment.authorAvatar} alt={comment.authorName} fallback={<UserRound size={16} />} />
     <div className="community-comment-body"><div className="community-comment-meta"><strong>{comment.authorName}</strong>{communityFlag(comment.official) && <span className="community-official">官方</span>}<time dateTime={comment.createTime}>{communityTime(comment.createTime)}</time></div>
       <p>{comment.replyToId && <span className="community-muted">回复 {comment.replyToName}：</span>}{comment.content}</p>
-      {enabled && <button className="community-text-action" onClick={() => onReply(comment)}>回复</button>}
+      <div className="flex items-center gap-3">
+        {enabled && <button className="community-text-action" onClick={() => onReply(comment)}>回复</button>}
+        <button className="community-text-action inline-flex items-center gap-1" disabled={reportingId === comment.id} onClick={() => void report(comment)}>
+          {reportingId === comment.id ? <LoaderCircle size={12} className="animate-spin" /> : <Flag size={12} />}
+          举报
+        </button>
+      </div>
     </div>
   </div>;
   const visibleReplies = target && target.id !== row.id && !replies.some(reply => reply.id === target.id) ? [target, ...replies] : replies;

@@ -81,15 +81,16 @@ export interface LocalizedText {
 }
 
 export interface ContactContent {
-  email: string;
-  emailDescription: LocalizedText;
-  emailLabel: LocalizedText;
+  wechat: string;
   supportNotice: LocalizedText;
 }
 
 export interface LegalFooterContent {
   icpNumber: LocalizedText;
+  icpUrl: string;
   legalNotice: LocalizedText;
+  operatorName: LocalizedText;
+  principalName: LocalizedText;
 }
 
 export interface MembershipFeature {
