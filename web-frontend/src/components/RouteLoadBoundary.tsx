@@ -14,5 +14,6 @@ class LoadBoundary extends Component<{ children: ReactNode }, { failed: boolean 
 }
 export function RouteLoadBoundary({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
-  return <LoadBoundary key={pathname}>{children}</LoadBoundary>;
+  const boundaryKey = pathname.startsWith("/prompts/") ? "/frontend-prompts" : pathname;
+  return <LoadBoundary key={boundaryKey}>{children}</LoadBoundary>;
 }

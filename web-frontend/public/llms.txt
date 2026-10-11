@@ -1,0 +1,21 @@
+# OwnAI
+
+> OwnAI 为设计师和开发者提供500+前端页面、组件与交互提示词，包含真实效果封面、会员源码和 Vibe Coding 创作资源。
+
+OwnAI（https://ownai.icu）面向设计师与前端开发者，核心内容是可复用的前端页面、组件与交互提示词（附真实渲染效果），以及前端开发和 Vibe Coding 系统教程。提示词全文与源码为会员内容，教程中标注为免费的文章可直接阅读。
+
+本文件是静态兜底版本；线上默认由后端动态生成并包含全部免费教程文章。
+
+## 核心页面
+
+- [OwnAI Design 浏览器插件](https://ownai.icu/ownai-design): 复制网页组件结构、样式与交互信息，生成适用于 Codex、Claude 和 Cursor 的 UI 复刻提示词
+- [系统教程](https://ownai.icu/tutorials): 前端开发、智能体构建和 Vibe Coding 实战教程与免费文章
+- [视频背景库](https://ownai.icu/video-backgrounds): 可用于网页首屏和落地页的视频背景素材
+- [自媒体流量标签](https://ownai.icu/traffic-tags): 抖音、小红书、公众号和即刻的 AI 内容流量标签、活动要求与有效期
+- [会员方案](https://ownai.icu/pricing): 会员可解锁的提示词、源码范围与权益说明
+
+## Optional
+
+- [隐私政策](https://ownai.icu/legal/privacy)
+- [服务条款](https://ownai.icu/legal/terms)
+- [站点地图](https://ownai.icu/sitemap.xml)

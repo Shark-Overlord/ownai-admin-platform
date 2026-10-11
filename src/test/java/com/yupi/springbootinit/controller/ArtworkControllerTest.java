@@ -178,7 +178,7 @@ class ArtworkControllerTest {
         ArtworkHomeOverviewVO overview = new ArtworkHomeOverviewVO();
         overview.setTotalCount(100L);
         overview.setRecentThreeDaysCount(5L);
-        when(userService.getLoginUser(any())).thenReturn(loginUser);
+        when(userService.getLoginUserPermitNull(any())).thenReturn(loginUser);
         when(artworkService.getHomeOverview(loginUser)).thenReturn(overview);
 
         mockMvc.perform(get("/artwork/home/overview"))
@@ -186,6 +186,19 @@ class ArtworkControllerTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.totalCount").value(100))
                 .andExpect(jsonPath("$.data.recentThreeDaysCount").value(5));
+    }
+
+    @Test
+    void getArtworkHomeOverviewShouldAllowAnonymousVisitors() throws Exception {
+        ArtworkHomeOverviewVO overview = new ArtworkHomeOverviewVO();
+        overview.setTotalCount(7L);
+        when(userService.getLoginUserPermitNull(any())).thenReturn(null);
+        when(artworkService.getHomeOverview(null)).thenReturn(overview);
+
+        mockMvc.perform(get("/artwork/home/overview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.totalCount").value(7));
     }
 
     @Test

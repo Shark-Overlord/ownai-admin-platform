@@ -28,6 +28,7 @@ public class BlogFrontPostDetailVO implements Serializable {
     private String seoTitle;
     private String seoDescription;
     private Date publishedAt;
+    private Date updateTime;
     private Long readCount;
     private Long uniqueReaderCount;
     private BlogFrontNavVO previousPost;

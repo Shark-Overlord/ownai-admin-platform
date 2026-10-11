@@ -422,6 +422,19 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
 
     @Override
     public ArtworkDetailVO getArtworkDetail(Long artworkId, User loginUser, boolean adminView) {
+        ArtworkDetailVO artworkDetailVO = buildArtworkDetail(artworkId, loginUser, adminView);
+        this.lambdaUpdate().eq(Artwork::getId, artworkId)
+                .setSql("viewCount = IFNULL(viewCount, 0) + 1")
+                .update();
+        return artworkDetailVO;
+    }
+
+    @Override
+    public ArtworkDetailVO getPublicArtworkSnapshot(Long artworkId) {
+        return buildArtworkDetail(artworkId, null, false);
+    }
+
+    private ArtworkDetailVO buildArtworkDetail(Long artworkId, User loginUser, boolean adminView) {
         ThrowUtils.throwIf(artworkId == null || artworkId <= 0, ErrorCode.PARAMS_ERROR);
         Artwork artwork = this.getById(artworkId);
         ThrowUtils.throwIf(artwork == null, ErrorCode.NOT_FOUND_ERROR, "作品不存在");
@@ -436,9 +449,6 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         if (!adminView) artworkDetailVO.setSourceZipUrl(null);
         artworkDetailVO.setAccessReason(Boolean.TRUE.equals(artworkDetailVO.getPermanentlyUnlocked())
                 ? "permanent_unlock" : resolveAccessReason(artwork, loginUser, canAccess));
-        this.lambdaUpdate().eq(Artwork::getId, artworkId)
-                .setSql("viewCount = IFNULL(viewCount, 0) + 1")
-                .update();
         return artworkDetailVO;
     }
 
