@@ -110,538 +110,468 @@ function categorizeArtworks(records) {
   return groups;
 }
 
+const LUCIDE_ICONS = {
+  monitor: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`,
+  dashboard: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
+  smartphone: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>`,
+  component: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5 9 12l-3.5 3.5L2 12l3.5-3.5Z"/><path d="m12 2 3.5 3.5L12 9 8.5 5.5 12 2Z"/><path d="M18.5 8.5 22 12l-3.5 3.5L15 12l3.5-3.5Z"/><path d="m12 15 3.5 3.5L12 22l-3.5-3.5L12 15Z"/></svg>`,
+  clapperboard: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>`,
+  helpCircle: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>`,
+  arrowUpRight: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>`,
+};
+
 function buildShowcaseCss() {
   return `
   <style id="geo-showcase-styles">
     body {
-      background-color: #09090b !important;
+      background-color: #0b0c10 !important;
       margin: 0;
       padding: 0;
-      color: #f4f4f5;
+      color: #e4e4e7;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     .ownai-geo-root {
-      background-color: #09090b;
-      color: #f4f4f5;
+      background-color: #0b0c10;
+      color: #e4e4e7;
       min-height: 100vh;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
-      position: relative;
-      overflow-x: hidden;
-      padding-bottom: 96px;
+      padding-bottom: 80px;
     }
     .ownai-geo-root *, .ownai-geo-root *::before, .ownai-geo-root *::after {
       box-sizing: border-box;
     }
-    .geo-aurora-glow {
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 100%;
-      max-width: 1200px;
-      height: 520px;
-      background: radial-gradient(circle at 50% -10%, rgba(99, 102, 241, 0.22) 0%, rgba(168, 85, 247, 0.08) 42%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
-    }
     .geo-wrapper {
-      max-width: 1240px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 0 24px;
-      position: relative;
-      z-index: 1;
+      padding: 0 20px;
     }
     .geo-top-nav {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 20px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      margin-bottom: 48px;
+      padding: 16px 0;
+      border-bottom: 1px solid #1f2128;
+      margin-bottom: 36px;
     }
     .geo-brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       text-decoration: none;
     }
-    .geo-brand-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 9px;
-      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #ffffff;
-      font-weight: 800;
-      font-size: 15px;
-      box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
+    .geo-brand-logo {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      display: block;
     }
     .geo-brand-name {
-      font-size: 18px;
-      font-weight: 800;
+      font-size: 15px;
+      font-weight: 700;
       color: #ffffff;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
     }
-    .geo-brand-pill {
-      background: rgba(255, 255, 255, 0.06);
+    .geo-brand-sep {
+      color: #3f3f46;
+      font-size: 13px;
+    }
+    .geo-brand-section {
+      font-size: 13px;
       color: #a1a1aa;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 9999px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      letter-spacing: 0.04em;
     }
-    .geo-nav-menu {
+    .geo-nav-links {
       display: flex;
       align-items: center;
       gap: 20px;
     }
-    .geo-nav-item {
+    .geo-nav-link {
       color: #a1a1aa;
       text-decoration: none;
       font-size: 13px;
       font-weight: 500;
-      transition: color 0.2s;
+      transition: color 0.15s;
     }
-    .geo-nav-item:hover {
+    .geo-nav-link:hover {
       color: #ffffff;
     }
-    .geo-nav-button {
-      background: #ffffff;
-      color: #09090b;
-      font-weight: 600;
-      padding: 7px 16px;
-      border-radius: 8px;
+    .geo-nav-cta {
+      background: #181920;
+      color: #ffffff;
+      border: 1px solid #2e3039;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 6px;
       text-decoration: none;
       font-size: 13px;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
-    .geo-nav-button:hover {
-      background: #e4e4e7;
-      transform: translateY(-1px);
+    .geo-nav-cta:hover {
+      background: #23252f;
+      border-color: #3f4250;
     }
-    .geo-hero-header {
-      text-align: center;
-      max-width: 860px;
-      margin: 0 auto 48px;
+    .geo-hero {
+      margin-bottom: 36px;
+      border-bottom: 1px solid #1f2128;
+      padding-bottom: 32px;
     }
-    .geo-shimmer-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(99, 102, 241, 0.1);
-      border: 1px solid rgba(129, 140, 248, 0.3);
-      color: #c7d2fe;
-      padding: 6px 16px;
-      border-radius: 9999px;
-      font-size: 13px;
-      font-weight: 500;
-      margin-bottom: 22px;
-      box-shadow: 0 0 24px rgba(99, 102, 241, 0.15);
+    .geo-breadcrumb {
+      font-size: 12px;
+      color: #71717a;
+      margin-bottom: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
-    .geo-shimmer-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #818cf8;
-      box-shadow: 0 0 8px #818cf8;
+    .geo-breadcrumb a {
+      color: #71717a;
+      text-decoration: none;
     }
-    .geo-main-title {
-      font-size: 44px;
-      font-weight: 800;
-      line-height: 1.15;
-      letter-spacing: -0.03em;
-      margin: 0 0 18px;
-      background: linear-gradient(180deg, #ffffff 45%, #a1a1aa 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    @media (max-width: 640px) {
-      .geo-main-title { font-size: 30px; }
-    }
-    .geo-subtitle {
-      font-size: 16px;
+    .geo-breadcrumb a:hover {
       color: #a1a1aa;
-      line-height: 1.7;
-      margin: 0 auto 36px;
-      max-width: 720px;
     }
-    .geo-stats-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 48px;
-    }
-    @media (max-width: 768px) {
-      .geo-stats-row { grid-template-columns: repeat(2, 1fr); }
-    }
-    .geo-stat-card {
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      padding: 20px 16px;
-      text-align: center;
-      transition: all 0.2s;
-    }
-    .geo-stat-card:hover {
-      border-color: rgba(255, 255, 255, 0.18);
-      background: rgba(255, 255, 255, 0.04);
-    }
-    .geo-stat-num {
-      font-size: 28px;
-      font-weight: 800;
+    .geo-title {
+      font-size: 30px;
+      font-weight: 700;
       color: #ffffff;
       letter-spacing: -0.02em;
-      margin-bottom: 4px;
+      margin: 0 0 12px;
+      line-height: 1.3;
     }
-    .geo-stat-label {
-      font-size: 13px;
+    .geo-desc {
+      font-size: 15px;
+      color: #94a3b8;
+      line-height: 1.65;
+      margin: 0 0 24px;
+      max-width: 800px;
+    }
+    .geo-spec-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 768px) {
+      .geo-spec-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .geo-spec-item {
+      background: #111217;
+      border: 1px solid #1f2128;
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .geo-spec-label {
+      font-size: 11px;
       color: #71717a;
+      margin-bottom: 4px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
-    .geo-tabs-bar {
+    .geo-spec-val {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fafafa;
+    }
+    .geo-tab-nav {
       position: sticky;
-      top: 16px;
+      top: 12px;
       z-index: 30;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
       overflow-x: auto;
-      padding: 10px 14px;
-      background: rgba(18, 19, 25, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 14px;
-      backdrop-filter: blur(20px);
-      margin-bottom: 56px;
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+      padding: 6px;
+      background: rgba(15, 16, 21, 0.95);
+      border: 1px solid #23252f;
+      border-radius: 8px;
+      backdrop-filter: blur(12px);
+      margin-bottom: 44px;
     }
-    .geo-tab-pill {
+    .geo-tab-item {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      border-radius: 10px;
+      gap: 7px;
+      padding: 7px 13px;
+      border-radius: 6px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
       color: #a1a1aa;
       text-decoration: none;
       white-space: nowrap;
-      transition: all 0.2s;
-      background: rgba(255, 255, 255, 0.03);
+      transition: all 0.15s;
       border: 1px solid transparent;
     }
-    .geo-tab-pill:hover {
+    .geo-tab-item:hover {
       color: #ffffff;
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.15);
+      background: #1c1d25;
+      border-color: #2e3039;
+    }
+    .geo-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: currentColor;
     }
     .geo-section {
-      margin-bottom: 68px;
-      scroll-margin-top: 100px;
+      margin-bottom: 56px;
+      scroll-margin-top: 80px;
     }
-    .geo-section-header {
+    .geo-section-head {
       display: flex;
-      align-items: flex-end;
+      align-items: baseline;
       justify-content: space-between;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1a1c22;
       gap: 16px;
     }
     .geo-section-title {
-      font-size: 24px;
-      font-weight: 700;
+      font-size: 20px;
+      font-weight: 600;
       color: #ffffff;
-      margin: 0 0 6px;
-      letter-spacing: -0.01em;
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
     .geo-section-desc {
-      font-size: 14px;
-      color: #a1a1aa;
-      margin: 0;
+      font-size: 13px;
+      color: #71717a;
+      margin: 4px 0 0;
     }
-    .geo-section-badge {
-      background: rgba(99, 102, 241, 0.1);
-      color: #a5b4fc;
-      border: 1px solid rgba(99, 102, 241, 0.25);
-      padding: 4px 12px;
-      border-radius: 9999px;
-      font-size: 12px;
-      font-weight: 600;
+    .geo-section-count {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11px;
+      color: #71717a;
       white-space: nowrap;
     }
-    .geo-cards-grid {
+    .geo-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
+      gap: 20px;
     }
     @media (max-width: 1024px) {
-      .geo-cards-grid { grid-template-columns: repeat(2, 1fr); }
+      .geo-grid { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 640px) {
-      .geo-cards-grid { grid-template-columns: 1fr; }
+      .geo-grid { grid-template-columns: 1fr; }
     }
     .geo-card {
-      background: #121319;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      padding: 16px;
+      background: #111217;
+      border: 1px solid #1f2128;
+      border-radius: 8px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
-      transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
+      transition: border-color 0.15s;
     }
     .geo-card:hover {
-      transform: translateY(-5px);
-      border-color: rgba(129, 140, 248, 0.35);
-      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 30px rgba(99, 102, 241, 0.12);
-      background: #171821;
+      border-color: #383b47;
     }
     .geo-card-media {
       aspect-ratio: 16 / 10;
       overflow: hidden;
-      border-radius: 10px;
-      background: #000000;
+      border-radius: 6px;
+      background: #090a0d;
       position: relative;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
+      border: 1px solid #1c1d24;
     }
     .geo-card-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.35s ease;
       display: block;
     }
-    .geo-card:hover .geo-card-img {
-      transform: scale(1.05);
-    }
-    .geo-card-overlay {
+    .geo-tag-free {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      display: flex;
-      gap: 6px;
-      z-index: 2;
-    }
-    .geo-badge-free {
-      background: rgba(16, 185, 129, 0.9);
-      color: #ffffff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 6px;
-      backdrop-filter: blur(4px);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-    .geo-badge-pro {
-      background: rgba(139, 92, 246, 0.9);
-      color: #ffffff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 6px;
-      backdrop-filter: blur(4px);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-    .geo-badge-cat {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.65);
-      color: #e4e4e7;
-      font-size: 11px;
+      top: 8px;
+      left: 8px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 10px;
       font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 6px;
-      backdrop-filter: blur(6px);
+      letter-spacing: 0.04em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      backdrop-filter: blur(4px);
+    }
+    .geo-tag-pro {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(139, 92, 246, 0.2);
+      color: #c084fc;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      backdrop-filter: blur(4px);
+    }
+    .geo-tag-cat {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 10px;
+      color: #a1a1aa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.75);
       border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(4px);
     }
     .geo-card-title {
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 15px;
+      font-weight: 600;
       color: #ffffff;
-      margin: 0 0 8px;
+      margin: 0 0 6px;
       line-height: 1.4;
     }
     .geo-card-title a {
       color: inherit;
       text-decoration: none;
-      transition: color 0.2s;
     }
     .geo-card-title a:hover {
-      color: #818cf8;
+      color: #60a5fa;
     }
     .geo-card-desc {
-      font-size: 13px;
-      color: #a1a1aa;
-      line-height: 1.6;
-      margin: 0 0 16px;
+      font-size: 12px;
+      color: #71717a;
+      line-height: 1.55;
+      margin: 0 0 12px;
       flex: 1;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-    .geo-card-tags {
+    .geo-tags {
       display: flex;
-      gap: 6px;
+      gap: 5px;
       flex-wrap: wrap;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
-    .geo-tag-pill {
-      background: rgba(255, 255, 255, 0.05);
+    .geo-tag {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: #181920;
       color: #a1a1aa;
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 5px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      border: 1px solid #23252f;
     }
-    .geo-card-footer {
+    .geo-card-foot {
       margin-top: auto;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 10px;
+      border-top: 1px solid #1a1c22;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .geo-link-free {
+    .geo-link {
       font-size: 12px;
-      font-weight: 600;
-      color: #34d399;
+      font-weight: 500;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      transition: all 0.2s;
+      color: #60a5fa;
+      transition: color 0.15s;
     }
-    .geo-link-free:hover {
-      color: #6ee7b7;
-      transform: translateX(2px);
+    .geo-link:hover {
+      color: #93c5fd;
     }
-    .geo-link-pro {
-      font-size: 12px;
-      font-weight: 600;
-      color: #a78bfa;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: all 0.2s;
-    }
-    .geo-link-pro:hover {
-      color: #c4b5fd;
-      transform: translateX(2px);
+    .geo-faq {
+      margin-top: 56px;
+      scroll-margin-top: 80px;
     }
     .geo-faq-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      margin-top: 24px;
+      gap: 16px;
+      margin-top: 16px;
     }
     @media (max-width: 768px) {
       .geo-faq-grid { grid-template-columns: 1fr; }
     }
-    .geo-faq-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      padding: 24px;
-      transition: border-color 0.2s;
-    }
-    .geo-faq-card:hover {
-      border-color: rgba(255, 255, 255, 0.16);
-      background: rgba(255, 255, 255, 0.035);
+    .geo-faq-box {
+      background: #111217;
+      border: 1px solid #1f2128;
+      border-radius: 8px;
+      padding: 18px;
     }
     .geo-faq-q {
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 600;
       color: #ffffff;
-      margin: 0 0 10px;
+      margin: 0 0 8px;
       display: flex;
       align-items: center;
-      gap: 10px;
-    }
-    .geo-faq-num {
-      color: #818cf8;
-      font-family: ui-monospace, monospace;
-      font-size: 12px;
-      font-weight: 700;
-      background: rgba(99, 102, 241, 0.12);
-      padding: 2px 7px;
-      border-radius: 4px;
-      border: 1px solid rgba(99, 102, 241, 0.25);
+      gap: 8px;
     }
     .geo-faq-a {
-      font-size: 14px;
-      color: #a1a1aa;
-      line-height: 1.65;
+      font-size: 13px;
+      color: #8b8f9e;
+      line-height: 1.6;
       margin: 0;
     }
-    .geo-cta-box {
-      margin-top: 80px;
-      padding: 48px 32px;
-      border-radius: 20px;
-      text-align: center;
-      background: linear-gradient(180deg, rgba(30, 27, 75, 0.45) 0%, rgba(15, 23, 42, 0.7) 100%);
-      border: 1px solid rgba(129, 140, 248, 0.25);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px rgba(99, 102, 241, 0.1);
-      position: relative;
-    }
-    .geo-cta-title {
-      font-size: 28px;
-      font-weight: 800;
-      color: #ffffff;
-      margin: 0 0 12px;
-      letter-spacing: -0.02em;
-    }
-    .geo-cta-desc {
-      font-size: 15px;
-      color: #c7d2fe;
-      max-width: 680px;
-      margin: 0 auto 28px;
-      line-height: 1.6;
-    }
-    .geo-cta-buttons {
+    .geo-footer-cta {
+      margin-top: 56px;
+      padding: 28px 24px;
+      background: #111217;
+      border: 1px solid #1f2128;
+      border-radius: 8px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 16px;
+      justify-content: space-between;
+      gap: 20px;
       flex-wrap: wrap;
+    }
+    .geo-cta-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: #ffffff;
+      margin: 0 0 6px;
+    }
+    .geo-cta-sub {
+      font-size: 13px;
+      color: #71717a;
+      margin: 0;
+    }
+    .geo-cta-actions {
+      display: flex;
+      gap: 10px;
     }
     .geo-btn-primary {
       background: #ffffff;
-      color: #09090b;
-      padding: 10px 24px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 700;
+      color: #0b0c10;
+      font-weight: 600;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 13px;
       text-decoration: none;
-      transition: all 0.2s;
-      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+      transition: background 0.15s;
     }
     .geo-btn-primary:hover {
-      background: #f4f4f5;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+      background: #e4e4e7;
     }
-    .geo-btn-secondary {
-      background: rgba(255, 255, 255, 0.08);
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 10px 24px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
+    .geo-btn-sub {
+      background: transparent;
+      color: #e4e4e7;
+      border: 1px solid #2e3039;
+      font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 13px;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
-    .geo-btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.15);
-      transform: translateY(-2px);
+    .geo-btn-sub:hover {
+      background: #1a1c24;
+      border-color: #3f4250;
     }
   </style>`;
 }
@@ -649,88 +579,106 @@ function buildShowcaseCss() {
 function buildShowcaseHtml(groups, totalCount) {
   let html = `
 <div class="ownai-geo-root" data-ssr-fallback="">
-  <div class="geo-aurora-glow"></div>
   <div class="geo-wrapper">
-    <nav class="geo-top-nav" aria-label="顶部导航">
+    <header class="geo-top-nav" aria-label="顶部导航">
       <a href="/" class="geo-brand" title="OwnAI 首页">
-        <div class="geo-brand-icon">O</div>
+        <img src="/images/ownai-logo.webp" alt="OwnAI" class="geo-brand-logo" width="28" height="28" />
         <span class="geo-brand-name">ownai</span>
-        <span class="geo-brand-pill">PROMPTS LIBRARY</span>
+        <span class="geo-brand-sep">/</span>
+        <span class="geo-brand-section">前端提示词库</span>
       </a>
-      <div class="geo-nav-menu">
-        <a href="/" class="geo-nav-item">首页</a>
-        <a href="/tutorials" class="geo-nav-item">系统教程</a>
-        <a href="/pricing" class="geo-nav-item">会员方案</a>
-        <a href="/sitemap.xml" class="geo-nav-item">站点地图</a>
-        <a href="/pricing" class="geo-nav-button">开通会员 ➔</a>
-      </div>
-    </nav>
-
-    <header class="geo-hero-header">
-      <div class="geo-shimmer-badge">
-        <span class="geo-shimmer-dot"></span>
-        <span>已收录 ${totalCount} 款精品前端网页与组件 · 全量适配 Cursor / Claude / v0 / Codex</span>
-      </div>
-      <h1 class="geo-main-title">
-        OwnAI 精品前端提示词与网页设计库
-      </h1>
-      <p class="geo-subtitle">
-        为前端开发者、独立创作者与 UI 设计师打造。涵盖现代深色科技落地页、SaaS 业务看板、移动端 App 界面及高频交互原子组件。每款作品均提供真实渲染预览与结构化 Prompt，支持一键复刻生产级前端代码。
-      </p>
-
-      <div class="geo-stats-row">
-        <div class="geo-stat-card">
-          <div class="geo-stat-num">${totalCount}+</div>
-          <div class="geo-stat-label">收录精品网页</div>
-        </div>
-        <div class="geo-stat-card">
-          <div class="geo-stat-num">5 大</div>
-          <div class="geo-stat-label">核心场景全覆盖</div>
-        </div>
-        <div class="geo-stat-card">
-          <div class="geo-stat-num">100%</div>
-          <div class="geo-stat-label">真实渲染与结构</div>
-        </div>
-        <div class="geo-stat-card">
-          <div class="geo-stat-num" style="color: #34d399;">免费开放</div>
-          <div class="geo-stat-label">支持全文直接复制</div>
-        </div>
-      </div>
+      <nav class="geo-nav-links">
+        <a href="/" class="geo-nav-link">首页</a>
+        <a href="/tutorials" class="geo-nav-link">教程</a>
+        <a href="/pricing" class="geo-nav-link">会员</a>
+        <a href="/sitemap.xml" class="geo-nav-link">Sitemap</a>
+        <a href="/pricing" class="geo-nav-cta">开通会员</a>
+      </nav>
     </header>
 
-    <nav class="geo-tabs-bar" aria-label="类型导航">
-      <a href="#landing" class="geo-tab-pill">🚀 科技落地页</a>
-      <a href="#dashboard" class="geo-tab-pill">📊 SaaS 数据看板</a>
-      <a href="#mobile" class="geo-tab-pill">📱 移动端 App</a>
-      <a href="#component" class="geo-tab-pill">🧩 常用 UI 组件</a>
-      <a href="#motion" class="geo-tab-pill">✨ 动效与视觉背景</a>
-      <a href="#faq" class="geo-tab-pill">💬 常见问答 (FAQ)</a>
+    <div class="geo-hero">
+      <div class="geo-breadcrumb">
+        <a href="/">首页</a> / <span>前端提示词库</span>
+      </div>
+      <h1 class="geo-title">前端精选设计与交互提示词库</h1>
+      <p class="geo-desc">
+        面向前端工程师与 UI 设计师的高保真 Prompt 索引库。收录 700+ 款科技落地页、SaaS 管理看板、移动端 App 界面及高频交互原子组件，附带生产级提示词与设计规范，适配 Cursor、Claude、v0 与现代化前端工程。
+      </p>
+
+      <div class="geo-spec-grid">
+        <div class="geo-spec-item">
+          <div class="geo-spec-label">INDEXED ITEMS</div>
+          <div class="geo-spec-val">${totalCount}+ 款作品</div>
+        </div>
+        <div class="geo-spec-item">
+          <div class="geo-spec-label">SCENARIOS</div>
+          <div class="geo-spec-val">5 大应用场景</div>
+        </div>
+        <div class="geo-spec-item">
+          <div class="geo-spec-label">STRUCTURE</div>
+          <div class="geo-spec-val">100% 真实渲染结构</div>
+        </div>
+        <div class="geo-spec-item">
+          <div class="geo-spec-label">ACCESS</div>
+          <div class="geo-spec-val">免费公开核心全文</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="geo-tab-nav" aria-label="类型导航">
+      <a href="#landing" class="geo-tab-item">
+        <span class="geo-icon">${LUCIDE_ICONS.monitor}</span>
+        <span>科技落地页</span>
+      </a>
+      <a href="#dashboard" class="geo-tab-item">
+        <span class="geo-icon">${LUCIDE_ICONS.dashboard}</span>
+        <span>SaaS 数据看板</span>
+      </a>
+      <a href="#mobile" class="geo-tab-item">
+        <span class="geo-icon">${LUCIDE_ICONS.smartphone}</span>
+        <span>移动端 App</span>
+      </a>
+      <a href="#component" class="geo-tab-item">
+        <span class="geo-icon">${LUCIDE_ICONS.component}</span>
+        <span>高频 UI 组件</span>
+      </a>
+      <a href="#motion" class="geo-tab-item">
+        <span class="geo-icon">${LUCIDE_ICONS.clapperboard}</span>
+        <span>动效与视觉</span>
+      </a>
+      <a href="#faq" class="geo-tab-item">
+        <span class="geo-icon">${LUCIDE_ICONS.helpCircle}</span>
+        <span>常见问题</span>
+      </a>
     </nav>
 `;
 
   const groupKeys = [
-    { key: "landing", id: "landing" },
-    { key: "dashboard", id: "dashboard" },
-    { key: "mobile", id: "mobile" },
-    { key: "component", id: "component" },
-    { key: "motion", id: "motion" },
+    { key: "landing", id: "landing", icon: LUCIDE_ICONS.monitor },
+    { key: "dashboard", id: "dashboard", icon: LUCIDE_ICONS.dashboard },
+    { key: "mobile", id: "mobile", icon: LUCIDE_ICONS.smartphone },
+    { key: "component", id: "component", icon: LUCIDE_ICONS.component },
+    { key: "motion", id: "motion", icon: LUCIDE_ICONS.clapperboard },
   ];
 
-  for (const { key, id } of groupKeys) {
+  for (const { key, id, icon } of groupKeys) {
     const group = groups[key];
     if (!group || !group.items.length) continue;
 
     html += `
     <section id="${id}" class="geo-section">
-      <div class="geo-section-header">
-        <div class="geo-section-title-wrap">
-          <h2 class="geo-section-title">${esc(group.title)}</h2>
+      <div class="geo-section-head">
+        <div>
+          <h2 class="geo-section-title">
+            <span class="geo-icon">${icon}</span>
+            <span>${esc(group.title)}</span>
+          </h2>
           <p class="geo-section-desc">${esc(group.desc)}</p>
         </div>
-        <span class="geo-section-badge">精选收录 ${group.items.length} 款</span>
+        <span class="geo-section-count">${group.items.length} ITEMS</span>
       </div>
 
-      <div class="geo-cards-grid">
+      <div class="geo-grid">
 `;
 
     for (const item of group.items.slice(0, 12)) {
@@ -738,7 +686,7 @@ function buildShowcaseHtml(groups, totalCount) {
       const tags = (item.tagList || []).map((t) => t.name).filter(Boolean);
       const tagBadges = tags
         .slice(0, 3)
-        .map((t) => `<span class="geo-tag-pill">${esc(t)}</span>`)
+        .map((t) => `<span class="geo-tag">${esc(t)}</span>`)
         .join("");
 
       html += `
@@ -747,12 +695,8 @@ function buildShowcaseHtml(groups, totalCount) {
             item.coverUrl
               ? `<div class="geo-card-media">
                    <img class="geo-card-img" src="${esc(item.coverUrl)}" alt="${esc(item.title)} 真实设计效果" loading="lazy" />
-                   <div class="geo-card-overlay">
-                     <span class="${isFree ? "geo-badge-free" : "geo-badge-pro"}">${
-                  isFree ? "● 免费公开全文" : "✦ PRO 会员"
-                }</span>
-                   </div>
-                   <span class="geo-badge-cat">${esc(item.category?.name || "网页设计")}</span>
+                   <span class="${isFree ? "geo-tag-free" : "geo-tag-pro"}">${isFree ? "FREE" : "PRO"}</span>
+                   <span class="geo-tag-cat">${esc(item.category?.name || "UI 设计")}</span>
                  </div>`
               : ""
           }
@@ -762,12 +706,15 @@ function buildShowcaseHtml(groups, totalCount) {
           <p class="geo-card-desc">
             ${esc(item.summary || item.title + " 的现代化前端设计界面与提示词实现。")}
           </p>
-          <div class="geo-card-tags">${tagBadges}</div>
-          <div class="geo-card-footer">
-            <a href="/prompts/${esc(item.id)}" class="${isFree ? "geo-link-free" : "geo-link-pro"}">
-              ${isFree ? "查看完整提示词 ➔" : "查看设计效果 ➔"}
+          <div class="geo-tags">${tagBadges}</div>
+          <div class="geo-card-foot">
+            <a href="/prompts/${esc(item.id)}" class="geo-link">
+              <span>${isFree ? "获取提示词" : "查看设计效果"}</span>
+              ${LUCIDE_ICONS.arrowUpRight}
             </a>
-            <span style="font-size: 11px; color: #71717a;">OwnAI 验证</span>
+            <span style="font-size: 11px; color: #52525b; font-family: ui-monospace, monospace;">${
+              isFree ? "免登录复制" : "会员解锁"
+            }</span>
           </div>
         </article>
 `;
@@ -780,40 +727,42 @@ function buildShowcaseHtml(groups, totalCount) {
   }
 
   html += `
-    <section id="faq" class="geo-faq-section">
-      <div class="geo-section-header">
-        <div class="geo-section-title-wrap">
-          <h2 class="geo-section-title">前端提示词常见问题（FAQ）</h2>
-          <p class="geo-section-desc">关于 OwnAI 提示词的使用方式、工具支持与代码复刻解答</p>
+    <section id="faq" class="geo-faq">
+      <div class="geo-section-head">
+        <div>
+          <h2 class="geo-section-title">
+            <span class="geo-icon">${LUCIDE_ICONS.helpCircle}</span>
+            <span>常见问题与使用说明</span>
+          </h2>
+          <p class="geo-section-desc">关于 OwnAI 提示词库的工具集成、代码生成与使用规则</p>
         </div>
-        <span class="geo-section-badge">权威解答</span>
       </div>
 
       <div class="geo-faq-grid">
-        <div class="geo-faq-card">
+        <div class="geo-faq-box">
           <h3 class="geo-faq-q">
-            <span class="geo-faq-num">01</span>
+            <span class="geo-icon" style="color: #60a5fa;">${LUCIDE_ICONS.helpCircle}</span>
             <span>什么是 OwnAI 前端提示词库？</span>
           </h3>
           <p class="geo-faq-a">OwnAI 提示词库精选 700+ 款现代前端设计与交互范式，覆盖深色科技落地页、SaaS 管理看板、移动端 App、组件及动效设计。每个作品均提供结构化设计说明与可运行的 Prompt，帮助开发者快速生成生产级页面。</p>
         </div>
-        <div class="geo-faq-card">
+        <div class="geo-faq-box">
           <h3 class="geo-faq-q">
-            <span class="geo-faq-num">02</span>
+            <span class="geo-icon" style="color: #60a5fa;">${LUCIDE_ICONS.helpCircle}</span>
             <span>这些提示词支持哪些 AI 工具？</span>
           </h3>
           <p class="geo-faq-a">完全适配 Cursor、Claude 3.5 Sonnet、OpenAI Codex、v0.dev、Lovable、Windsurf 等主流代码生成工具与 AI IDE，提示词已针对 Tailwind CSS、React 与现代化前端工程规范深度优化。</p>
         </div>
-        <div class="geo-faq-card">
+        <div class="geo-faq-box">
           <h3 class="geo-faq-q">
-            <span class="geo-faq-num">03</span>
+            <span class="geo-icon" style="color: #60a5fa;">${LUCIDE_ICONS.helpCircle}</span>
             <span>如何使用这些提示词快速构建页面？</span>
           </h3>
           <p class="geo-faq-a">点击任意作品进入详情页，复制提示词并粘贴到 Cursor Composer 或 Claude 对话框中，即可让 AI 依据明确的布局规范、设计色彩与交互状态直接生成高保真代码。</p>
         </div>
-        <div class="geo-faq-card">
+        <div class="geo-faq-box">
           <h3 class="geo-faq-q">
-            <span class="geo-faq-num">04</span>
+            <span class="geo-icon" style="color: #60a5fa;">${LUCIDE_ICONS.helpCircle}</span>
             <span>免费用户可以直接获取提示词吗？</span>
           </h3>
           <p class="geo-faq-a">可以。平台提供了大量免费公开的高质量作品，支持免登录直接查看和复制完整提示词；进阶的深度解构与全套交互动效可通过开通会员获取。</p>
@@ -821,14 +770,14 @@ function buildShowcaseHtml(groups, totalCount) {
       </div>
     </section>
 
-    <div class="geo-cta-box">
-      <h3 class="geo-cta-title">寻找更多定制前端页面与生产级源码？</h3>
-      <p class="geo-cta-desc">
-        OwnAI 持续更新前沿 UI 界面、交互动效、组件与 Vibe Coding 提示词。开通会员即可获取全量源码、深度解构与专属前端物料。
-      </p>
-      <div class="geo-cta-buttons">
-        <a href="/pricing" class="geo-btn-primary">开通 OwnAI 会员</a>
-        <a href="/tutorials" class="geo-btn-secondary">浏览实战教程</a>
+    <div class="geo-footer-cta">
+      <div>
+        <h3 class="geo-cta-title">获取更多生产级前端源码与深度解构教程</h3>
+        <p class="geo-cta-sub">开通 OwnAI 会员获取全量组件源码、设计工程资产与交互解构教程。</p>
+      </div>
+      <div class="geo-cta-actions">
+        <a href="/pricing" class="geo-btn-primary">开通会员</a>
+        <a href="/tutorials" class="geo-btn-sub">浏览教程</a>
       </div>
     </div>
   </div>
