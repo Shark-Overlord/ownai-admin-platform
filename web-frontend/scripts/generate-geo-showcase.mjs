@@ -392,36 +392,7 @@ function buildShowcaseCss() {
       object-fit: cover;
       display: block;
     }
-    .geo-tag-free {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: rgba(16, 185, 129, 0.15);
-      color: #6ee7b7;
-      border: 1px solid rgba(52, 211, 153, 0.25);
-      backdrop-filter: blur(4px);
-    }
-    .geo-tag-pro {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: rgba(139, 92, 246, 0.15);
-      color: #c084fc;
-      border: 1px solid rgba(139, 92, 246, 0.25);
-      backdrop-filter: blur(4px);
-    }
+
     .geo-tag-cat {
       position: absolute;
       top: 8px;
@@ -694,7 +665,6 @@ function buildShowcaseHtml(groups, totalCount) {
 `;
 
     for (const item of group.items.slice(0, 12)) {
-      const isFree = Number(item.memberOnly) === 0;
       const tags = (item.tagList || []).map((t) => t.name).filter(Boolean);
       const tagBadges = tags
         .slice(0, 3)
@@ -707,7 +677,6 @@ function buildShowcaseHtml(groups, totalCount) {
             item.coverUrl
               ? `<div class="geo-card-media">
                    <img class="geo-card-img" src="${esc(item.coverUrl)}" alt="${esc(item.title)} 真实设计效果" loading="lazy" />
-                   <span class="${isFree ? "geo-tag-free" : "geo-tag-pro"}">${isFree ? "FREE" : "PRO"}</span>
                    <span class="geo-tag-cat">${esc(item.category?.name || "UI 设计")}</span>
                  </div>`
               : ""
@@ -721,12 +690,9 @@ function buildShowcaseHtml(groups, totalCount) {
           <div class="geo-tags">${tagBadges}</div>
           <div class="geo-card-foot">
             <a href="/prompts/${esc(item.id)}" class="geo-link">
-              <span>${isFree ? "获取提示词" : "查看设计效果"}</span>
+              <span>获取提示词</span>
               ${LUCIDE_ICONS.arrowUpRight}
             </a>
-            <span style="font-size: 11px; color: #52525b; font-family: ui-monospace, monospace;">${
-              isFree ? "免登录复制" : "会员解锁"
-            }</span>
           </div>
         </article>
 `;
