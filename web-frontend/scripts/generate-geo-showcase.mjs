@@ -421,10 +421,18 @@ async function main() {
   // 4. Inject fallback body into #root
   outputHtml = outputHtml.replace('<div id="root"></div>', `<div id="root">${showcaseBody}</div>`);
 
-  // Write frontend-prompts/index.html
+  // Write frontend-prompts/index.html (with SPA scripts for regular users, and SSR fallback for crawlers)
   await mkdir(targetHtmlDir, { recursive: true });
   await writeFile(targetHtmlPath, outputHtml, "utf8");
   console.log(`[GEO] Successfully generated ${targetHtmlPath} (${outputHtml.length} bytes)`);
+
+  // Write frontend-prompts/static.html (pure static, no React bundle, for direct human preview)
+  const targetStaticHtmlPath = path.join(targetHtmlDir, "static.html");
+  const staticOnlyHtml = outputHtml
+    .replace(/<script\s+type=["']module["'][\s\S]*?<\/script>/gi, "")
+    .replace(/<link\s+rel=["']modulepreload["'][\s\S]*?>/gi, "");
+  await writeFile(targetStaticHtmlPath, staticOnlyHtml, "utf8");
+  console.log(`[GEO] Successfully generated ${targetStaticHtmlPath} (${staticOnlyHtml.length} bytes)`);
 
   // Write llms.txt
   const llmsContent = buildLlmsTxt(groups, totalCount);
