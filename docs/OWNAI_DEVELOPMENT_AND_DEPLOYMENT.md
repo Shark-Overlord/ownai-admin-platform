@@ -18,6 +18,7 @@
 | `artwork-points-unlock.md` | 作品积分永久解锁和权限规则 |
 | `ALIPAY_LOCAL_SANDBOX.md` | 支付宝本地沙箱及回调配置 |
 | `SECURITY_ACCESS_EVIDENCE.md` | Nginx 访问证据、日志留存和事件处理 |
+| `GEO_SEO_GUIDE.md` | 爬虫可读 HTML 注入、动态 sitemap/llms.txt 和 Nginx 回退配置 |
 
 功能规划完成后应把仍有效的契约合并进对应功能指南，并删除任务提示词和
 “未实施”方案。单次生产发布证据放在 `artifacts/`，不继续堆入 `docs/`。
