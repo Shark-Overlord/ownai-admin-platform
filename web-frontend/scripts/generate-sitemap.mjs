@@ -43,19 +43,24 @@ function renderSitemap(urls) {
 }
 
 try {
-  const [books, posts] = await Promise.all([
+  const [books, posts, artworks] = await Promise.all([
     pageAll("/blog/front/books/page"),
     pageAll("/blog/front/posts/page", { standaloneOnly: false }),
+    // Anonymous list only returns published artworks; member ones expose preview only.
+    pageAll("/artwork/list/page/vo"),
   ]);
   const publicBookIds = new Set(
     books.filter((book) => Number(book.memberOnly) === 0).map((book) => String(book.id)),
   );
   const urls = [
     `${siteUrl}/`,
+    `${siteUrl}/frontend-prompts`,
     `${siteUrl}/ownai-design`,
-    `${siteUrl}/codex-reset`,
-    `${siteUrl}/traffic-tags`,
     `${siteUrl}/tutorials`,
+    `${siteUrl}/video-backgrounds`,
+    `${siteUrl}/traffic-tags`,
+    `${siteUrl}/pricing`,
+    `${siteUrl}/codex-reset`,
     `${siteUrl}/legal/privacy`,
     `${siteUrl}/legal/terms`,
     `${siteUrl}/legal/service-rules`,
@@ -69,6 +74,7 @@ try {
         (!post.bookId || publicBookIds.has(String(post.bookId))),
       )
       .map((post) => `${siteUrl}/tutorials/posts/${post.id}`),
+    ...artworks.map((artwork) => `${siteUrl}/prompts/${artwork.id}`),
   ];
 
   await mkdir(path.dirname(outputPath), { recursive: true });

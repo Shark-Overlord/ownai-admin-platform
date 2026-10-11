@@ -80,6 +80,7 @@ public class ArtworkVO implements Serializable, NativeDraftAwareVO {
     private String deviceFrame;
 
     private Date createTime;
+    private Date updateTime;
 
     private static final long serialVersionUID = 1L;
 }

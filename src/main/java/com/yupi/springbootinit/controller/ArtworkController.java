@@ -375,7 +375,7 @@ public class ArtworkController {
     @GetMapping("/home/overview")
     @ApiOperation("获取前台作品首页概览 Get frontend artwork home overview")
     public BaseResponse<ArtworkHomeOverviewVO> getArtworkHomeOverview(HttpServletRequest request) {
-        User loginUser = userService.getLoginUser(request);
+        User loginUser = userService.getLoginUserPermitNull(request);
         return ResultUtils.success(artworkService.getHomeOverview(loginUser));
     }
 

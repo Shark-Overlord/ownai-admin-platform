@@ -35,6 +35,10 @@ function RouteRobotsPolicy() {
     location.pathname === "/codex-reset" ||
     location.pathname === "/traffic-tags" ||
     location.pathname === "/tutorials" ||
+    location.pathname === "/frontend-prompts" ||
+    location.pathname === "/video-backgrounds" ||
+    location.pathname === "/pricing" ||
+    /^\/prompts\/\d+$/.test(location.pathname) ||
     location.pathname.startsWith("/legal/") ||
     location.pathname.startsWith("/tutorials/books/") ||
     location.pathname.startsWith("/tutorials/posts/");
@@ -49,12 +53,14 @@ function App() {
   const isDeconstructionRoute = location.pathname.startsWith(
     "/artwork/deconstruction/",
   );
+  // Search / AI-citation landings on a single prompt should see the prompt first.
+  const isPromptDetailRoute = location.pathname.startsWith("/prompts/");
 
   return (
     <>
       <SiteAnalyticsTracker />
       <RouteRobotsPolicy />
-      {!isDeconstructionRoute && <AnnouncementPopup />}
+      {!isDeconstructionRoute && !isPromptDetailRoute && <AnnouncementPopup />}
       <PromptUnlockProvider>
       <RouteLoadBoundary><Suspense fallback={<main className="flex min-h-[60vh] items-center justify-center gap-3 bg-[var(--hero-surface)] text-[14px] text-[var(--hero-muted)]" role="status">正在加载页面…</main>}><Routes>
       <Route path="/" element={<HomePage />} />
@@ -70,14 +76,10 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/frontend-prompts"
-        element={
-          <ProtectedRoute>
-            <FrontendPromptLibraryPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route element={<FrontendPromptLibraryPage />}>
+        <Route path="/frontend-prompts" />
+        <Route path="/prompts/:promptId" />
+      </Route>
       <Route
         path="/artwork/deconstruction/:id"
         element={
