@@ -110,38 +110,602 @@ function categorizeArtworks(records) {
   return groups;
 }
 
+function buildShowcaseCss() {
+  return `
+  <style id="geo-showcase-styles">
+    body {
+      background-color: #09090b !important;
+      margin: 0;
+      padding: 0;
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .ownai-geo-root {
+      background-color: #09090b;
+      color: #f4f4f5;
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
+      padding-bottom: 96px;
+    }
+    .ownai-geo-root *, .ownai-geo-root *::before, .ownai-geo-root *::after {
+      box-sizing: border-box;
+    }
+    .geo-aurora-glow {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 1200px;
+      height: 520px;
+      background: radial-gradient(circle at 50% -10%, rgba(99, 102, 241, 0.22) 0%, rgba(168, 85, 247, 0.08) 42%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .geo-wrapper {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .geo-top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 48px;
+    }
+    .geo-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .geo-brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 15px;
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
+    }
+    .geo-brand-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .geo-brand-pill {
+      background: rgba(255, 255, 255, 0.06);
+      color: #a1a1aa;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      letter-spacing: 0.04em;
+    }
+    .geo-nav-menu {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .geo-nav-item {
+      color: #a1a1aa;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .geo-nav-item:hover {
+      color: #ffffff;
+    }
+    .geo-nav-button {
+      background: #ffffff;
+      color: #09090b;
+      font-weight: 600;
+      padding: 7px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .geo-nav-button:hover {
+      background: #e4e4e7;
+      transform: translateY(-1px);
+    }
+    .geo-hero-header {
+      text-align: center;
+      max-width: 860px;
+      margin: 0 auto 48px;
+    }
+    .geo-shimmer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(129, 140, 248, 0.3);
+      color: #c7d2fe;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 22px;
+      box-shadow: 0 0 24px rgba(99, 102, 241, 0.15);
+    }
+    .geo-shimmer-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #818cf8;
+      box-shadow: 0 0 8px #818cf8;
+    }
+    .geo-main-title {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin: 0 0 18px;
+      background: linear-gradient(180deg, #ffffff 45%, #a1a1aa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    @media (max-width: 640px) {
+      .geo-main-title { font-size: 30px; }
+    }
+    .geo-subtitle {
+      font-size: 16px;
+      color: #a1a1aa;
+      line-height: 1.7;
+      margin: 0 auto 36px;
+      max-width: 720px;
+    }
+    .geo-stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+    @media (max-width: 768px) {
+      .geo-stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+    .geo-stat-card {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 20px 16px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .geo-stat-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .geo-stat-num {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .geo-stat-label {
+      font-size: 13px;
+      color: #71717a;
+    }
+    .geo-tabs-bar {
+      position: sticky;
+      top: 16px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 10px 14px;
+      background: rgba(18, 19, 25, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      backdrop-filter: blur(20px);
+      margin-bottom: 56px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+    }
+    .geo-tab-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #a1a1aa;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: all 0.2s;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid transparent;
+    }
+    .geo-tab-pill:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .geo-section {
+      margin-bottom: 68px;
+      scroll-margin-top: 100px;
+    }
+    .geo-section-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 16px;
+    }
+    .geo-section-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0 0 6px;
+      letter-spacing: -0.01em;
+    }
+    .geo-section-desc {
+      font-size: 14px;
+      color: #a1a1aa;
+      margin: 0;
+    }
+    .geo-section-badge {
+      background: rgba(99, 102, 241, 0.1);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .geo-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 1024px) {
+      .geo-cards-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .geo-cards-grid { grid-template-columns: 1fr; }
+    }
+    .geo-card {
+      background: #121319;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .geo-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(129, 140, 248, 0.35);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 30px rgba(99, 102, 241, 0.12);
+      background: #171821;
+    }
+    .geo-card-media {
+      aspect-ratio: 16 / 10;
+      overflow: hidden;
+      border-radius: 10px;
+      background: #000000;
+      position: relative;
+      margin-bottom: 14px;
+    }
+    .geo-card-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.35s ease;
+      display: block;
+    }
+    .geo-card:hover .geo-card-img {
+      transform: scale(1.05);
+    }
+    .geo-card-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      gap: 6px;
+      z-index: 2;
+    }
+    .geo-badge-free {
+      background: rgba(16, 185, 129, 0.9);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .geo-badge-pro {
+      background: rgba(139, 92, 246, 0.9);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .geo-badge-cat {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #e4e4e7;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .geo-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0 0 8px;
+      line-height: 1.4;
+    }
+    .geo-card-title a {
+      color: inherit;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .geo-card-title a:hover {
+      color: #818cf8;
+    }
+    .geo-card-desc {
+      font-size: 13px;
+      color: #a1a1aa;
+      line-height: 1.6;
+      margin: 0 0 16px;
+      flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .geo-card-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .geo-tag-pill {
+      background: rgba(255, 255, 255, 0.05);
+      color: #a1a1aa;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .geo-card-footer {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .geo-link-free {
+      font-size: 12px;
+      font-weight: 600;
+      color: #34d399;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .geo-link-free:hover {
+      color: #6ee7b7;
+      transform: translateX(2px);
+    }
+    .geo-link-pro {
+      font-size: 12px;
+      font-weight: 600;
+      color: #a78bfa;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .geo-link-pro:hover {
+      color: #c4b5fd;
+      transform: translateX(2px);
+    }
+    .geo-faq-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 24px;
+    }
+    @media (max-width: 768px) {
+      .geo-faq-grid { grid-template-columns: 1fr; }
+    }
+    .geo-faq-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .geo-faq-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.035);
+    }
+    .geo-faq-q {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .geo-faq-num {
+      color: #818cf8;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(99, 102, 241, 0.12);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+    .geo-faq-a {
+      font-size: 14px;
+      color: #a1a1aa;
+      line-height: 1.65;
+      margin: 0;
+    }
+    .geo-cta-box {
+      margin-top: 80px;
+      padding: 48px 32px;
+      border-radius: 20px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(30, 27, 75, 0.45) 0%, rgba(15, 23, 42, 0.7) 100%);
+      border: 1px solid rgba(129, 140, 248, 0.25);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px rgba(99, 102, 241, 0.1);
+      position: relative;
+    }
+    .geo-cta-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffffff;
+      margin: 0 0 12px;
+      letter-spacing: -0.02em;
+    }
+    .geo-cta-desc {
+      font-size: 15px;
+      color: #c7d2fe;
+      max-width: 680px;
+      margin: 0 auto 28px;
+      line-height: 1.6;
+    }
+    .geo-cta-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .geo-btn-primary {
+      background: #ffffff;
+      color: #09090b;
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s;
+      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+    }
+    .geo-btn-primary:hover {
+      background: #f4f4f5;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+    }
+    .geo-btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .geo-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+  </style>`;
+}
+
 function buildShowcaseHtml(groups, totalCount) {
   let html = `
-<div data-ssr-fallback="" style="max-width:1100px;margin:0 auto;padding:40px 20px 80px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;line-height:1.6;">
-  <nav aria-label="面包屑" style="font-size:13px;color:#71717a;margin-bottom:24px;">
-    <a href="/" style="color:#71717a;text-decoration:none;">首页</a> / 
-    <span aria-current="page" style="color:#18181b;font-weight:600;">前端提示词库</span>
-  </nav>
+<div class="ownai-geo-root" data-ssr-fallback="">
+  <div class="geo-aurora-glow"></div>
+  <div class="geo-wrapper">
+    <nav class="geo-top-nav" aria-label="顶部导航">
+      <a href="/" class="geo-brand" title="OwnAI 首页">
+        <div class="geo-brand-icon">O</div>
+        <span class="geo-brand-name">ownai</span>
+        <span class="geo-brand-pill">PROMPTS LIBRARY</span>
+      </a>
+      <div class="geo-nav-menu">
+        <a href="/" class="geo-nav-item">首页</a>
+        <a href="/tutorials" class="geo-nav-item">系统教程</a>
+        <a href="/pricing" class="geo-nav-item">会员方案</a>
+        <a href="/sitemap.xml" class="geo-nav-item">站点地图</a>
+        <a href="/pricing" class="geo-nav-button">开通会员 ➔</a>
+      </div>
+    </nav>
 
-  <header style="margin-bottom:40px;border-bottom:1px solid #e4e4e7;padding-bottom:32px;">
-    <h1 style="font-size:32px;font-weight:800;letter-spacing:-0.02em;margin:0 0 12px;color:#09090b;">
-      OwnAI 精品前端提示词与网页设计库
-    </h1>
-    <p style="font-size:16px;color:#52525b;max-width:820px;margin:0 0 16px;">
-      OwnAI 为设计师与前端开发者精选 700+ 可直接复用的现代化网页、UI 界面与组件提示词（Prompts）。每款作品均提供高保真渲染效果预览、结构设计说明与完整提示词，涵盖深色科技落地页、SaaS 管理看板、移动端 App 界面及高频前端交互组件。
-    </p>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;">
-      <span style="background:#f4f4f5;padding:4px 10px;rounded:6px;color:#3f3f46;border-radius:6px;">已收录精品网页: ${totalCount} 款</span>
-      <span style="background:#ecfdf5;color:#059669;padding:4px 10px;border-radius:6px;font-weight:500;">免费提示词支持全文复制</span>
-      <span style="background:#eff6ff;color:#2563eb;padding:4px 10px;border-radius:6px;font-weight:500;">适配 Cursor / Claude / Codex / v0</span>
-    </div>
-  </header>
+    <header class="geo-hero-header">
+      <div class="geo-shimmer-badge">
+        <span class="geo-shimmer-dot"></span>
+        <span>已收录 ${totalCount} 款精品前端网页与组件 · 全量适配 Cursor / Claude / v0 / Codex</span>
+      </div>
+      <h1 class="geo-main-title">
+        OwnAI 精品前端提示词与网页设计库
+      </h1>
+      <p class="geo-subtitle">
+        为前端开发者、独立创作者与 UI 设计师打造。涵盖现代深色科技落地页、SaaS 业务看板、移动端 App 界面及高频交互原子组件。每款作品均提供真实渲染预览与结构化 Prompt，支持一键复刻生产级前端代码。
+      </p>
 
-  <nav aria-label="类型导航" style="margin-bottom:36px;padding:16px 20px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
-    <span style="font-size:13px;font-weight:600;color:#475569;margin-right:12px;">快速跳转至类型：</span>
-    <span style="display:inline-flex;gap:16px;flex-wrap:wrap;font-size:14px;">
-      <a href="#landing" style="color:#2563eb;text-decoration:none;">🚀 科技落地页</a>
-      <a href="#dashboard" style="color:#2563eb;text-decoration:none;">📊 SaaS看板</a>
-      <a href="#mobile" style="color:#2563eb;text-decoration:none;">📱 移动端App</a>
-      <a href="#component" style="color:#2563eb;text-decoration:none;">🧩 交互组件</a>
-      <a href="#motion" style="color:#2563eb;text-decoration:none;">✨ 动效与视觉</a>
-    </span>
-  </nav>
+      <div class="geo-stats-row">
+        <div class="geo-stat-card">
+          <div class="geo-stat-num">${totalCount}+</div>
+          <div class="geo-stat-label">收录精品网页</div>
+        </div>
+        <div class="geo-stat-card">
+          <div class="geo-stat-num">5 大</div>
+          <div class="geo-stat-label">核心场景全覆盖</div>
+        </div>
+        <div class="geo-stat-card">
+          <div class="geo-stat-num">100%</div>
+          <div class="geo-stat-label">真实渲染与结构</div>
+        </div>
+        <div class="geo-stat-card">
+          <div class="geo-stat-num" style="color: #34d399;">免费开放</div>
+          <div class="geo-stat-label">支持全文直接复制</div>
+        </div>
+      </div>
+    </header>
+
+    <nav class="geo-tabs-bar" aria-label="类型导航">
+      <a href="#landing" class="geo-tab-pill">🚀 科技落地页</a>
+      <a href="#dashboard" class="geo-tab-pill">📊 SaaS 数据看板</a>
+      <a href="#mobile" class="geo-tab-pill">📱 移动端 App</a>
+      <a href="#component" class="geo-tab-pill">🧩 常用 UI 组件</a>
+      <a href="#motion" class="geo-tab-pill">✨ 动效与视觉背景</a>
+      <a href="#faq" class="geo-tab-pill">💬 常见问答 (FAQ)</a>
+    </nav>
 `;
 
   const groupKeys = [
@@ -157,13 +721,16 @@ function buildShowcaseHtml(groups, totalCount) {
     if (!group || !group.items.length) continue;
 
     html += `
-  <section id="${id}" style="margin-bottom:48px;">
-    <div style="margin-bottom:20px;">
-      <h2 style="font-size:22px;font-weight:700;color:#0f172a;margin:0 0 6px;">${esc(group.title)}</h2>
-      <p style="font-size:14px;color:#64748b;margin:0;">${esc(group.desc)}</p>
-    </div>
+    <section id="${id}" class="geo-section">
+      <div class="geo-section-header">
+        <div class="geo-section-title-wrap">
+          <h2 class="geo-section-title">${esc(group.title)}</h2>
+          <p class="geo-section-desc">${esc(group.desc)}</p>
+        </div>
+        <span class="geo-section-badge">精选收录 ${group.items.length} 款</span>
+      </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:20px;">
+      <div class="geo-cards-grid">
 `;
 
     for (const item of group.items.slice(0, 12)) {
@@ -171,81 +738,100 @@ function buildShowcaseHtml(groups, totalCount) {
       const tags = (item.tagList || []).map((t) => t.name).filter(Boolean);
       const tagBadges = tags
         .slice(0, 3)
-        .map(
-          (t) =>
-            `<span style="background:#f1f5f9;color:#475569;font-size:11px;padding:2px 6px;border-radius:4px;margin-right:6px;">${esc(t)}</span>`
-        )
+        .map((t) => `<span class="geo-tag-pill">${esc(t)}</span>`)
         .join("");
 
       html += `
-      <article style="border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;flex-direction:column;">
-        ${
-          item.coverUrl
-            ? `<div style="aspect-ratio:16/10;overflow:hidden;border-radius:8px;background:#f8fafc;margin-bottom:12px;">
-                 <img src="${esc(item.coverUrl)}" alt="${esc(item.title)} 真实设计效果" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
-               </div>`
-            : ""
-        }
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;${
-            isFree ? "background:#dcfce7;color:#15803d;" : "background:#ede9fe;color:#6d28d9;"
-          }">${isFree ? "免费公开" : "会员专享"}</span>
-          <span style="font-size:11px;color:#94a3b8;">${esc(item.category?.name || "网页设计")}</span>
-        </div>
-        <h3 style="font-size:16px;font-weight:700;margin:0 0 6px;color:#0f172a;line-height:1.4;">
-          <a href="/prompts/${esc(item.id)}" style="color:inherit;text-decoration:none;">${esc(item.title)}</a>
-        </h3>
-        <p style="font-size:13px;color:#64748b;margin:0 0 12px;flex:1;line-height:1.5;">
-          ${esc(item.summary || item.title + " 的现代化前端设计界面与提示词实现。")}
-        </p>
-        <div style="margin-top:auto;padding-top:10px;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
-          <div>${tagBadges}</div>
-          <a href="/prompts/${esc(item.id)}" style="font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">
-            ${isFree ? "查看完整提示词 →" : "查看设计效果 →"}
-          </a>
-        </div>
-      </article>
+        <article class="geo-card">
+          ${
+            item.coverUrl
+              ? `<div class="geo-card-media">
+                   <img class="geo-card-img" src="${esc(item.coverUrl)}" alt="${esc(item.title)} 真实设计效果" loading="lazy" />
+                   <div class="geo-card-overlay">
+                     <span class="${isFree ? "geo-badge-free" : "geo-badge-pro"}">${
+                  isFree ? "● 免费公开全文" : "✦ PRO 会员"
+                }</span>
+                   </div>
+                   <span class="geo-badge-cat">${esc(item.category?.name || "网页设计")}</span>
+                 </div>`
+              : ""
+          }
+          <h3 class="geo-card-title">
+            <a href="/prompts/${esc(item.id)}">${esc(item.title)}</a>
+          </h3>
+          <p class="geo-card-desc">
+            ${esc(item.summary || item.title + " 的现代化前端设计界面与提示词实现。")}
+          </p>
+          <div class="geo-card-tags">${tagBadges}</div>
+          <div class="geo-card-footer">
+            <a href="/prompts/${esc(item.id)}" class="${isFree ? "geo-link-free" : "geo-link-pro"}">
+              ${isFree ? "查看完整提示词 ➔" : "查看设计效果 ➔"}
+            </a>
+            <span style="font-size: 11px; color: #71717a;">OwnAI 验证</span>
+          </div>
+        </article>
 `;
     }
 
     html += `
-    </div>
-  </section>
+      </div>
+    </section>
 `;
   }
 
   html += `
-  <section id="faq" style="margin-top:60px;margin-bottom:40px;background:#f8fafc;padding:32px;border-radius:16px;border:1px solid #e2e8f0;">
-    <h2 style="font-size:22px;font-weight:700;color:#0f172a;margin:0 0 20px;">前端提示词常见问题（FAQ）</h2>
-    <div style="display:flex;flex-direction:column;gap:18px;">
-      <div>
-        <h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:0 0 6px;">1. 什么是 OwnAI 前端提示词库？</h3>
-        <p style="font-size:14px;color:#64748b;margin:0;line-height:1.6;">OwnAI 提示词库精选 700+ 款现代前端设计与交互范式，覆盖深色科技落地页、SaaS 管理看板、移动端 App、组件及动效设计。每个作品均提供结构化设计说明与可运行的 Prompt，帮助开发者快速生成生产级页面。</p>
+    <section id="faq" class="geo-faq-section">
+      <div class="geo-section-header">
+        <div class="geo-section-title-wrap">
+          <h2 class="geo-section-title">前端提示词常见问题（FAQ）</h2>
+          <p class="geo-section-desc">关于 OwnAI 提示词的使用方式、工具支持与代码复刻解答</p>
+        </div>
+        <span class="geo-section-badge">权威解答</span>
       </div>
-      <div>
-        <h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:0 0 6px;">2. 这些提示词支持哪些 AI 工具？</h3>
-        <p style="font-size:14px;color:#64748b;margin:0;line-height:1.6;">完全适配 Cursor、Claude 3.5 Sonnet、OpenAI Codex、v0.dev、Lovable、Windsurf 等主流代码生成工具与 AI IDE，提示词已针对 Tailwind CSS、React 与现代化前端工程优化。</p>
+
+      <div class="geo-faq-grid">
+        <div class="geo-faq-card">
+          <h3 class="geo-faq-q">
+            <span class="geo-faq-num">01</span>
+            <span>什么是 OwnAI 前端提示词库？</span>
+          </h3>
+          <p class="geo-faq-a">OwnAI 提示词库精选 700+ 款现代前端设计与交互范式，覆盖深色科技落地页、SaaS 管理看板、移动端 App、组件及动效设计。每个作品均提供结构化设计说明与可运行的 Prompt，帮助开发者快速生成生产级页面。</p>
+        </div>
+        <div class="geo-faq-card">
+          <h3 class="geo-faq-q">
+            <span class="geo-faq-num">02</span>
+            <span>这些提示词支持哪些 AI 工具？</span>
+          </h3>
+          <p class="geo-faq-a">完全适配 Cursor、Claude 3.5 Sonnet、OpenAI Codex、v0.dev、Lovable、Windsurf 等主流代码生成工具与 AI IDE，提示词已针对 Tailwind CSS、React 与现代化前端工程规范深度优化。</p>
+        </div>
+        <div class="geo-faq-card">
+          <h3 class="geo-faq-q">
+            <span class="geo-faq-num">03</span>
+            <span>如何使用这些提示词快速构建页面？</span>
+          </h3>
+          <p class="geo-faq-a">点击任意作品进入详情页，复制提示词并粘贴到 Cursor Composer 或 Claude 对话框中，即可让 AI 依据明确的布局规范、设计色彩与交互状态直接生成高保真代码。</p>
+        </div>
+        <div class="geo-faq-card">
+          <h3 class="geo-faq-q">
+            <span class="geo-faq-num">04</span>
+            <span>免费用户可以直接获取提示词吗？</span>
+          </h3>
+          <p class="geo-faq-a">可以。平台提供了大量免费公开的高质量作品，支持免登录直接查看和复制完整提示词；进阶的深度解构与全套交互动效可通过开通会员获取。</p>
+        </div>
       </div>
-      <div>
-        <h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:0 0 6px;">3. 如何使用这些提示词快速构建页面？</h3>
-        <p style="font-size:14px;color:#64748b;margin:0;line-height:1.6;">点击任意作品进入详情页，复制提示词并粘贴到 Cursor Composer 或 Claude 对话框中，即可让 AI 依据明确的布局规范、设计色彩与交互状态直接生成高保真代码。</p>
-      </div>
-      <div>
-        <h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:0 0 6px;">4. 免费用户可以直接获取提示词吗？</h3>
-        <p style="font-size:14px;color:#64748b;margin:0;line-height:1.6;">可以。平台提供了大量免费公开的高质量作品，支持免登录直接查看和复制完整提示词；进阶的深度解构与全套交互动效可通过开通会员获取。</p>
+    </section>
+
+    <div class="geo-cta-box">
+      <h3 class="geo-cta-title">寻找更多定制前端页面与生产级源码？</h3>
+      <p class="geo-cta-desc">
+        OwnAI 持续更新前沿 UI 界面、交互动效、组件与 Vibe Coding 提示词。开通会员即可获取全量源码、深度解构与专属前端物料。
+      </p>
+      <div class="geo-cta-buttons">
+        <a href="/pricing" class="geo-btn-primary">开通 OwnAI 会员</a>
+        <a href="/tutorials" class="geo-btn-secondary">浏览实战教程</a>
       </div>
     </div>
-  </section>
-
-  <footer style="margin-top:40px;padding:24px;background:#fafafa;border-radius:12px;text-align:center;border:1px solid #f4f4f5;">
-    <h3 style="font-size:16px;font-weight:700;color:#18181b;margin:0 0 8px;">寻找更多定制前端页面或源码？</h3>
-    <p style="font-size:14px;color:#71717a;margin:0 0 16px;">
-      OwnAI 持续更新前沿 UI 界面、交互动效、组件与 Vibe Coding 提示词。开通会员即可获取全量源码与深度解构教程。
-    </p>
-    <a href="/pricing" style="display:inline-block;background:#18181b;color:#ffffff;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">
-      浏览会员方案与权益
-    </a>
-  </footer>
+  </div>
 </div>
 `;
 
@@ -412,11 +998,11 @@ async function main() {
     outputHtml = outputHtml.replace("</head>", `  ${canonicalTag}\n</head>`);
   }
 
-  // 3. Structured Data
+  // 3. Structured Data & Showcase Styles
   const jsonLdScript = `\n  <script type="application/ld+json" id="ssr-structured-data">${JSON.stringify(
     structuredData
   )}</script>\n`;
-  outputHtml = outputHtml.replace("</head>", `${jsonLdScript}</head>`);
+  outputHtml = outputHtml.replace("</head>", `${buildShowcaseCss()}\n${jsonLdScript}</head>`);
 
   // 4. Inject fallback body into #root
   outputHtml = outputHtml.replace('<div id="root"></div>', `<div id="root">${showcaseBody}</div>`);
