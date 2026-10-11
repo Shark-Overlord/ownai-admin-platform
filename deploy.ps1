@@ -80,7 +80,7 @@ $backupLines = @("set -euo pipefail", "mkdir -p '$releasePath'")
 if ($Backend)  { $backupLines += "cp -p '$BACKEND_PATH/app.jar' '$releasePath/app.jar.before' && echo 'Backend backed up'" }
 if ($Admin)    { $backupLines += "tar -czf '$releasePath/admin.before.tar.gz' -C '$ADMIN_PATH' . && echo 'Admin backed up'" }
 if ($Frontend) { $backupLines += "tar -czf '$releasePath/frontend.before.tar.gz' -C '$FRONTEND_PATH' . && echo 'Frontend backed up'" }
-$backupLines += "echo '备份目录: $releasePath'"
+$backupLines += "echo 'Backup dir: $releasePath'"
 
 Invoke-RemoteBash ($backupLines -join "`n")
 Write-Host "✓ 备份完成" -ForegroundColor Green
@@ -131,7 +131,7 @@ for i in `$(seq 1 45); do
   state=`$(systemctl is-active springboot-init || true)
   result=`$(curl --max-time 3 -fsS '$BACKEND_API' 2>/dev/null || true)
   if [ "`$state" = "active" ] && echo "`$result" | grep -q '"code"'; then
-    echo "后端已就绪"; exit 0
+    echo "Backend ready"; exit 0
   fi
   sleep 2
 done
