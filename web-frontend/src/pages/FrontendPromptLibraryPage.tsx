@@ -16,6 +16,7 @@ import {
   Home,
   LoaderCircle,
   Lock,
+  LogIn,
   Layers3,
   Menu,
   PanelLeftOpen,
@@ -25,7 +26,8 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import { AuthenticatedUserMenu } from "@/components/home/AuthenticatedUserMenu";
 import { PromptMasonry } from "@/components/frontend-prompts/PromptMasonry";
 import { DeconstructionFavoriteView } from "@/components/favorite/DeconstructionFavoriteView";
@@ -43,11 +45,13 @@ import {
   markAnnouncementRead,
 } from "@/lib/announcement";
 import {
+  getArtworkDetail,
   getArtworkHomeOverview,
   getArtworkPromptContent,
   getPromptAssetPromptContent,
   downloadArtworkSource,
   listHomeArtworks,
+  normalizeArtworkToSiteItem,
 } from "@/lib/artwork";
 import {
   addArtworkFavorite,
@@ -658,13 +662,15 @@ function FrontendPromptSidebar({
               user={loginUser}
             />
           ) : (
-            <span
-              aria-label="未登录"
-              title="未登录"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--chat-primary-bg)] text-[14px] font-semibold text-[var(--chat-primary-text)]"
+            <button
+              type="button"
+              onClick={() => navigate("/auth/login", { state: { redirectTo: "/frontend-prompts" } })}
+              aria-label="登录"
+              title="登录"
+              className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-[8px] text-[var(--chat-sidebar-text)] transition-colors hover:bg-[var(--chat-sidebar-hover)]"
             >
-              D
-            </span>
+              <LogIn className="h-4 w-4" />
+            </button>
           )}
         </div>
       </aside>
@@ -868,7 +874,18 @@ function FrontendPromptSidebar({
             </p>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-2.5 shrink-0 border-t border-[var(--chat-sidebar-border)] pt-2">
+          <button
+            type="button"
+            onClick={() => navigate("/auth/login", { state: { redirectTo: "/frontend-prompts" } })}
+            className="flex h-9 w-full cursor-pointer items-center gap-3 rounded-[10px] px-2.5 text-left text-[14px] font-medium text-[var(--chat-sidebar-text)] transition-colors hover:bg-[var(--chat-sidebar-hover)]"
+          >
+            <LogIn className="h-4 w-4" />
+            <span>登录 / 注册</span>
+          </button>
+        </div>
+      )}
         </div>
       </div>
     </aside>
@@ -2145,6 +2162,9 @@ function FrontendPromptHomeView({
 
 export function FrontendPromptLibraryPage() {
   const requestUnlock = usePromptUnlock();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { promptId } = useParams<{ promptId?: string }>();
   const [activeView, setActiveView] = useState<FrontendPromptView>("home");
   const [activeCategory, setActiveCategory] = useState<CategoryKey>("");
   const [categories, setCategories] = useState<FrontendPromptCategory[]>([]);
@@ -2162,7 +2182,7 @@ export function FrontendPromptLibraryPage() {
   const [categorySearchText, setCategorySearchText] = useState("");
   const [promptDetail, setPromptDetail] = useState<PromptDetailState | null>(null);
   const [hotDays, setHotDays] = useState(0);
-  const [memberFilter, setMemberFilter] = useState<"all" | "member">("all");
+  const [memberFilter, setMemberFilter] = useState<"all" | "free" | "member">("all");
   useResourceView(promptDetail?.item.sourceType === "artwork" ? "artwork" : "image_prompt", promptDetail?.item.id);
   const [homeOverviewItems, setHomeOverviewItems] = useState<SiteItem[]>([]);
   const [homeTotalCount, setHomeTotalCount] = useState(0);
@@ -2177,6 +2197,76 @@ export function FrontendPromptLibraryPage() {
     useState<AnnouncementVO | null>(null);
   const [isAnnouncementDetailOpen, setIsAnnouncementDetailOpen] = useState(false);
   const [isAnnouncementDetailLoading, setIsAnnouncementDetailLoading] = useState(false);
+  const promptDetailRef = useRef(promptDetail);
+  promptDetailRef.current = promptDetail;
+  const previousPromptIdRef = useRef(promptId);
+  const routedArtwork =
+    promptId && promptDetail?.item.sourceType === "artwork" && promptDetail.item.id === promptId
+      ? promptDetail.item
+      : null;
+
+  useDocumentMeta(
+    routedArtwork
+      ? `${routedArtwork.title} · 前端提示词 · OwnAI`
+      : "前端提示词库｜网页 UI、组件与交互提示词 · OwnAI",
+    routedArtwork?.description ||
+      "按页面类型与风格浏览 OwnAI 前端提示词，每条附真实渲染效果；免费提示词可直接复制全文，会员提示词可查看效果预览与说明。",
+    {
+      canonical: routedArtwork
+        ? `https://ownai.icu/prompts/${routedArtwork.id}`
+        : "https://ownai.icu/frontend-prompts",
+      image: routedArtwork?.image || "https://ownai.icu/images/design-everything-dark-bg.png",
+      type: routedArtwork ? "article" : "website",
+    },
+  );
+
+  // Deep link: /prompts/:promptId opens the detail dialog over the library.
+  useEffect(() => {
+    if (!promptId) {
+      return;
+    }
+    const current = promptDetailRef.current;
+    if (current?.item.sourceType === "artwork" && current.item.id === promptId) {
+      return;
+    }
+
+    const controller = new AbortController();
+    void getArtworkDetail(promptId, { signal: controller.signal })
+      .then((detail) => {
+        const item = normalizeArtworkToSiteItem(detail);
+        const imageAspectRatio = item.imageAspectRatio || 16 / 10;
+        setPromptDetail({
+          imageAspectRatio,
+          isVertical: imageAspectRatio < 1,
+          item,
+          promptContent: detail.promptContent ?? "",
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        setMessage(
+          error instanceof RequestError && [40000, 40101, 40400].includes(error.code ?? 0)
+            ? "提示词不存在或已下线"
+            : error instanceof RequestError
+              ? error.message
+              : "提示词加载失败",
+        );
+        navigate("/frontend-prompts", { replace: true });
+      });
+
+    return () => controller.abort();
+  }, [promptId]);
+
+  // Browser back from /prompts/:id closes the dialog.
+  useEffect(() => {
+    if (previousPromptIdRef.current && !promptId) {
+      setPromptDetail((current) => (current?.item.sourceType === "artwork" ? null : current));
+    }
+    previousPromptIdRef.current = promptId;
+  }, [promptId]);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -2301,7 +2391,7 @@ export function FrontendPromptLibraryPage() {
         hotDays,
         categoryId: activeFilter?.categoryId,
         current: nextPage,
-        memberOnly: memberFilter === "member" ? 1 : undefined,
+        memberOnly: memberFilter === "member" ? 1 : memberFilter === "free" ? 0 : undefined,
         pageSize: PAGE_SIZE,
         searchText: categorySearchText,
         signal: options?.signal,
@@ -2437,7 +2527,7 @@ export function FrontendPromptLibraryPage() {
       : getPromptAssetPromptContent(item.id);
   };
 
-  const handlePromptOpen = async (
+  const openPromptDetail = async (
     item: SiteItem,
     imageAspectRatio: number,
   ) => {
@@ -2459,6 +2549,26 @@ export function FrontendPromptLibraryPage() {
       }
       setMessage(error instanceof RequestError ? error.message : "提示词加载失败");
       return false;
+    }
+  };
+
+  const handlePromptOpen = async (item: SiteItem, imageAspectRatio: number) => {
+    const opened = await openPromptDetail(item, imageAspectRatio);
+    if (opened && item.sourceType === "artwork" && promptId !== item.id) {
+      navigate(`/prompts/${item.id}`, { state: { fromLibrary: true } });
+    }
+    return opened;
+  };
+
+  const handlePromptClose = () => {
+    setPromptDetail(null);
+    if (!promptId) {
+      return;
+    }
+    if ((location.state as { fromLibrary?: boolean } | null)?.fromLibrary) {
+      navigate(-1);
+    } else {
+      navigate("/frontend-prompts", { replace: true });
     }
   };
 
@@ -2516,6 +2626,10 @@ export function FrontendPromptLibraryPage() {
   };
 
   const handleViewChange = (view: FrontendPromptView) => {
+    if (view === "favorites" && !getPersistedLoginUser()) {
+      navigate("/auth/login", { state: { redirectTo: "/frontend-prompts" } });
+      return;
+    }
     setActiveView(view);
   };
 
@@ -2676,6 +2790,18 @@ export function FrontendPromptLibraryPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setMemberFilter("free")}
+                className={cn(
+                  "inline-flex h-8 cursor-pointer items-center rounded-[7px] px-2.5 text-[12px] font-medium transition-colors",
+                  memberFilter === "free"
+                    ? "bg-[var(--chat-sidebar-active)] text-[var(--chat-ink)]"
+                    : "text-[var(--chat-muted)] hover:bg-[var(--chat-control-soft)]",
+                )}
+              >
+                免费
+              </button>
+              <button
+                type="button"
                 onClick={() => setMemberFilter("member")}
                 className={cn(
                   "inline-flex h-8 cursor-pointer items-center rounded-[7px] px-2.5 text-[12px] font-medium transition-colors",
@@ -2781,7 +2907,7 @@ export function FrontendPromptLibraryPage() {
       {promptDetail ? (
         <PromptDetailDialog
           detail={promptDetail}
-          onClose={() => setPromptDetail(null)}
+          onClose={handlePromptClose}
           onMessage={setMessage}
         />
       ) : null}
@@ -2793,6 +2919,8 @@ export function FrontendPromptLibraryPage() {
           onClose={() => setIsAnnouncementDetailOpen(false)}
         />
       ) : null}
+
+      <Outlet />
     </div>
   );
 }

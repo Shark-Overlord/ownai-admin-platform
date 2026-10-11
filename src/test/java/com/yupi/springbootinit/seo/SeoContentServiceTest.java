@@ -17,11 +17,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.exception.BusinessException;
+import com.yupi.springbootinit.model.dto.artwork.ArtworkQueryRequest;
 import com.yupi.springbootinit.model.dto.blog.BlogFrontBookQueryRequest;
 import com.yupi.springbootinit.model.dto.blog.BlogFrontPostQueryRequest;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkDetailVO;
+import com.yupi.springbootinit.model.vo.artwork.ArtworkVO;
 import com.yupi.springbootinit.model.vo.blog.front.BlogFrontBookListVO;
 import com.yupi.springbootinit.model.vo.blog.front.BlogFrontPostDetailVO;
 import com.yupi.springbootinit.model.vo.blog.front.BlogFrontPostOutlineVO;
+import com.yupi.springbootinit.service.ArtworkService;
 import com.yupi.springbootinit.service.BlogFrontService;
 import java.util.Arrays;
 import java.util.Date;
@@ -33,13 +37,16 @@ import org.springframework.test.util.ReflectionTestUtils;
 class SeoContentServiceTest {
 
     private BlogFrontService blogFrontService;
+    private ArtworkService artworkService;
     private SeoContentService service;
 
     @BeforeEach
     void setUp() {
         blogFrontService = Mockito.mock(BlogFrontService.class);
+        artworkService = Mockito.mock(ArtworkService.class);
         service = new SeoContentService();
         ReflectionTestUtils.setField(service, "blogFrontService", blogFrontService);
+        ReflectionTestUtils.setField(service, "artworkService", artworkService);
         ReflectionTestUtils.setField(service, "objectMapper", new ObjectMapper());
     }
 
@@ -135,6 +142,89 @@ class SeoContentServiceTest {
         assertFalse(llms.contains("会员文章"));
         // Catalog is cached across sitemap and llms.txt.
         verify(blogFrontService, times(1)).listPosts(any(BlogFrontPostQueryRequest.class), isNull());
+    }
+
+    @Test
+    void freePromptRendersFullPromptText() {
+        ArtworkDetailVO artwork = artworkDetail(5L, true, "玻璃拟态登录页");
+        artwork.setPromptContent("生成一个 <glass> 登录页");
+        artwork.setDescription("第一段\n\n第二段");
+        when(artworkService.getPublicArtworkSnapshot(5L)).thenReturn(artwork);
+
+        SeoPage page = service.resolve("/prompts/5");
+
+        assertEquals("玻璃拟态登录页 · 前端提示词 · OwnAI", page.getTitle());
+        assertEquals("https://ownai.icu/prompts/5", page.getCanonical());
+        assertTrue(page.getBodyHtml().contains("<pre><code>生成一个 &lt;glass&gt; 登录页</code></pre>"));
+        assertTrue(page.getBodyHtml().contains("<p>第一段</p><p>第二段</p>"));
+        assertTrue(page.getJsonLd().contains("\"isAccessibleForFree\":true"));
+    }
+
+    @Test
+    void memberPromptNeverRendersPromptText() {
+        ArtworkDetailVO artwork = artworkDetail(6L, false, "会员仪表盘");
+        // Defensive: even if a caller leaks the text, locked prompts must not render it.
+        artwork.setPromptContent("SECRET PROMPT");
+        artwork.setHasSourceCode(true);
+        when(artworkService.getPublicArtworkSnapshot(6L)).thenReturn(artwork);
+
+        SeoPage page = service.resolve("/prompts/6");
+
+        assertFalse(page.getBodyHtml().contains("SECRET PROMPT"));
+        assertTrue(page.getBodyHtml().contains("会员内容"));
+        assertTrue(page.getBodyHtml().contains("下载源码"));
+        assertTrue(page.getJsonLd().contains("\"isAccessibleForFree\":false"));
+    }
+
+    @Test
+    void offlinePromptIs404() {
+        when(artworkService.getPublicArtworkSnapshot(7L))
+                .thenThrow(new BusinessException(ErrorCode.NO_AUTH_ERROR, "作品未发布"));
+
+        assertEquals(404, service.resolve("/prompts/7").getStatus());
+    }
+
+    @Test
+    void sitemapListsAllPromptsButLlmsOnlyFreeOnes() {
+        ArtworkVO free = artwork(20L, true, "免费卡片");
+        free.setCreateTime(new Date(2_000L));
+        free.setPromptContent("FREE TEXT");
+        ArtworkVO member = artwork(21L, false, "会员卡片");
+        member.setCreateTime(new Date(1_000L));
+        when(artworkService.listArtworkVOByPage(any(ArtworkQueryRequest.class), isNull(), eq(false)))
+                .thenReturn(page(Arrays.asList(member, free)));
+
+        String sitemap = service.sitemapXml();
+        String llms = service.llmsTxt();
+        SeoPage library = service.resolve("/frontend-prompts");
+
+        assertTrue(sitemap.contains("<loc>https://ownai.icu/prompts/20</loc>"));
+        assertTrue(sitemap.contains("<loc>https://ownai.icu/prompts/21</loc>"));
+        assertTrue(sitemap.contains("<loc>https://ownai.icu/frontend-prompts</loc>"));
+        assertTrue(llms.contains("- [免费卡片](https://ownai.icu/prompts/20)"));
+        assertFalse(llms.contains("会员卡片"));
+        assertFalse(llms.contains("FREE TEXT"));
+        assertTrue(library.getBodyHtml().contains("共 2 条提示词，其中 1 条免费公开全文"));
+        assertTrue(library.getBodyHtml().indexOf("/prompts/20") < library.getBodyHtml().indexOf("/prompts/21"));
+    }
+
+    private static ArtworkVO artwork(Long id, boolean free, String title) {
+        ArtworkVO artwork = new ArtworkVO();
+        artwork.setId(id);
+        artwork.setTitle(title);
+        artwork.setMemberOnly(free ? 0 : 1);
+        artwork.setCanAccessPrompt(free);
+        return artwork;
+    }
+
+    private static ArtworkDetailVO artworkDetail(Long id, boolean free, String title) {
+        ArtworkDetailVO artwork = new ArtworkDetailVO();
+        artwork.setId(id);
+        artwork.setTitle(title);
+        artwork.setSummary(title + "摘要");
+        artwork.setMemberOnly(free ? 0 : 1);
+        artwork.setCanAccessPrompt(free);
+        return artwork;
     }
 
     private static BlogFrontBookListVO book(Long id, int memberOnly, String title) {

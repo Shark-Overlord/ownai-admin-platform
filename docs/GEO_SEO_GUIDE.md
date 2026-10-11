@@ -20,7 +20,9 @@ Bytespider 等 AI 爬虫基本不执行 JavaScript，只能看到空的 `#root`�
 
 | 路由 | head | `#root` 正文 | JSON-LD |
 | --- | --- | --- | --- |
-| `/` | 保留壳里的首页 meta | 站点介绍、核心页面、最新 10 篇免费教程 | 保留壳里的 WebSite/Organization |
+| `/` | 保留壳里的首页 meta | 站点介绍、核心页面、最新 12 条免费提示词、最新 10 篇免费教程 | 保留壳里的 WebSite/Organization |
+| `/frontend-prompts` | 注入 | 全部免费提示词（上限 300）与会员提示词（上限 100）链接 | CollectionPage + ItemList + BreadcrumbList |
+| `/prompts/:id` | 注入 | 封面、分类标签、摘要与说明；免费提示词附全文，会员提示词只给开通/解锁说明 | CreativeWork（`isAccessibleForFree`）+ BreadcrumbList |
 | `/tutorials` | 注入 | 免费教程书与最新 50 篇免费文章 | CollectionPage + ItemList + BreadcrumbList |
 | `/tutorials/books/:id` | 注入；会员书 `noindex` | 简介、章节与文章链接 | 免费书：Course + BreadcrumbList |
 | `/tutorials/posts/:id` | 注入 | 面包屑、正文、上一篇/下一篇 | Article（含 `dateModified`）+ BreadcrumbList |
@@ -29,6 +31,10 @@ Bytespider 等 AI 爬虫基本不执行 JavaScript，只能看到空的 `#root`�
 
 - 全部以匿名身份调用 `BlogFrontService`，会员或登录可见的文章直接返回原始壳，
   不会泄露正文。
+- 提示词通过 `ArtworkService.getPublicArtworkSnapshot` 以匿名身份读取：只有
+  `memberOnly=0` 的已发布作品会带 `promptContent`，不读 `sourceZipUrl`，也不增加
+  `viewCount`。会员提示词公开的是效果图、摘要和说明，`index, follow`，sitemap 收录，
+  llms.txt 只列免费提示词。未发布或已删除的作品返回 `404`。
 - 不存在的文章或教程书返回 `404`，带 `noindex`，`#root` 保持为空，由前端渲染
   自己的不存在状态。
 - 渲染结果在进程内缓存 5 分钟，sitemap 和 llms.txt 用到的公开目录缓存 10 分钟。
@@ -41,6 +47,12 @@ Bytespider 等 AI 爬虫基本不执行 JavaScript，只能看到空的 `#root`�
 
 前端配合：`main.tsx` 在挂载前删除 `#ssr-structured-data` 和
 `#ssr-fallback-style`，页面级 JSON-LD 继续由 `useDocumentMeta` 输出。
+
+提示词库对匿名用户开放（`/frontend-prompts` 不再走 `ProtectedRoute`，
+`/artwork/home/overview` 改为允许匿名）。`/prompts/:id` 与提示词库是同一个页面组件：
+在库里点开作品时 URL 同步为 `/prompts/:id`，返回键关闭弹窗；直接打开该 URL 时在
+提示词库上弹出详情，关闭后替换为 `/frontend-prompts`。收藏、复制会员提示词等操作
+仍要求登录。
 
 ## 2. Nginx 配置
 
@@ -61,7 +73,7 @@ location = / {
     error_page 500 502 503 504 = @ownai_spa_shell;
 }
 
-location ~ ^/tutorials(/(posts|books)/[0-9]+)?/?$ {
+location ~ ^/(tutorials(/(posts|books)/[0-9]+)?|frontend-prompts|prompts/[0-9]+)/?$ {
     proxy_pass http://127.0.0.1:8011/api/seo/render?path=$uri;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -129,6 +141,9 @@ curl -s -A "$UA" https://ownai.icu/tutorials/posts/<public-id> | grep -c '<artic
 curl -sI https://ownai.icu/llms.txt | grep -i content-type        # text/plain
 curl -s https://ownai.icu/sitemap.xml | grep -c '<loc>'
 curl -s -o /dev/null -w '%{http_code}\n' https://ownai.icu/tutorials/posts/1   # 404
+curl -s -A "$UA" https://ownai.icu/prompts/<free-id> | grep -c '<pre><code>'        # 1
+curl -s -A "$UA" https://ownai.icu/prompts/<member-id> | grep -c '<pre><code>'      # 0
+curl -s -o /dev/null -w '%{http_code}\n' https://ownai.icu/prompts/1             # 404
 ```
 
 AI 爬虫访问统计：
@@ -140,8 +155,6 @@ grep -Eo 'GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-SearchBot|Perplexit
 
 ## 4. 未覆盖
 
-- `/frontend-prompts` 和 `/artwork/deconstruction/:id` 走 `ProtectedRoute`，提示词库
-  没有公开的单条详情 URL，爬虫拿不到任何内容。要让提示词被 AI 搜索引用，需要先确定
-  公开预览的范围（效果图、摘要、适用场景、部分提示词），再新增公开详情页，然后接入本机制。
+- `/artwork/deconstruction/:id` 仍走 `ProtectedRoute`，深度解构内容不对爬虫公开。
 - `/ownai-design`、`/video-backgrounds`、`/pricing`、`/legal/*` 目前只有壳里的首页
   meta，按需补充到 `SeoContentService`。

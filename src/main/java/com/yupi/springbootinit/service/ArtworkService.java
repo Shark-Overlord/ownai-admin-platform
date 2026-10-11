@@ -42,6 +42,13 @@ public interface ArtworkService extends IService<Artwork> {
 
     ArtworkDetailVO getArtworkDetail(Long artworkId, User loginUser, boolean adminView);
 
+    /**
+     * Anonymous detail of a published artwork for crawler-facing pages: same
+     * masking as {@link #getArtworkDetail} with a null user, but does not
+     * increment viewCount.
+     */
+    ArtworkDetailVO getPublicArtworkSnapshot(Long artworkId);
+
     ArtworkDeconstructionVO getArtworkDeconstruction(Long artworkId, User loginUser, boolean adminView);
 
     String getArtworkPromptContent(Long artworkId, User loginUser);
