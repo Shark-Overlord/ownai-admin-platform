@@ -23,17 +23,31 @@ function presetRange(preset: RangePreset): [Dayjs, Dayjs] {
   return [today.subtract(6, 'day'), today];
 }
 
-function changeLabel(value: number) {
-  if (!value) return '较上一周期持平';
-  return `较上一周期${value > 0 ? '增长' : '下降'} ${Math.abs(value).toFixed(1)}%`;
+function changeLabel(value: number, compareTarget = '上一周期') {
+  if (!value) return `较${compareTarget}持平`;
+  return `较${compareTarget}${value > 0 ? '增长' : '下降'} ${Math.abs(value).toFixed(1)}%`;
 }
 
-function metricCard(title: string, value: number, change: number, icon: React.ReactNode) {
+function metricCard(
+  title: string,
+  value: number,
+  change: number,
+  icon: React.ReactNode,
+  compareTarget = '上一周期',
+  extraText?: string,
+) {
   const color = change > 0 ? '#1677ff' : change < 0 ? '#cf1322' : '#8c8c8c';
   return (
     <Card>
       <Statistic title={title} value={value} prefix={icon} />
-      <Typography.Text style={{ color, fontSize: 12 }}>{changeLabel(change)}</Typography.Text>
+      <Space size={8} wrap>
+        <Typography.Text style={{ color, fontSize: 12 }}>{changeLabel(change, compareTarget)}</Typography.Text>
+        {extraText && (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            · {extraText}
+          </Typography.Text>
+        )}
+      </Space>
     </Card>
   );
 }
@@ -94,8 +108,27 @@ function TrafficTrendChart({ data }: { data: TrafficDailyMetric[] }) {
   );
 }
 
+const pageRouteHints: Record<string, string> = {
+  '/#/prompts/:id': '提示词详情页汇总',
+  '/#/artwork/deconstruction/:id': '深度解构页汇总',
+};
+
 const dimensionColumns = [
-  { title: '名称', dataIndex: 'name', ellipsis: true },
+  {
+    title: '名称',
+    dataIndex: 'name',
+    ellipsis: true,
+    render: (value: string) => {
+      const hint = pageRouteHints[value];
+      if (!hint) return value;
+      return (
+        <Space size={6} wrap>
+          <span>{value}</span>
+          <Tag color="processing">{hint}</Tag>
+        </Space>
+      );
+    },
+  },
   { title: 'PV', dataIndex: 'pv', width: 90 },
   { title: 'UV', dataIndex: 'uv', width: 90 },
   { title: 'DAU', dataIndex: 'dau', width: 90 },
@@ -187,11 +220,17 @@ export default function SiteAnalytics() {
   };
 
   const today = overview?.today;
+  const summary = overview?.summary;
+  const isTodayPreset = preset === 'today' || (range[0].isSame(dayjs(), 'day') && range[1].isSame(dayjs(), 'day'));
+  const activeMetrics = isTodayPreset ? today : summary;
+  const periodPrefix =
+    preset === 'today' ? '今日' : preset === '7d' ? '近 7 天' : preset === '30d' ? '近 30 天' : '所选周期';
+  const compareTarget = isTodayPreset ? '昨日' : '上一周期';
   const deviceData = useMemo(() => overview?.deviceDistribution || [], [overview]);
   const contentSummary = overview?.tutorialContentSummary;
 
   return (
-    <PageContainer title="流量分析" content="统计前台页面访问、匿名访客与登录活跃用户，数据时区为 Asia/Shanghai。">
+    <PageContainer title="流量分析" content="统计前台页面访问、匿名访客与登录活跃用户（跨日自动去重，已过滤已知爬虫），数据时区为 Asia/Shanghai。">
       <Space wrap style={{ marginBottom: 16 }}>
         <Segmented
           value={preset}
@@ -218,10 +257,46 @@ export default function SiteAnalytics() {
 
       <Spin spinning={loading}>
         <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} xl={6}>{metricCard('今日页面浏览量 PV', today?.pv || 0, today?.pvChangeRate || 0, <EyeOutlined />)}</Col>
-          <Col xs={24} sm={12} xl={6}>{metricCard('今日独立访客 UV', today?.uv || 0, today?.uvChangeRate || 0, <TeamOutlined />)}</Col>
-          <Col xs={24} sm={12} xl={6}>{metricCard('今日登录日活 DAU', today?.dau || 0, today?.dauChangeRate || 0, <UserOutlined />)}</Col>
-          <Col xs={24} sm={12} xl={6}>{metricCard('今日登录设备访客', today?.loggedInVisitors || 0, today?.loggedInVisitorsChangeRate || 0, <BarChartOutlined />)}</Col>
+          <Col xs={24} sm={12} xl={6}>
+            {metricCard(
+              `${periodPrefix}页面浏览量 PV`,
+              activeMetrics?.pv || 0,
+              activeMetrics?.pvChangeRate || 0,
+              <EyeOutlined />,
+              compareTarget,
+              !isTodayPreset ? `今日实时 ${today?.pv || 0}` : undefined,
+            )}
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            {metricCard(
+              `${periodPrefix}独立访客 UV`,
+              activeMetrics?.uv || 0,
+              activeMetrics?.uvChangeRate || 0,
+              <TeamOutlined />,
+              compareTarget,
+              !isTodayPreset ? `今日实时 ${today?.uv || 0}` : undefined,
+            )}
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            {metricCard(
+              isTodayPreset ? '今日登录日活 DAU' : `${periodPrefix}登录活跃用户`,
+              activeMetrics?.dau || 0,
+              activeMetrics?.dauChangeRate || 0,
+              <UserOutlined />,
+              compareTarget,
+              !isTodayPreset ? `今日 DAU ${today?.dau || 0}` : undefined,
+            )}
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            {metricCard(
+              `${periodPrefix}登录设备访客`,
+              activeMetrics?.loggedInVisitors || 0,
+              activeMetrics?.loggedInVisitorsChangeRate || 0,
+              <BarChartOutlined />,
+              compareTarget,
+              !isTodayPreset ? `今日实时 ${today?.loggedInVisitors || 0}` : undefined,
+            )}
+          </Col>
         </Row>
 
         <Card title="访问趋势" style={{ marginTop: 16 }}>

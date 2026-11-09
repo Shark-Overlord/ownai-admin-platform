@@ -1,10 +1,15 @@
 import { useEffect } from 'react';
 import { postJson } from '@/lib/request';
-import { getOrCreateVisitorId } from '@/lib/site-analytics';
+import { getOrCreateVisitorId, isAutomatedBrowser, waitForAnalyticsEligibility } from '@/lib/site-analytics';
 
 export type ResourceType = 'artwork' | 'video_background' | 'image_prompt';
 export async function trackResource(resourceType: ResourceType, resourceId: string, action: 'view' | 'copy') {
   try {
+    if (isAutomatedBrowser()) return;
+    if (action === 'view') {
+      const eligible = await waitForAnalyticsEligibility();
+      if (!eligible) return;
+    }
     await postJson('/resource-analytics/track', {
       resourceType, resourceId, action, visitorId: getOrCreateVisitorId(), eventKey: crypto.randomUUID(),
     });

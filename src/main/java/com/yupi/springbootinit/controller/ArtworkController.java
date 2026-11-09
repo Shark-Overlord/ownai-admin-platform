@@ -329,8 +329,12 @@ public class ArtworkController {
     public BaseResponse<ArtworkDetailVO> getArtworkDetail(@RequestParam("id") long id,
             HttpServletRequest request, HttpServletResponse response) {
         response.setHeader("Cache-Control", "private, no-store");
+        User loginUser = userService.getLoginUserPermitNull(request);
+        if (loginUser == null && com.yupi.springbootinit.utils.AnalyticsBotDetector.isBotUserAgent(request.getHeader("User-Agent"))) {
+            return ResultUtils.success(artworkService.getPublicArtworkSnapshot(id));
+        }
         return ResultUtils.success(artworkService.getArtworkDetail(id,
-                userService.getLoginUserPermitNull(request), false));
+                loginUser, false));
     }
 
     @GetMapping("/deconstruction")

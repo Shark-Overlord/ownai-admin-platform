@@ -5,6 +5,7 @@ import com.yupi.springbootinit.common.*;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.model.dto.analytics.*;
 import com.yupi.springbootinit.service.*;
+import com.yupi.springbootinit.utils.AnalyticsBotDetector;
 import java.time.LocalDate;
 import java.util.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,6 +20,9 @@ public class ResourceAnalyticsController {
     public ResourceAnalyticsController(ResourceAnalyticsService analytics,UserService users) {this.analytics=analytics;this.users=users;}
     @PostMapping("/track")
     public BaseResponse<Boolean> track(@RequestBody ResourceTrackRequest body,HttpServletRequest request) {
+        if (AnalyticsBotDetector.isBotUserAgent(request.getHeader("User-Agent"))) {
+            return ResultUtils.success(false);
+        }
         return ResultUtils.success(analytics.track(body,users.getLoginUserPermitNull(request)));
     }
     @GetMapping("/admin/resources") @AuthCheck(mustRole=UserConstant.ADMIN_ROLE)

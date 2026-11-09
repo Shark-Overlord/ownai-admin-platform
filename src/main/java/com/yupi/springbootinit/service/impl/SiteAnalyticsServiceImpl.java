@@ -7,6 +7,7 @@ import com.yupi.springbootinit.model.dto.analytics.PageViewTrackRequest;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.analytics.SiteAnalyticsOverviewVO;
 import com.yupi.springbootinit.service.SiteAnalyticsService;
+import com.yupi.springbootinit.utils.AnalyticsBotDetector;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -43,7 +44,15 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
 
     private static final int MAX_VISITOR_EVENTS_PER_MINUTE = 60;
 
+    private static final int EVENT_RETENTION_DAYS = 90;
+
     private static final int MAX_REPORT_DAYS = 366;
+
+    private static final String PAGE_DIMENSION_EXPRESSION =
+            "CASE "
+                    + "WHEN pagePath LIKE '/#/prompts/%' OR pagePath LIKE '/prompts/%' THEN '/#/prompts/:id' "
+                    + "WHEN pagePath LIKE '/#/artwork/deconstruction/%' OR pagePath LIKE '/artwork/deconstruction/%' THEN '/#/artwork/deconstruction/:id' "
+                    + "ELSE pagePath END";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -59,6 +68,9 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
         if (request == null || StringUtils.isBlank(request.getVisitorId())
                 || !VISITOR_ID_PATTERN.matcher(request.getVisitorId().trim()).matches()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "Invalid visitorId");
+        }
+        if (AnalyticsBotDetector.isBotUserAgent(userAgent)) {
+            return false;
         }
         String pagePath = normalizePagePath(request.getPagePath());
         String visitorHash = hashVisitorId(request.getVisitorId().trim());
@@ -120,20 +132,18 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
         }
 
         Map<LocalDate, SiteAnalyticsOverviewVO.DailyMetric> dailyMetrics = queryDailyMetrics(startDate, endDate);
-        SiteAnalyticsOverviewVO.MetricSummary summary = summarize(dailyMetrics.values());
+        SiteAnalyticsOverviewVO.MetricSummary summary = queryRangeSummary(startDate, endDate);
         LocalDate previousEnd = startDate.minusDays(1);
         LocalDate previousStart = previousEnd.minusDays(rangeDays - 1);
-        SiteAnalyticsOverviewVO.MetricSummary previousSummary = summarize(
-                queryDailyMetrics(previousStart, previousEnd).values());
+        SiteAnalyticsOverviewVO.MetricSummary previousSummary = queryRangeSummary(previousStart, previousEnd);
         applyChangeRates(summary, previousSummary);
 
         SiteAnalyticsOverviewVO overview = new SiteAnalyticsOverviewVO();
         overview.setStartDate(startDate);
         overview.setEndDate(endDate);
         overview.setSummary(summary);
-        SiteAnalyticsOverviewVO.MetricSummary todaySummary = summarize(queryDailyMetrics(today, today).values());
-        SiteAnalyticsOverviewVO.MetricSummary yesterdaySummary = summarize(
-                queryDailyMetrics(today.minusDays(1), today.minusDays(1)).values());
+        SiteAnalyticsOverviewVO.MetricSummary todaySummary = queryRangeSummary(today, today);
+        SiteAnalyticsOverviewVO.MetricSummary yesterdaySummary = queryRangeSummary(today.minusDays(1), today.minusDays(1));
         applyChangeRates(todaySummary, yesterdaySummary);
         overview.setToday(todaySummary);
         overview.setYesterday(yesterdaySummary);
@@ -150,7 +160,7 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
     @Override
     public SiteAnalyticsOverviewVO.MetricSummary getTodayMetrics() {
         LocalDate today = LocalDate.now(BUSINESS_ZONE);
-        return summarize(queryDailyMetrics(today, today).values());
+        return queryRangeSummary(today, today);
     }
 
     @Override
@@ -164,7 +174,7 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
 
     @Override
     public void cleanupExpiredEvents() {
-        LocalDate cutoffDate = LocalDate.now(BUSINESS_ZONE).minusDays(90);
+        LocalDate cutoffDate = LocalDate.now(BUSINESS_ZONE).minusDays(EVENT_RETENTION_DAYS);
         jdbcTemplate.update("DELETE FROM site_visit_event WHERE eventTime < ?", startOfDay(cutoffDate));
     }
 
@@ -188,7 +198,7 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
         }
 
         jdbcTemplate.update("DELETE FROM site_analytics_dimension_daily WHERE statDate = ?", sqlDate);
-        aggregateDimension(sqlDate, start, end, "page", "pagePath");
+        aggregateDimension(sqlDate, start, end, "page", PAGE_DIMENSION_EXPRESSION);
         aggregateDimension(sqlDate, start, end, "source", "sourceName");
         aggregateDimension(sqlDate, start, end, "device", "deviceType");
     }
@@ -253,13 +263,16 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
     private List<SiteAnalyticsOverviewVO.DimensionMetric> queryDimensions(String dimensionType,
             LocalDate startDate, LocalDate endDate, int limit) {
         Map<String, long[]> values = new HashMap<>();
-        LocalDate liveCutoff = LocalDate.now(BUSINESS_ZONE).minusDays(2);
+        LocalDate liveCutoff = LocalDate.now(BUSINESS_ZONE).minusDays(EVENT_RETENTION_DAYS);
         LocalDate historicalEnd = min(endDate, liveCutoff.minusDays(1));
         if (!startDate.isAfter(historicalEnd)) {
-            jdbcTemplate.query("SELECT dimensionValue, SUM(pv) AS pv, SUM(uv) AS uv, SUM(dau) AS dau "
+            String dimensionExpr = "page".equals(dimensionType)
+                    ? PAGE_DIMENSION_EXPRESSION.replace("pagePath", "dimensionValue")
+                    : "dimensionValue";
+            jdbcTemplate.query("SELECT " + dimensionExpr + " AS dimVal, SUM(pv) AS pv, SUM(uv) AS uv, SUM(dau) AS dau "
                             + "FROM site_analytics_dimension_daily WHERE dimensionType = ? "
-                            + "AND statDate >= ? AND statDate <= ? GROUP BY dimensionValue",
-                    (RowCallbackHandler) row -> mergeDimension(values, row.getString("dimensionValue"), row.getLong("pv"),
+                            + "AND statDate >= ? AND statDate <= ? GROUP BY " + dimensionExpr,
+                    (RowCallbackHandler) row -> mergeDimension(values, row.getString("dimVal"), row.getLong("pv"),
                             row.getLong("uv"), row.getLong("dau")),
                     dimensionType, java.sql.Date.valueOf(startDate), java.sql.Date.valueOf(historicalEnd));
         }
@@ -417,7 +430,7 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
 
     private String resolveDimensionColumn(String dimensionType) {
         if ("page".equals(dimensionType)) {
-            return "pagePath";
+            return PAGE_DIMENSION_EXPRESSION;
         }
         if ("source".equals(dimensionType)) {
             return "sourceName";
@@ -428,14 +441,39 @@ public class SiteAnalyticsServiceImpl implements SiteAnalyticsService {
         throw new BusinessException(ErrorCode.PARAMS_ERROR, "Unsupported analytics dimension");
     }
 
-    private SiteAnalyticsOverviewVO.MetricSummary summarize(
-            java.util.Collection<SiteAnalyticsOverviewVO.DailyMetric> dailyMetrics) {
+    private SiteAnalyticsOverviewVO.MetricSummary queryRangeSummary(LocalDate startDate, LocalDate endDate) {
         SiteAnalyticsOverviewVO.MetricSummary summary = new SiteAnalyticsOverviewVO.MetricSummary();
-        summary.setPv(dailyMetrics.stream().mapToLong(SiteAnalyticsOverviewVO.DailyMetric::getPv).sum());
-        summary.setUv(dailyMetrics.stream().mapToLong(SiteAnalyticsOverviewVO.DailyMetric::getUv).sum());
-        summary.setDau(dailyMetrics.stream().mapToLong(SiteAnalyticsOverviewVO.DailyMetric::getDau).sum());
-        summary.setLoggedInVisitors(dailyMetrics.stream()
-                .mapToLong(SiteAnalyticsOverviewVO.DailyMetric::getLoggedInVisitors).sum());
+        if (startDate.isAfter(endDate)) {
+            return summary;
+        }
+        LocalDate liveCutoff = LocalDate.now(BUSINESS_ZONE).minusDays(EVENT_RETENTION_DAYS);
+        LocalDate historicalEnd = min(endDate, liveCutoff.minusDays(1));
+        if (!startDate.isAfter(historicalEnd)) {
+            jdbcTemplate.query("SELECT COALESCE(SUM(pv), 0) AS pv, COALESCE(SUM(uv), 0) AS uv, "
+                            + "COALESCE(SUM(dau), 0) AS dau, COALESCE(SUM(loggedInVisitors), 0) AS loggedInVisitors "
+                            + "FROM site_analytics_daily WHERE statDate >= ? AND statDate <= ?",
+                    (RowCallbackHandler) row -> {
+                        summary.setPv(summary.getPv() + row.getLong("pv"));
+                        summary.setUv(summary.getUv() + row.getLong("uv"));
+                        summary.setDau(summary.getDau() + row.getLong("dau"));
+                        summary.setLoggedInVisitors(summary.getLoggedInVisitors() + row.getLong("loggedInVisitors"));
+                    },
+                    java.sql.Date.valueOf(startDate), java.sql.Date.valueOf(historicalEnd));
+        }
+        LocalDate rawStart = max(startDate, liveCutoff);
+        if (!rawStart.isAfter(endDate)) {
+            jdbcTemplate.query("SELECT COUNT(1) AS pv, COUNT(DISTINCT visitorHash) AS uv, "
+                            + "COUNT(DISTINCT CASE WHEN userId IS NOT NULL THEN userId END) AS dau, "
+                            + "COUNT(DISTINCT CASE WHEN userId IS NOT NULL THEN visitorHash END) AS loggedInVisitors "
+                            + "FROM site_visit_event WHERE eventTime >= ? AND eventTime < ?",
+                    (RowCallbackHandler) row -> {
+                        summary.setPv(summary.getPv() + row.getLong("pv"));
+                        summary.setUv(summary.getUv() + row.getLong("uv"));
+                        summary.setDau(summary.getDau() + row.getLong("dau"));
+                        summary.setLoggedInVisitors(summary.getLoggedInVisitors() + row.getLong("loggedInVisitors"));
+                    },
+                    startOfDay(rawStart), startOfDay(endDate.plusDays(1)));
+        }
         return summary;
     }
 
