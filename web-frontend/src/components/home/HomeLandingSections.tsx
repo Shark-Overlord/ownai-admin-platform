@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, Code2, Database, GraduationCap, ImageOff, Sparkles, Star } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowRight, Check, Copy, Database, FileText, GraduationCap, ImageOff, LoaderCircle, Lock, Star } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import type { HomeContentVO, HomeVideoItem } from "@/lib/home-content";
-import { listHomeArtworks } from "@/lib/artwork";
+import { getArtworkPromptContent, listHomeArtworks } from "@/lib/artwork";
+import { getArtworkAccessState } from "@/lib/artwork-display-rules";
+import { getPersistedLoginUser } from "@/lib/auth";
+import { addArtworkFavorite, cancelArtworkFavorite, notifyArtworkFavoriteChange, subscribeArtworkFavoriteChange } from "@/lib/favorite";
+import { subscribePromptAccess } from "@/lib/prompt-unlock";
+import { RequestError, isAuthenticationError } from "@/lib/request";
+import { trackResource } from "@/lib/resource-analytics";
+import { usePromptUnlock } from "@/components/prompt/PromptUnlockProvider";
 import type { SiteItem } from "@/lib/types";
 import { HomeMcpSection } from "@/components/home/HomeMcpSection";
 
@@ -286,202 +293,313 @@ function LoopMediaCard({
 }
 
 function HomePromptShowcaseCard({ item }: { item: SiteItem }) {
+  const navigate = useNavigate();
+  const requestUnlock = usePromptUnlock();
   const [isHovered, setIsHovered] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
-  const isFree = item.memberOnly === 0;
+  const [isCopyLoading, setIsCopyLoading] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(() => Boolean(item.favorited));
+  const [favoriteCount, setFavoriteCount] = useState(item.favoriteCount ?? 0);
+  const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
+
+  const isLocked = getArtworkAccessState(item) === "locked";
+
+  useEffect(() => {
+    setIsFavorited(Boolean(item.favorited));
+    setFavoriteCount(item.favoriteCount ?? 0);
+  }, [item.favoriteCount, item.favorited, item.id]);
+
+  useEffect(() => {
+    return subscribeArtworkFavoriteChange((change) => {
+      if (String(change.artworkId) === String(item.id)) {
+        setIsFavorited(change.isFavorited);
+        if (change.favoriteCount !== undefined) {
+          setFavoriteCount(change.favoriteCount);
+        }
+      }
+    });
+  }, [item.id]);
+
+  const handleCopy = async () => {
+    if (isLocked) {
+      await requestUnlock(item.id);
+      return;
+    }
+    if (isCopyLoading) {
+      return;
+    }
+    setIsCopyLoading(true);
+    try {
+      const promptContent = await getArtworkPromptContent(item.id);
+      await navigator.clipboard.writeText(promptContent);
+      void trackResource("artwork", item.id, "copy");
+      setIsCopied(true);
+      window.setTimeout(() => setIsCopied(false), 1400);
+    } catch (error) {
+      if (error instanceof RequestError && [40101, 40300].includes(error.code ?? 0)) {
+        await requestUnlock(item.id);
+      } else {
+        navigate(`/prompts/${item.id}`);
+      }
+    } finally {
+      setIsCopyLoading(false);
+    }
+  };
+
+  const handleFavorite = async () => {
+    if (isFavoriteLoading) {
+      return;
+    }
+    if (!getPersistedLoginUser()) {
+      navigate("/auth/login", { state: { redirectTo: "/" } });
+      return;
+    }
+
+    const prevValue = isFavorited;
+    const prevCount = favoriteCount;
+    const nextValue = !prevValue;
+    const nextCount = nextValue ? prevCount + 1 : Math.max(prevCount - 1, 0);
+
+    setIsFavorited(nextValue);
+    setFavoriteCount(nextCount);
+    setIsFavoriteLoading(true);
+    notifyArtworkFavoriteChange({
+      artworkId: String(item.id),
+      favoriteCount: nextCount,
+      isFavorited: nextValue,
+    });
+
+    try {
+      if (nextValue) {
+        await addArtworkFavorite(item.id);
+      } else {
+        await cancelArtworkFavorite(item.id);
+      }
+    } catch (error) {
+      if (isAuthenticationError(error)) {
+        navigate("/auth/login", { state: { redirectTo: "/" } });
+        return;
+      }
+      setIsFavorited(prevValue);
+      setFavoriteCount(prevCount);
+      notifyArtworkFavoriteChange({
+        artworkId: String(item.id),
+        favoriteCount: prevCount,
+        isFavorited: prevValue,
+      });
+    } finally {
+      setIsFavoriteLoading(false);
+    }
+  };
 
   return (
-    <Link
-      to={`/prompts/${item.id}`}
+    <article
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative flex flex-col overflow-hidden rounded-[16px] border border-[var(--hero-border)] bg-[var(--hero-surface)] transition-all duration-300 hover:-translate-y-1 hover:border-white/25 hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.65)]"
+      className="group relative inline-flex w-full flex-col overflow-hidden rounded-[16px] border border-[#00000014] bg-white shadow-[0_2px_2px_rgba(0,0,0,0.04)] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#00000036] hover:shadow-[0_1px_1px_rgba(0,0,0,0.02),0_4px_8px_-4px_rgba(0,0,0,0.04),0_16px_24px_-8px_rgba(0,0,0,0.06)] dark:border-[#333333] dark:bg-[#111111] dark:shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_16px_40px_rgba(0,0,0,0.18)] dark:hover:border-[#444444] dark:hover:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_20px_48px_rgba(0,0,0,0.24)]"
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#080a10]">
+      <Link
+        to={`/prompts/${item.id}`}
+        aria-label={`查看 ${item.title}`}
+        className="absolute inset-0 z-10 cursor-pointer rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/30"
+      />
+
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-[#f2f2f2] dark:bg-[#1a1a1a]">
+        {item.image && !hasImageError ? (
+          <img
+            src={item.image}
+            alt={`${item.title} 预览`}
+            loading="lazy"
+            decoding="async"
+            onError={() => setHasImageError(true)}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[#4d4d4d] dark:text-[#a1a1a1]">
+            <FileText className="h-5 w-5" aria-hidden="true" />
+          </div>
+        )}
+
         {isHovered && item.videoUrl ? (
           <video
             src={item.videoUrl}
-            poster={item.image}
+            poster={item.image || undefined}
             autoPlay
             muted
             loop
             playsInline
             preload="none"
-            className="h-full w-full object-cover"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full bg-[#f2f2f2] object-cover dark:bg-[#1a1a1a]"
           />
-        ) : item.image && !hasImageError ? (
-          <img
-            src={item.image}
-            alt={item.title}
-            loading="lazy"
-            decoding="async"
-            onError={() => setHasImageError(true)}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(145deg,#10131b,#07080c)] text-white/25">
-            <ImageOff className="h-5 w-5" aria-hidden="true" />
-          </div>
-        )}
+        ) : null}
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium backdrop-blur-md ${
-              isFree
-                ? "border border-emerald-400/30 bg-emerald-500/20 text-emerald-200"
-                : "border border-white/15 bg-black/55 text-white/85"
-            }`}
-          >
-            {isFree ? "免费复制" : "精选源码"}
-          </span>
-          {item.hasSourceCode || item.isDeconstructed ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/55 px-2.5 py-0.5 text-[11px] font-medium text-white/85 backdrop-blur-md">
-              <Code2 className="h-3 w-3" aria-hidden="true" />
-              {item.isDeconstructed ? "含深度解构" : "附源码"}
-            </span>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleFavorite();
+          }}
+          disabled={isFavoriteLoading}
+          className={`absolute right-2.5 top-2.5 z-20 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] border border-[#00000014] bg-white/85 text-[#4d4d4d] shadow-[0_12px_28px_rgba(0,0,0,0.14)] backdrop-blur-md transition-[background-color,border-color,color,opacity] hover:border-[#00000036] hover:bg-white hover:text-[#171717] disabled:cursor-not-allowed disabled:opacity-70 dark:border-[#333333] dark:bg-[#1a1a1ad9] dark:text-[#a1a1a1] dark:hover:border-[#444444] dark:hover:bg-[#242424] dark:hover:text-[#ededed] ${
+            isFavorited ? "text-amber-500 opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          }`}
+          aria-label={isFavorited ? "取消收藏" : "收藏"}
+          title={`${isFavorited ? "取消收藏" : "收藏"} (${favoriteCount})`}
+        >
+          {isFavoriteLoading ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+          ) : (
+            <Star className="h-4 w-4" fill={isFavorited ? "currentColor" : "none"} />
+          )}
+        </button>
       </div>
 
-      <div className="flex flex-1 flex-col justify-between p-4">
-        <div>
-          <h3 className="line-clamp-1 text-[15px] font-semibold tracking-[-0.015em] text-[var(--hero-ink)]">
+      <div className="flex min-h-[64px] shrink-0 items-center justify-between gap-2 bg-white px-3 pb-3 pt-2.5 dark:bg-[#171717]">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[14px] font-semibold leading-5 text-[#171717] dark:text-[#ededed]">
             {item.title}
           </h3>
-          <p className="mt-1 text-[12px] text-[var(--hero-muted)]">
-            {item.category || "前端组件"}
-          </p>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-[#4d4d4d] dark:text-[#a1a1a1]">
+            <span className="truncate">
+              {item.permanentlyUnlocked ? "已永久解锁" : item.category || "前端提示词"}
+            </span>
+            {isLocked ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void requestUnlock(item.id);
+                }}
+                className="relative z-20 inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-[5px] text-[#4d4d4d] transition-colors hover:bg-[#f2f2f2] hover:text-[#171717] dark:text-[#a1a1a1] dark:hover:bg-[#242424] dark:hover:text-[#ededed]"
+                aria-label="查看解锁方式"
+                title="查看解锁方式"
+              >
+                <Lock className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
         </div>
 
-        <div className="mt-3.5 flex items-center justify-between border-t border-[var(--hero-border)] pt-3 text-[12px] text-[var(--hero-muted)]">
-          <span className="inline-flex items-center gap-1">
-            <Star className="h-3.5 w-3.5 text-amber-400/90" aria-hidden="true" />
-            <span>{item.favoriteCount ?? 0}</span>
-          </span>
-          <span className="inline-flex items-center gap-1 font-medium text-[var(--hero-ink)] transition-transform group-hover:translate-x-0.5">
-            <span>查看提示词</span>
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </span>
+        <div className="relative z-20 flex shrink-0 items-center">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleCopy();
+            }}
+            disabled={isCopyLoading}
+            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] border border-[#00000014] bg-[#fafafa] text-[#171717] transition-colors hover:border-[#00000036] hover:bg-[#f2f2f2] disabled:cursor-not-allowed disabled:opacity-70 dark:border-[#333333] dark:bg-[#1a1a1a] dark:text-[#d4d4d4] dark:hover:border-[#444444] dark:hover:bg-[#242424] dark:hover:text-[#ededed]"
+            aria-label={isLocked ? "解锁提示词" : isCopied ? "提示词已复制" : "复制提示词"}
+            title={isLocked ? "解锁提示词" : isCopied ? "已复制" : "复制提示词"}
+          >
+            {isCopyLoading ? (
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+            ) : isLocked ? (
+              <Lock className="h-3.5 w-3.5" />
+            ) : isCopied ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </button>
         </div>
       </div>
-    </Link>
+    </article>
   );
 }
 
 function HomePromptShowcaseSection() {
-  const [activeFilter, setActiveFilter] = useState<"hot" | "latest" | "free">("hot");
   const [items, setItems] = useState<SiteItem[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(800);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
     setIsLoading(true);
 
-    async function loadShowcase() {
-      try {
-        const result = await listHomeArtworks({
-          current: 1,
-          pageSize: 8,
-          hotDays: activeFilter === "hot" ? 30 : 0,
-          memberOnly: activeFilter === "free" ? 0 : undefined,
-          signal: controller.signal,
-        });
-        let nextItems = result.items;
-        if (nextItems.length < 4 && activeFilter === "hot") {
-          const fallback = await listHomeArtworks({
-            current: 1,
-            pageSize: 8,
-            hotDays: 0,
-            signal: controller.signal,
-          });
-          nextItems = fallback.items;
-        }
+    void listHomeArtworks({
+      current: 1,
+      pageSize: 8,
+      hotDays: 0,
+      signal: controller.signal,
+    })
+      .then((result) => {
         if (!controller.signal.aborted) {
-          setItems(nextItems.slice(0, 8));
-          if (result.total > 0 && activeFilter !== "free") {
-            setTotalCount(result.total);
-          }
+          setItems(result.items.slice(0, 8));
         }
-      } catch {
+      })
+      .catch(() => {
         // Ignore showcase fetch error on landing page
-      } finally {
+      })
+      .finally(() => {
         if (!controller.signal.aborted) {
           setIsLoading(false);
         }
-      }
-    }
+      });
 
-    void loadShowcase();
     return () => controller.abort();
-  }, [activeFilter]);
+  }, []);
+
+  useEffect(
+    () =>
+      subscribePromptAccess((unlocked) => {
+        setItems((current) =>
+          current.map((item) =>
+            item.sourceType === "artwork" && item.id === String(unlocked.id)
+              ? {
+                  ...item,
+                  canAccess: unlocked.canAccessPrompt,
+                  permanentlyUnlocked: unlocked.permanentlyUnlocked,
+                  pointsPrice: unlocked.pointsPrice,
+                }
+              : item,
+          ),
+        );
+      }),
+    [],
+  );
 
   return (
     <section className="border-t border-[var(--hero-border)] px-4 py-12 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
       <div className="mx-auto max-w-[1120px]">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--hero-muted)]">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              FRONTEND PROMPT LIBRARY
-            </p>
-            <h2 className="mt-2.5 text-[28px] font-semibold tracking-[-0.04em] sm:text-[36px]">
-              真实可复用的前端组件与提示词
+            <h2 className="text-[22px] font-semibold tracking-[-0.03em] sm:text-[26px]">
+              最新上架
             </h2>
-            <p className="mt-2 max-w-[580px] text-[14px] leading-6 text-[var(--hero-muted)]">
-              悬停预览真实交互动效，点开即可一键复制完整 Prompt、下载源码包或进入组件级深度解构。
+            <p className="mt-1 text-[13px] text-[var(--hero-muted)]">
+              最新收录的前端界面与交互组件提示词
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {(
-              [
-                { id: "hot", label: "热门精选" },
-                { id: "latest", label: "最新上架" },
-                { id: "free", label: "免费开放" },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveFilter(tab.id)}
-                className={`inline-flex h-8 cursor-pointer items-center rounded-full px-3.5 text-[12px] font-medium transition-colors ${
-                  activeFilter === tab.id
-                    ? "bg-[var(--hero-ink)] text-[var(--hero-bg)]"
-                    : "border border-[var(--hero-border)] bg-[var(--hero-surface)] text-[var(--hero-muted)] hover:text-[var(--hero-ink)]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <Link
+            to="/frontend-prompts"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)] px-3.5 py-1.5 text-[12px] font-medium text-[var(--hero-ink)] transition-colors hover:bg-[var(--hero-ink)]/[0.06]"
+          >
+            <span>查看全部</span>
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
         </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {isLoading
             ? Array.from({ length: 8 }).map((_, idx) => (
                 <div
                   key={idx}
-                  className="overflow-hidden rounded-[16px] border border-[var(--hero-border)] bg-[var(--hero-surface)]"
+                  className="overflow-hidden rounded-[16px] border border-[#00000014] bg-white dark:border-[#333333] dark:bg-[#111111]"
                 >
-                  <div className="aspect-[16/10] w-full animate-pulse bg-white/[0.04]" />
-                  <div className="p-4">
-                    <div className="h-4 w-2/3 animate-pulse rounded bg-white/[0.06]" />
-                    <div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-white/[0.04]" />
+                  <div className="aspect-[4/3] w-full animate-pulse bg-[#f2f2f2] dark:bg-[#1a1a1a]" />
+                  <div className="flex min-h-[64px] items-center justify-between bg-white px-3 pb-3 pt-2.5 dark:bg-[#171717]">
+                    <div className="w-2/3">
+                      <div className="h-4 w-3/4 animate-pulse rounded bg-black/[0.06] dark:bg-white/[0.08]" />
+                      <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-black/[0.04] dark:bg-white/[0.05]" />
+                    </div>
+                    <div className="h-8 w-8 animate-pulse rounded-[8px] bg-black/[0.05] dark:bg-white/[0.06]" />
                   </div>
                 </div>
               ))
             : items.map((item) => <HomePromptShowcaseCard key={item.id} item={item} />)}
-        </div>
-
-        <div className="mt-8 flex justify-center">
-          <Link
-            to="/frontend-prompts"
-            className="inline-flex h-10 items-center gap-2 rounded-full bg-[var(--hero-ink)] px-5 text-[13px] font-semibold text-[var(--hero-bg)] transition-opacity hover:opacity-90"
-          >
-            <span>浏览全部 {totalCount.toLocaleString("zh-CN")}+ 前端提示词与源码</span>
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
         </div>
       </div>
     </section>
