@@ -1966,8 +1966,14 @@ html.dark .image-studio-chat-page {
 
 html.dark .frontend-prompt-page {
   --chat-bg: #0a0a0a;
+  --chat-ink: #ededed;
+  --chat-muted: #a1a1a1;
+  --chat-muted-2: #737373;
   --chat-border: #2a2a2a;
   --chat-border-strong: #3a3a3a;
+  --chat-primary-bg: #ededed;
+  --chat-primary-hover: #ffffff;
+  --chat-primary-text: #000000;
   --chat-sidebar-bg: #171717;
   --chat-sidebar-border: #2a2a2a;
   --chat-sidebar-text: #ededed;

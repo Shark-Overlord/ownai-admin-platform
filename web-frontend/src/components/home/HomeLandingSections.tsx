@@ -461,72 +461,70 @@ function HomePromptShowcaseSection() {
   };
 
   return (
-    <section className="frontend-prompt-page border-t border-[var(--hero-border)] px-3 py-8 sm:px-4 sm:py-10 lg:px-6 lg:py-12">
-      <div className="mx-auto w-full max-w-[1720px]">
-        <div className="relative flex min-h-0 w-full flex-col overflow-hidden rounded-[24px] border border-[var(--chat-border)] bg-[var(--chat-panel-bg)] px-5 pb-8 pt-6 shadow-[var(--chat-panel-shadow)] sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-[17px] font-semibold text-[var(--chat-ink)]">
-                最新上架组件
-              </h2>
-              <p className="mt-1 text-[13px] text-[var(--chat-muted)]">
-                最新发布的组件和对应提示词会优先展示在这里
-              </p>
-            </div>
-
-            <Link
-              to="/frontend-prompts"
-              className="inline-flex h-8 shrink-0 items-center gap-1 self-start rounded-[8px] border border-[var(--chat-border)] bg-[var(--chat-control-soft)] px-3 text-[12px] font-semibold text-[var(--chat-ink)] transition-colors hover:bg-[var(--chat-control-hover)] sm:self-auto"
-            >
-              <span>浏览全部资源</span>
-              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </Link>
+    <section className="border-t border-[var(--hero-border)] px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-14">
+      <div className="frontend-prompt-page mx-auto w-full max-w-[1720px]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-[var(--chat-ink)] sm:text-[22px]">
+              最新上架组件
+            </h2>
+            <p className="mt-1 text-[13px] text-[var(--chat-muted)]">
+              最新发布的组件和对应提示词会优先展示在这里
+            </p>
           </div>
 
-          <div className="mt-4">
-            {isLoading ? (
+          <Link
+            to="/frontend-prompts"
+            className="inline-flex h-8 shrink-0 items-center gap-1 self-start rounded-[8px] border border-[var(--chat-control-border)] bg-[var(--chat-control-soft)] px-3 text-[12px] font-semibold text-[var(--chat-ink)] transition-colors hover:border-[var(--chat-control-border-strong)] hover:bg-[var(--chat-control-hover)] sm:self-auto"
+          >
+            <span>浏览全部资源</span>
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        </div>
+
+        <div className="mt-5">
+          {isLoading ? (
+            <PromptMasonry
+              maxColumnCount={5}
+              preferredColumnWidth={280}
+              getItemHeight={(index) => (isVerticalCategoryPromptCard(index) ? 2 : 1)}
+            >
+              {Array.from({ length: HOME_SHOWCASE_COUNT }).map((_, index) => (
+                <PromptCardSkeleton key={index} index={index} />
+              ))}
+            </PromptMasonry>
+          ) : items.length ? (
+            <>
               <PromptMasonry
                 maxColumnCount={5}
                 preferredColumnWidth={280}
-                getItemHeight={(index) => (isVerticalCategoryPromptCard(index) ? 2 : 1)}
+                getItemHeight={(index) => getPromptCardEstimatedHeight(items[index], index)}
               >
-                {Array.from({ length: HOME_SHOWCASE_COUNT }).map((_, index) => (
-                  <PromptCardSkeleton key={index} index={index} />
+                {items.map((item, index) => (
+                  <PromptCard
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    onCopy={handlePromptCopy}
+                    onMessage={setMessage}
+                    onOpen={handlePromptOpen}
+                  />
                 ))}
               </PromptMasonry>
-            ) : items.length ? (
-              <>
-                <PromptMasonry
-                  maxColumnCount={5}
-                  preferredColumnWidth={280}
-                  getItemHeight={(index) => getPromptCardEstimatedHeight(items[index], index)}
-                >
-                  {items.map((item, index) => (
-                    <PromptCard
-                      key={item.id}
-                      item={item}
-                      index={index}
-                      onCopy={handlePromptCopy}
-                      onMessage={setMessage}
-                      onOpen={handlePromptOpen}
-                    />
-                  ))}
-                </PromptMasonry>
 
-                <div className="mt-6 flex justify-center">
-                  <Link
-                    to="/frontend-prompts"
-                    className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--chat-border)] bg-[var(--chat-control-bg)] px-5 text-[13px] font-semibold text-[var(--chat-control-text)] transition-colors hover:bg-[var(--chat-control-hover)]"
-                  >
-                    <span>
-                      浏览全部 {totalCount > 0 ? `${totalCount.toLocaleString("zh-CN")} 个` : ""}组件资源
-                    </span>
-                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </div>
-              </>
-            ) : null}
-          </div>
+              <div className="mt-7 flex justify-center">
+                <Link
+                  to="/frontend-prompts"
+                  className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--chat-control-border)] bg-[var(--chat-control-soft)] px-5 text-[13px] font-semibold text-[var(--chat-ink)] transition-colors hover:border-[var(--chat-control-border-strong)] hover:bg-[var(--chat-control-hover)]"
+                >
+                  <span>
+                    浏览全部 {totalCount > 0 ? `${totalCount.toLocaleString("zh-CN")} 个` : ""}组件资源
+                  </span>
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
 
