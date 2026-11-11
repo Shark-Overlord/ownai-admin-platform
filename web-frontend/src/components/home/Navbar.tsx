@@ -161,41 +161,13 @@ function getUserInitial(user: PersistedLoginUser) {
   return getUserDisplayName(user).charAt(0).toUpperCase() || "D";
 }
 
-export function Navbar({ banner }: { banner?: ReactNode } = {}) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { locale } = usePreferredLocale();
-  const { theme, toggleTheme } = useTheme();
-  const isAuthRoute = location.pathname.startsWith("/auth/");
-  const [activeId, setActiveId] = useState<string>("home");
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [isPromptMenuOpen, setIsPromptMenuOpen] = useState(false);
-  const promptMenuRef = useRef<HTMLDivElement>(null);
-  const promptTriggerRef = useRef<HTMLButtonElement>(null);
-  const [isCommunityMenuOpen, setIsCommunityMenuOpen] = useState(false);
-  const communityMenuRef = useRef<HTMLDivElement>(null);
-  const communityTriggerRef = useRef<HTMLButtonElement>(null);
-  const [loginUser, setLoginUser] = useState<PersistedLoginUser | null>(
-    () => getPersistedLoginUser() as PersistedLoginUser | null,
-  );
-  const [unreadAnnouncementCount, setUnreadAnnouncementCount] = useState(0);
-  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
-  const [isMobileAnnouncementView, setIsMobileAnnouncementView] = useState(false);
-  const [campaignPlans, setCampaignPlans] = useState<MemberPriceConfigPlan[]>([]);
+function PromoCountdown() {
   const [countdown, setCountdown] = useState<{
     days: number;
     hours: number;
     minutes: number;
     seconds: number;
   }>({ days: 30, hours: 0, minutes: 0, seconds: 0 });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    listMemberPricePlans({ signal: controller.signal })
-      .then(setCampaignPlans)
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, []);
 
   useEffect(() => {
     const STORAGE_KEY = "ownai_pricing_countdown_end";
@@ -218,6 +190,43 @@ export function Navbar({ banner }: { banner?: ReactNode } = {}) {
     calcTime();
     const timer = window.setInterval(calcTime, 1000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <span className="rounded bg-black/30 px-1.5 py-0.5 font-bold text-white tracking-wider">
+      {countdown.days}天 {String(countdown.hours).padStart(2, "0")}时{String(countdown.minutes).padStart(2, "0")}分{String(countdown.seconds).padStart(2, "0")}秒
+    </span>
+  );
+}
+
+export function Navbar({ banner }: { banner?: ReactNode } = {}) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { locale } = usePreferredLocale();
+  const { theme, toggleTheme } = useTheme();
+  const isAuthRoute = location.pathname.startsWith("/auth/");
+  const [activeId, setActiveId] = useState<string>("home");
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [isPromptMenuOpen, setIsPromptMenuOpen] = useState(false);
+  const promptMenuRef = useRef<HTMLDivElement>(null);
+  const promptTriggerRef = useRef<HTMLButtonElement>(null);
+  const [isCommunityMenuOpen, setIsCommunityMenuOpen] = useState(false);
+  const communityMenuRef = useRef<HTMLDivElement>(null);
+  const communityTriggerRef = useRef<HTMLButtonElement>(null);
+  const [loginUser, setLoginUser] = useState<PersistedLoginUser | null>(
+    () => getPersistedLoginUser() as PersistedLoginUser | null,
+  );
+  const [unreadAnnouncementCount, setUnreadAnnouncementCount] = useState(0);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
+  const [isMobileAnnouncementView, setIsMobileAnnouncementView] = useState(false);
+  const [campaignPlans, setCampaignPlans] = useState<MemberPriceConfigPlan[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listMemberPricePlans({ signal: controller.signal })
+      .then(setCampaignPlans)
+      .catch(() => undefined);
+    return () => controller.abort();
   }, []);
 
   const yearPlan = campaignPlans.find((p) => p.planType === "year");
@@ -743,9 +752,7 @@ export function Navbar({ banner }: { banner?: ReactNode } = {}) {
         </span>
         <span className="hidden sm:inline text-white/40">|</span>
         <span className="inline-flex items-center font-mono text-[12px] text-amber-200">
-          <span className="rounded bg-black/30 px-1.5 py-0.5 font-bold text-white tracking-wider">
-            {countdown.days}天 {String(countdown.hours).padStart(2, "0")}时{String(countdown.minutes).padStart(2, "0")}分{String(countdown.seconds).padStart(2, "0")}秒
-          </span>
+          <PromoCountdown />
         </span>
         <span className="hidden md:inline-flex items-center gap-0.5 text-[11px] text-white/90 underline decoration-white/50 group-hover:text-white">
           立即查看 &rarr;
@@ -778,7 +785,7 @@ export function Navbar({ banner }: { banner?: ReactNode } = {}) {
             <span className="inline-flex h-9 w-11 items-center justify-center">
               <img
                 src="/images/ownai-logo.webp"
-                alt="Design Everything"
+                alt="OwnAI"
                 className="h-8 w-auto object-contain drop-shadow-[0_8px_18px_rgba(91,125,210,0.16)]"
                 draggable={false}
                 decoding="async"

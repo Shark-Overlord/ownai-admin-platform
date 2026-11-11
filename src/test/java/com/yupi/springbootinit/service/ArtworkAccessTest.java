@@ -106,4 +106,39 @@ class ArtworkAccessTest {
         assertEquals("https://preview.example/artwork/index.html",
                 artworkService.getArtworkDeconstruction(1L, null, false).getHtmlUrl());
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getHomeOverviewShouldFallbackToLatestPublishedArtworksWhenNoRecentUpdates() {
+        ArtworkServiceImpl artworkService = Mockito.spy(new ArtworkServiceImpl());
+        Artwork fallbackArtwork = new Artwork();
+        fallbackArtwork.setId(99L);
+        fallbackArtwork.setTitle("Fallback Component");
+        fallbackArtwork.setStatus(1);
+        fallbackArtwork.setMemberOnly(0);
+
+        Mockito.doReturn(java.util.Collections.emptyList())
+                .doReturn(java.util.Collections.singletonList(fallbackArtwork))
+                .when(artworkService)
+                .list(Mockito.any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        Mockito.doReturn(876L)
+                .when(artworkService)
+                .count(Mockito.any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkService, "categoryMapper",
+                Mockito.mock(com.yupi.springbootinit.mapper.CategoryMapper.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkService, "artworkTagMapper",
+                Mockito.mock(com.yupi.springbootinit.mapper.ArtworkTagMapper.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkService, "tagMapper",
+                Mockito.mock(com.yupi.springbootinit.mapper.TagMapper.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkService, "artworkFavoriteMapper",
+                Mockito.mock(com.yupi.springbootinit.mapper.ArtworkFavoriteMapper.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(artworkService, "artworkAccessMapper",
+                Mockito.mock(com.yupi.springbootinit.mapper.ArtworkAccessMapper.class));
+
+        com.yupi.springbootinit.model.vo.artwork.ArtworkHomeOverviewVO overview = artworkService.getHomeOverview(null);
+        assertEquals(876L, overview.getTotalCount());
+        assertEquals(0L, overview.getRecentThreeDaysCount());
+        assertEquals(1, overview.getRecentItems().size());
+        assertEquals("Fallback Component", overview.getRecentItems().get(0).getTitle());
+    }
 }

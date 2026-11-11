@@ -147,6 +147,8 @@ const SUPPORTED_TOOLS = [
 
 export function HomeMcpSection() {
   const navigate = useNavigate();
+  const sectionRef = useRef<HTMLElement>(null);
+  const [isInView, setIsInView] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTool, setActiveTool] = useState<"Cursor" | "Claude" | "Codex" | "Antigravity">("Cursor");
   const [scenarioIndex, setScenarioIndex] = useState(0);
@@ -155,7 +157,7 @@ export function HomeMcpSection() {
   const [typedPrompt, setTypedPrompt] = useState("");
   const [showToolCall, setShowToolCall] = useState(false);
   const [typedSnippet, setTypedSnippet] = useState("");
-  const [isTyping, setIsTyping] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
 
   const installCmd = "npx -y @ownaii/mcp-bridge";
   const scenario = DEMO_SCENARIOS[scenarioIndex];
@@ -170,9 +172,37 @@ export function HomeMcpSection() {
     navigate("/profile?tab=mcp");
   };
 
-  // 打字机动画调度循环
   useEffect(() => {
+    const element = sectionRef.current;
+    if (!element || typeof IntersectionObserver === "undefined") {
+      setIsInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  // 打字机动画调度循环（仅在滚动进入视口后启动，避免首屏滚动掉帧）
+  useEffect(() => {
+    if (!isInView) {
+      return;
+    }
+
     let cancelled = false;
+    let delayTimeout: ReturnType<typeof setTimeout> | undefined;
+    let snippetTimer: ReturnType<typeof setInterval> | undefined;
+
     setTypedPrompt("");
     setShowToolCall(false);
     setTypedSnippet("");
@@ -191,17 +221,17 @@ export function HomeMcpSection() {
         clearInterval(promptTimer);
 
         // 提问完成后稍作停顿，直接流式返回结果代码切片
-        setTimeout(() => {
+        delayTimeout = setTimeout(() => {
           if (cancelled) return;
           setShowToolCall(true);
 
           let sIndex = 0;
-          const snippetTimer = setInterval(() => {
+          snippetTimer = setInterval(() => {
             if (cancelled) return;
             sIndex += 4;
             setTypedSnippet(fullSnippet.slice(0, sIndex));
             if (sIndex >= fullSnippet.length) {
-              clearInterval(snippetTimer);
+              if (snippetTimer) clearInterval(snippetTimer);
               setIsTyping(false);
             }
           }, 16);
@@ -212,15 +242,20 @@ export function HomeMcpSection() {
     return () => {
       cancelled = true;
       clearInterval(promptTimer);
+      if (delayTimeout) clearTimeout(delayTimeout);
+      if (snippetTimer) clearInterval(snippetTimer);
     };
-  }, [scenarioIndex]);
+  }, [isInView, scenarioIndex]);
 
   const handleReplay = () => {
     setScenarioIndex((prev) => (prev + 1) % DEMO_SCENARIOS.length);
   };
 
   return (
-    <section className="border-t border-[var(--hero-border)] bg-[var(--hero-bg)] px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20 text-[var(--hero-ink)]">
+    <section
+      ref={sectionRef}
+      className="border-t border-[var(--hero-border)] bg-[var(--hero-bg)] px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20 text-[var(--hero-ink)]"
+    >
       <div className="mx-auto max-w-[1120px]">
         {/* 顶部标题区 - 优雅大居中对齐 */}
         <div className="mx-auto max-w-[760px] text-center pb-10 border-b border-[var(--hero-border)]">
@@ -229,7 +264,7 @@ export function HomeMcpSection() {
           </h2>
 
           <p className="mx-auto mt-3 max-w-[660px] text-[14px] leading-7 text-[var(--hero-muted)]">
-            还在忍受 AI 写的代码充满千篇一律的廉价感？直接把 600+ 顶尖设计工程装进 IDE，一句自然语言告别“AI味”，秒级直出工业级质感与高保真动效。
+            还在忍受 AI 写的代码充满千篇一律的廉价感？直接把 800+ 顶尖设计工程装进 IDE，一句自然语言告别“AI味”，秒级直出工业级质感与高保真动效。
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
@@ -264,15 +299,18 @@ export function HomeMcpSection() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {SUPPORTED_TOOLS.map((tool) => {
+            {SUPPORTED_TOOLS.map((tool, toolIdx) => {
               const isSelected = activeTool === tool.name;
               return (
                 <button
                   key={tool.name}
                   type="button"
-                  onClick={() => setActiveTool(tool.name)}
+                  onClick={() => {
+                    setActiveTool(tool.name);
+                    setScenarioIndex(toolIdx % DEMO_SCENARIOS.length);
+                  }}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium transition-all duration-180",
+                    "inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium transition-all duration-180",
                     isSelected
                       ? "border border-[var(--hero-ink)]/20 bg-[var(--hero-surface)] text-[var(--hero-ink)] shadow-xs"
                       : "border border-[var(--hero-border)] bg-[var(--hero-bg)] text-[var(--hero-muted)] hover:border-[var(--hero-ink)]/20 hover:text-[var(--hero-ink)]",
@@ -398,7 +436,7 @@ export function HomeMcpSection() {
                     </pre>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[var(--hero-border)] text-[11px] text-[var(--hero-muted)]">
-                      <span>✓ 600+ 顶尖设计作品规范与工程 ZIP 直链提取完毕</span>
+                      <span>✓ 800+ 顶尖设计作品规范与工程 ZIP 直链提取完毕</span>
                       <span className="font-sans font-medium text-[var(--hero-ink)]">
                         直接粘贴即可交付使用
                       </span>
@@ -418,7 +456,7 @@ export function HomeMcpSection() {
               <span>彻底告别廉价“AI味”</span>
             </div>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
-              厌倦了模型生成的粗糙布局与千篇一律？直连 600+ 顶尖解构源码，自带 Apple / Linear 级工业审美。
+              厌倦了模型生成的粗糙布局与千篇一律？直连 800+ 顶尖解构源码，自带 Apple / Linear 级工业审美。
             </p>
           </div>
 
@@ -448,7 +486,7 @@ export function HomeMcpSection() {
               <span>免除繁琐 Prompt 调教</span>
             </div>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--hero-muted)]">
-              无需撰写数百字复杂设计规范提示词。在终端一句自然语言，600+ 完整工程 ZIP 与 TSX 秒级直达。
+              无需撰写数百字复杂设计规范提示词。在终端一句自然语言，800+ 完整工程 ZIP 与 TSX 秒级直达。
             </p>
           </div>
         </div>

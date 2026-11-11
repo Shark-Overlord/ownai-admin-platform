@@ -512,6 +512,7 @@ function FrontendPromptSidebar({
   );
   const items = [
     { id: "home" as const, icon: Home, label: "首页" },
+    { id: "library" as const, icon: Layers3, label: "全部资源" },
     { id: "favorites" as const, icon: Heart, label: "收藏" },
   ];
 
@@ -601,13 +602,13 @@ function FrontendPromptSidebar({
             type="button"
             onClick={() => navigate("/")}
             className={cn(iconButtonClassName, "text-[var(--chat-sidebar-text)]")}
-            aria-label="Design Everything"
-            title="Design Everything"
+            aria-label="OwnAI"
+            title="OwnAI"
           >
             <span className="inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-[8px]">
               <img
                 src="/images/ownai-logo.png"
-                alt="Design Everything"
+                alt="OwnAI"
                 className="h-7 w-7 object-contain"
                 draggable={false}
               />
@@ -626,13 +627,21 @@ function FrontendPromptSidebar({
 
           {items.map((item) => {
             const Icon = item.icon;
-            const active = activeView === item.id;
+            const active = item.id === "library"
+              ? activeView === "library" && !activeCategory
+              : activeView === item.id;
 
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => onViewChange(item.id)}
+                onClick={() => {
+                  if (item.id === "library") {
+                    onCategoryChange("");
+                  } else {
+                    onViewChange(item.id);
+                  }
+                }}
                 className={cn(
                   iconButtonClassName,
                   active && "bg-[var(--chat-sidebar-active)] text-[var(--chat-sidebar-text)]",
@@ -704,12 +713,12 @@ function FrontendPromptSidebar({
             "inline-flex min-w-0 shrink cursor-pointer items-center gap-2 rounded-[8px] text-left text-[var(--hero-ink)] transition-opacity hover:opacity-90",
             isCollapsed && "h-8 w-8 justify-center overflow-hidden rounded-[10px] px-0",
           )}
-          aria-label="Design Everything"
+          aria-label="OwnAI"
         >
           <span className="inline-flex h-8 w-9 shrink-0 items-center justify-center">
             <img
               src="/images/ownai-logo.png"
-              alt="Design Everything"
+              alt="OwnAI"
               className="h-7 w-auto object-contain drop-shadow-[0_8px_18px_rgba(91,125,210,0.16)]"
               draggable={false}
               decoding="async"
@@ -717,7 +726,7 @@ function FrontendPromptSidebar({
           </span>
           {!isCollapsed ? (
             <span className="brand-script-logo truncate py-[2px] !text-[16px] !leading-[1.18]">
-              Design Everything
+              OwnAI
             </span>
           ) : null}
         </button>
@@ -735,13 +744,21 @@ function FrontendPromptSidebar({
       <nav className={cn("mt-4 flex shrink-0 flex-col gap-1", isCollapsed && "items-center")}>
         {items.map((item) => {
           const Icon = item.icon;
-          const active = activeView === item.id;
+          const active = item.id === "library"
+            ? activeView === "library" && !activeCategory
+            : activeView === item.id;
 
           return (
             <button
               key={item.id}
               type="button"
-              onClick={() => onViewChange(item.id)}
+              onClick={() => {
+                if (item.id === "library") {
+                  onCategoryChange("");
+                } else {
+                  onViewChange(item.id);
+                }
+              }}
               className={cn(
                 "flex h-9 w-full cursor-pointer items-center rounded-[10px] text-left text-[14px] font-medium transition-colors",
                 isCollapsed ? "justify-center px-0" : "gap-3 px-2.5",
@@ -769,7 +786,7 @@ function FrontendPromptSidebar({
 
         <div className="min-h-0 flex-1 overflow-y-auto space-y-0.5 pr-0.5">
           {categories.map((category) => {
-            const active = activeCategory === category.id;
+            const active = activeView === "library" && activeCategory === category.id;
             const children = category.children ?? [];
             const hasChildren = children.length > 0;
             const childrenCollapsed = collapsedCategoryIds.has(String(category.id));
@@ -819,7 +836,7 @@ function FrontendPromptSidebar({
                 {hasChildren && !childrenCollapsed ? (
                   <div className="ml-3 mt-1 border-l border-[var(--chat-sidebar-border)] pl-2">
                     {children.map((child) => {
-                      const childActive = activeCategory === child.id;
+                      const childActive = activeView === "library" && activeCategory === child.id;
 
                       return (
                         <button
@@ -1977,6 +1994,8 @@ function AnnouncementDetailOverlay({
 }
 
 function FrontendPromptHomeView({
+  hotDays,
+  onHotDaysChange,
   isLoading,
   items,
   onMessage,
@@ -1988,6 +2007,8 @@ function FrontendPromptHomeView({
   onRetry,
   onBrowse,
 }: {
+  hotDays: number;
+  onHotDaysChange: (days: number) => void;
   isLoading: boolean;
   items: SiteItem[];
   onMessage: (message: string) => void;
@@ -2000,6 +2021,7 @@ function FrontendPromptHomeView({
   onBrowse: () => void;
 }) {
   const navigate = useNavigate();
+  const hasRecentUpdates = recentThreeDaysCount > 0;
   const stats = [
     {
       label: "当前组件数量",
@@ -2007,13 +2029,34 @@ function FrontendPromptHomeView({
       description: "当前系统已收录的前端组件数量",
       tone: "bg-[var(--chat-stat-green-bg)]",
     },
-    {
-      label: "近 3 天更新",
-      value: recentThreeDaysCount.toLocaleString("zh-CN"),
-      description: "最近三天新发布或更新的组件数量",
-      tone: "bg-[var(--chat-stat-blue-bg)]",
-    },
+    hasRecentUpdates
+      ? {
+          label: "近 3 天更新",
+          value: recentThreeDaysCount.toLocaleString("zh-CN"),
+          description: "最近三天新发布或更新的组件数量",
+          tone: "bg-[var(--chat-stat-blue-bg)]",
+        }
+      : {
+          label: "本期精选展示",
+          value: (items.length || 20).toLocaleString("zh-CN"),
+          description: "支持悬停预览动效、一键复制提示词与下载源码",
+          tone: "bg-[var(--chat-stat-blue-bg)]",
+        },
   ];
+  const sectionTitle =
+    hotDays === 7
+      ? "近 7 天热门组件"
+      : hotDays === 30
+        ? "近 30 天热门组件"
+        : hasRecentUpdates
+          ? "最近更新组件"
+          : "最新上架组件";
+  const sectionSubtitle =
+    hotDays > 0
+      ? "按全站真实复制、收藏与浏览热度实时排序"
+      : hasRecentUpdates
+        ? "最近更新的组件和对应提示词会优先展示在这里"
+        : "展示最新发布的组件与提示词，可切换热门榜单或浏览全部资源";
 
   return (
     <section
@@ -2021,13 +2064,21 @@ function FrontendPromptHomeView({
       style={{ minHeight: "calc((100dvh * var(--chat-page-compensation)) - 2rem)" }}
     >
       <div className="relative flex min-h-0 w-full flex-col overflow-hidden rounded-[24px] border border-[var(--chat-border)] bg-[var(--chat-panel-bg)] shadow-[var(--chat-panel-shadow)]">
-        <div className="flex h-14 shrink-0 items-center border-b border-transparent px-5 sm:px-6">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-transparent px-5 sm:px-6">
           <div className="flex h-full items-center gap-6 text-[15px] font-semibold text-[var(--chat-ink)]">
             <span className="relative flex h-full items-center">
               首页概览
               <span className="absolute bottom-0 left-1/2 h-[2px] w-6 -translate-x-1/2 rounded-full bg-[var(--chat-ink)]" />
             </span>
           </div>
+          <button
+            type="button"
+            onClick={onBrowse}
+            className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-[8px] border border-[var(--chat-border)] bg-[var(--chat-control-soft)] px-3 text-[12px] font-semibold text-[var(--chat-ink)] transition-colors hover:bg-[var(--chat-control-hover)]"
+          >
+            <span>浏览全部资源</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         <div className="flex flex-1 flex-col px-5 pb-8 pt-8 sm:px-6 lg:px-8 lg:pt-10">
@@ -2109,18 +2160,36 @@ function FrontendPromptHomeView({
           </div>
 
           <section className="mt-8 w-full">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-[17px] font-semibold text-[var(--chat-ink)]">
-                  最近更新组件
+                  {sectionTitle}
                 </h3>
                 <p className="mt-1 text-[13px] text-[var(--chat-muted)]">
-                  最近更新的组件和对应提示词会优先展示在这里
+                  {sectionSubtitle}
                 </p>
               </div>
-              <span className="shrink-0 text-[12px] font-medium text-[var(--chat-muted-2)]">
-                最近更新
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+                {[
+                  { value: 0, label: hasRecentUpdates ? "最近更新" : "最新上架" },
+                  { value: 7, label: "7天热门" },
+                  { value: 30, label: "30天热门" },
+                ].map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => onHotDaysChange(tab.value)}
+                    className={cn(
+                      "inline-flex h-8 cursor-pointer items-center rounded-[8px] px-3 text-[12px] font-semibold transition-colors",
+                      hotDays === tab.value
+                        ? "bg-[var(--chat-sidebar-active)] text-[var(--chat-ink)]"
+                        : "text-[var(--chat-muted)] hover:bg-[var(--chat-control-soft)] hover:text-[var(--chat-ink)]",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="mt-4">
@@ -2133,22 +2202,36 @@ function FrontendPromptHomeView({
                   ))}
                 </PromptMasonry>
               ) : items.length ? (
-                <PromptMasonry
-                  getItemHeight={(index) =>
-                    getPromptCardEstimatedHeight(items[index], index)
-                  }
-                >
-                  {items.map((item, index) => (
-                    <PromptCard
-                      key={item.id}
-                      item={item}
-                      index={index}
-                      onCopy={onPromptCopy}
-                      onMessage={onMessage}
-                      onOpen={onPromptOpen}
-                    />
-                  ))}
-                </PromptMasonry>
+                <>
+                  <PromptMasonry
+                    getItemHeight={(index) =>
+                      getPromptCardEstimatedHeight(items[index], index)
+                    }
+                  >
+                    {items.map((item, index) => (
+                      <PromptCard
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        onCopy={onPromptCopy}
+                        onMessage={onMessage}
+                        onOpen={onPromptOpen}
+                      />
+                    ))}
+                  </PromptMasonry>
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={onBrowse}
+                      className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--chat-border)] bg-[var(--chat-control-bg)] px-5 text-[13px] font-semibold text-[var(--chat-control-text)] transition-colors hover:bg-[var(--chat-control-hover)]"
+                    >
+                      <span>
+                        浏览全部 {totalCount > 0 ? `${totalCount.toLocaleString("zh-CN")} 个` : ""}组件资源
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </>
               ) : (
                 <EmptyState title={error ? "概览暂时无法加载" : totalCount ? "最近暂无更新" : "资源正在准备中"} message={error || (totalCount ? "已收录的资源仍可正常浏览，去看看全部内容吧" : "新资源上架后，会展示在这里")} action={<button type="button" className="mt-4 h-9 rounded-md border border-[var(--chat-border)] px-4 text-[13px] text-[var(--chat-ink)]" onClick={error ? onRetry : onBrowse}>{error ? "重新加载" : "浏览全部资源"}</button>} />
               )}
@@ -2185,6 +2268,8 @@ export function FrontendPromptLibraryPage() {
   const [memberFilter, setMemberFilter] = useState<"all" | "free" | "member">("all");
   useResourceView(promptDetail?.item.sourceType === "artwork" ? "artwork" : "image_prompt", promptDetail?.item.id);
   const [homeOverviewItems, setHomeOverviewItems] = useState<SiteItem[]>([]);
+  const [homeLatestItems, setHomeLatestItems] = useState<SiteItem[]>([]);
+  const [homeHotDays, setHomeHotDays] = useState(0);
   const [homeTotalCount, setHomeTotalCount] = useState(0);
   const [homeRecentThreeDaysCount, setHomeRecentThreeDaysCount] = useState(0);
   const [isHomeOverviewLoading, setIsHomeOverviewLoading] = useState(true);
@@ -2274,9 +2359,9 @@ export function FrontendPromptLibraryPage() {
       .then((nextCategories) => {
         setCategories(nextCategories);
         setActiveCategory((currentCategory) =>
-          findCategoryById(nextCategories, currentCategory)
+          currentCategory && findCategoryById(nextCategories, currentCategory)
             ? currentCategory
-            : (nextCategories[0]?.id ?? ""),
+            : "",
         );
       })
       .catch((error: unknown) => {
@@ -2337,18 +2422,75 @@ export function FrontendPromptLibraryPage() {
     setIsHomeOverviewLoading(true);
     setHomeOverviewError("");
 
-    void getArtworkHomeOverview({ signal: controller.signal })
-      .then((overview) => {
-        setHomeOverviewItems(overview.items);
-        setHomeTotalCount(overview.totalCount ?? 0);
+    async function loadHomeOverviewData() {
+      try {
+        const overview = await getArtworkHomeOverview({ signal: controller.signal });
+        let latestItems: SiteItem[] = overview.items;
+        if (latestItems.length === 0) {
+          const fallback = await listHomeArtworks({
+            current: 1,
+            pageSize: PAGE_SIZE,
+            hotDays: 0,
+            signal: controller.signal,
+          });
+          latestItems = fallback.items;
+        }
+        if (controller.signal.aborted) {
+          return;
+        }
+        setHomeLatestItems(latestItems);
+        setHomeTotalCount(overview.totalCount ?? latestItems.length);
         setHomeRecentThreeDaysCount(overview.recentThreeDaysCount ?? 0);
+        if (homeHotDays === 0) {
+          setHomeOverviewItems(latestItems);
+        }
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        setHomeOverviewError(
+          error instanceof RequestError ? error.message : "首页概览加载失败",
+        );
+      } finally {
+        if (!controller.signal.aborted && homeHotDays === 0) {
+          setIsHomeOverviewLoading(false);
+        }
+      }
+    }
+
+    void loadHomeOverviewData();
+
+    return () => controller.abort();
+  }, [homeOverviewReload]);
+
+  useEffect(() => {
+    if (homeHotDays === 0) {
+      if (homeLatestItems.length > 0) {
+        setHomeOverviewItems(homeLatestItems);
+      }
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsHomeOverviewLoading(true);
+    setHomeOverviewError("");
+
+    void listHomeArtworks({
+      current: 1,
+      pageSize: PAGE_SIZE,
+      hotDays: homeHotDays,
+      signal: controller.signal,
+    })
+      .then((result) => {
+        setHomeOverviewItems(result.items.length > 0 ? result.items : homeLatestItems);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
-
-        setHomeOverviewError(error instanceof RequestError ? error.message : "首页概览加载失败");
+        setHomeOverviewError(
+          error instanceof RequestError ? error.message : "热门组件加载失败",
+        );
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -2357,7 +2499,7 @@ export function FrontendPromptLibraryPage() {
       });
 
     return () => controller.abort();
-  }, [homeOverviewReload]);
+  }, [homeHotDays, homeLatestItems]);
 
   const loadItems = async (
     nextPage: number,
@@ -2486,6 +2628,7 @@ export function FrontendPromptLibraryPage() {
 
       setItems(updateItems);
       setHomeOverviewItems(updateItems);
+      setHomeLatestItems(updateItems);
       setFavoriteItems((currentItems) =>
         change.isFavorited
           ? updateItems(currentItems)
@@ -2516,6 +2659,7 @@ export function FrontendPromptLibraryPage() {
       : item;
     setItems((items) => items.map(update));
     setHomeOverviewItems((items) => items.map(update));
+    setHomeLatestItems((items) => items.map(update));
     setFavoriteItems((items) => items.map(update));
     setPromptDetail((current) => current && current.item.sourceType === "artwork" && current.item.id === String(unlocked.id)
       ? { ...current, item: update(current.item), promptContent: unlocked.promptContent ?? "" } : current);
@@ -2738,6 +2882,8 @@ export function FrontendPromptLibraryPage() {
 
         {activeView === "home" ? (
           <FrontendPromptHomeView
+            hotDays={homeHotDays}
+            onHotDaysChange={setHomeHotDays}
             error={homeOverviewError}
             onRetry={() => setHomeOverviewReload(value => value + 1)}
             onBrowse={() => { setActiveCategory(""); setActiveView("library"); }}

@@ -56,7 +56,7 @@ export interface HomeContentVO {
 export const DEFAULT_HOME_CONTENT: HomeContentVO = {
   hero: {
     eyebrow: "制作 · 收集 · 整理",
-    title: "500+ 精美前端提示词与源码",
+    title: "800+ 精美前端提示词与源码",
     description: "覆盖页面、组件与交互场景，为界面复刻与产品开发提供可直接使用的创作起点",
     videoList: [],
   },

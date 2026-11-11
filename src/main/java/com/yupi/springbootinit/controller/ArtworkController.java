@@ -330,7 +330,7 @@ public class ArtworkController {
             HttpServletRequest request, HttpServletResponse response) {
         response.setHeader("Cache-Control", "private, no-store");
         User loginUser = userService.getLoginUserPermitNull(request);
-        if (loginUser == null && com.yupi.springbootinit.utils.AnalyticsBotDetector.isBotUserAgent(request.getHeader("User-Agent"))) {
+        if (loginUser == null && StringUtils.isNotBlank(request.getHeader("User-Agent")) && com.yupi.springbootinit.utils.AnalyticsBotDetector.isBotUserAgent(request.getHeader("User-Agent"))) {
             return ResultUtils.success(artworkService.getPublicArtworkSnapshot(id));
         }
         return ResultUtils.success(artworkService.getArtworkDetail(id,

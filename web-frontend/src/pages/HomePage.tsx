@@ -13,8 +13,8 @@ import {
 
 export function HomePage() {
   useDocumentMeta(
-    "OwnAI｜500+ 前端设计提示词、UI 源码与 Vibe Coding 资源",
-    "OwnAI 为设计师和开发者提供500+前端页面、组件与交互提示词，包含真实效果封面、会员源码和 Vibe Coding 创作资源。",
+    "OwnAI｜800+ 前端设计提示词、UI 源码与 Vibe Coding 资源",
+    "OwnAI 为设计师和开发者提供800+前端页面、组件与交互提示词，包含真实效果封面、会员源码和 Vibe Coding 创作资源。",
     {
       canonical: "https://ownai.icu/",
       image: "https://ownai.icu/images/design-everything-dark-bg.png",

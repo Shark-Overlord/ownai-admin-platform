@@ -11,7 +11,7 @@ export function Footer() {
         <div className="space-y-4">
           <div className="flex items-center gap-2.5">
             <img src="/images/ownai-logo.webp" alt="" className="h-7 w-7 object-contain" />
-            <span className="text-[14px] font-semibold tracking-[-0.02em]">Design Everything</span>
+            <span className="text-[14px] font-semibold tracking-[-0.02em]">OwnAI</span>
           </div>
           <p className="max-w-[360px] text-[12px] leading-5 text-[var(--hero-muted)]">
             精选前端与图像提示词资产，帮助创作者更快建立自己的参考库。

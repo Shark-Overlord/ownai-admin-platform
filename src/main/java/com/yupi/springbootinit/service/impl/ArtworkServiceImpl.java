@@ -335,6 +335,9 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
         return voPage;
     }
 
+    private static final int HOME_OVERVIEW_MIN_ITEMS = 12;
+    private static final int HOME_OVERVIEW_FALLBACK_LIMIT = 24;
+
     @Override
     public ArtworkHomeOverviewVO getHomeOverview(User loginUser) {
         Date recentThreeDaysStart = getRecentThreeDaysStart();
@@ -347,11 +350,26 @@ public class ArtworkServiceImpl extends ServiceImpl<ArtworkMapper, Artwork> impl
                 .ge("createTime", recentThreeDaysStart)
                 .orderByDesc("createTime", "id");
 
-        List<ArtworkListVO> recentItems = toArtworkListVOList(buildArtworkVOList(this.list(recentWrapper), loginUser));
+        List<Artwork> recentArtworks = this.list(recentWrapper);
+        long recentThreeDaysCount = recentArtworks == null ? 0L : recentArtworks.size();
+        List<Artwork> displayArtworks = recentArtworks;
+        if (recentThreeDaysCount < HOME_OVERVIEW_MIN_ITEMS) {
+            QueryWrapper<Artwork> fallbackWrapper = new QueryWrapper<Artwork>()
+                    .eq("status", ArtworkStatusEnum.PUBLISHED.getValue())
+                    .eq("isDelete", 0)
+                    .orderByDesc("createTime", "id")
+                    .last("LIMIT " + HOME_OVERVIEW_FALLBACK_LIMIT);
+            List<Artwork> fallbackArtworks = this.list(fallbackWrapper);
+            if (CollUtil.isNotEmpty(fallbackArtworks)) {
+                displayArtworks = fallbackArtworks;
+            }
+        }
+
+        List<ArtworkListVO> recentItems = toArtworkListVOList(buildArtworkVOList(displayArtworks, loginUser));
 
         ArtworkHomeOverviewVO overview = new ArtworkHomeOverviewVO();
         overview.setTotalCount(this.count(publishedWrapper));
-        overview.setRecentThreeDaysCount((long) recentItems.size());
+        overview.setRecentThreeDaysCount(recentThreeDaysCount);
         overview.setRecentItems(recentItems);
         return overview;
     }
