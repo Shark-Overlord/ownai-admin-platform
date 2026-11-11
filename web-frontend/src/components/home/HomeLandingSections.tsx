@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, Check, Copy, Database, FileText, GraduationCap, ImageOff, LoaderCircle, Lock, Star } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, ChevronRight, Database, FileText, GraduationCap, ImageOff } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { HomeContentVO, HomeVideoItem } from "@/lib/home-content";
-import { getArtworkPromptContent, listHomeArtworks } from "@/lib/artwork";
+import { getArtworkHomeOverview, getArtworkPromptContent, getPromptAssetPromptContent, listHomeArtworks } from "@/lib/artwork";
 import { getArtworkAccessState } from "@/lib/artwork-display-rules";
-import { getPersistedLoginUser } from "@/lib/auth";
-import { addArtworkFavorite, cancelArtworkFavorite, notifyArtworkFavoriteChange, subscribeArtworkFavoriteChange } from "@/lib/favorite";
+import { subscribeArtworkFavoriteChange } from "@/lib/favorite";
 import { subscribePromptAccess } from "@/lib/prompt-unlock";
-import { RequestError, isAuthenticationError } from "@/lib/request";
-import { trackResource } from "@/lib/resource-analytics";
+import { RequestError } from "@/lib/request";
+import { trackResource, useResourceView } from "@/lib/resource-analytics";
 import { usePromptUnlock } from "@/components/prompt/PromptUnlockProvider";
+import { PromptMasonry } from "@/components/frontend-prompts/PromptMasonry";
+import { RequestErrorToast } from "@/components/ui/RequestErrorToast";
+import {
+  PromptCard,
+  PromptCardSkeleton,
+  PromptDetailDialog,
+  getPromptCardEstimatedHeight,
+  isVerticalCategoryPromptCard,
+  type PromptDetailState,
+} from "@/pages/FrontendPromptLibraryPage";
 import type { SiteItem } from "@/lib/types";
 import { HomeMcpSection } from "@/components/home/HomeMcpSection";
 
@@ -292,266 +301,67 @@ function LoopMediaCard({
   );
 }
 
-function HomePromptShowcaseCard({ item }: { item: SiteItem }) {
-  const navigate = useNavigate();
-  const requestUnlock = usePromptUnlock();
-  const [isHovered, setIsHovered] = useState(false);
-  const [hasImageError, setHasImageError] = useState(false);
-  const [isCopyLoading, setIsCopyLoading] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
-  const [isFavorited, setIsFavorited] = useState(() => Boolean(item.favorited));
-  const [favoriteCount, setFavoriteCount] = useState(item.favoriteCount ?? 0);
-  const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
-
-  const isLocked = getArtworkAccessState(item) === "locked";
-
-  useEffect(() => {
-    setIsFavorited(Boolean(item.favorited));
-    setFavoriteCount(item.favoriteCount ?? 0);
-  }, [item.favoriteCount, item.favorited, item.id]);
-
-  useEffect(() => {
-    return subscribeArtworkFavoriteChange((change) => {
-      if (String(change.artworkId) === String(item.id)) {
-        setIsFavorited(change.isFavorited);
-        if (change.favoriteCount !== undefined) {
-          setFavoriteCount(change.favoriteCount);
-        }
-      }
-    });
-  }, [item.id]);
-
-  const handleCopy = async () => {
-    if (isLocked) {
-      await requestUnlock(item.id);
-      return;
-    }
-    if (isCopyLoading) {
-      return;
-    }
-    setIsCopyLoading(true);
-    try {
-      const promptContent = await getArtworkPromptContent(item.id);
-      await navigator.clipboard.writeText(promptContent);
-      void trackResource("artwork", item.id, "copy");
-      setIsCopied(true);
-      window.setTimeout(() => setIsCopied(false), 1400);
-    } catch (error) {
-      if (error instanceof RequestError && [40101, 40300].includes(error.code ?? 0)) {
-        await requestUnlock(item.id);
-      } else {
-        navigate(`/prompts/${item.id}`);
-      }
-    } finally {
-      setIsCopyLoading(false);
-    }
-  };
-
-  const handleFavorite = async () => {
-    if (isFavoriteLoading) {
-      return;
-    }
-    if (!getPersistedLoginUser()) {
-      navigate("/auth/login", { state: { redirectTo: "/" } });
-      return;
-    }
-
-    const prevValue = isFavorited;
-    const prevCount = favoriteCount;
-    const nextValue = !prevValue;
-    const nextCount = nextValue ? prevCount + 1 : Math.max(prevCount - 1, 0);
-
-    setIsFavorited(nextValue);
-    setFavoriteCount(nextCount);
-    setIsFavoriteLoading(true);
-    notifyArtworkFavoriteChange({
-      artworkId: String(item.id),
-      favoriteCount: nextCount,
-      isFavorited: nextValue,
-    });
-
-    try {
-      if (nextValue) {
-        await addArtworkFavorite(item.id);
-      } else {
-        await cancelArtworkFavorite(item.id);
-      }
-    } catch (error) {
-      if (isAuthenticationError(error)) {
-        navigate("/auth/login", { state: { redirectTo: "/" } });
-        return;
-      }
-      setIsFavorited(prevValue);
-      setFavoriteCount(prevCount);
-      notifyArtworkFavoriteChange({
-        artworkId: String(item.id),
-        favoriteCount: prevCount,
-        isFavorited: prevValue,
-      });
-    } finally {
-      setIsFavoriteLoading(false);
-    }
-  };
-
-  return (
-    <article
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="group relative inline-flex w-full flex-col overflow-hidden rounded-[16px] border border-[#00000014] bg-white shadow-[0_2px_2px_rgba(0,0,0,0.04)] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#00000036] hover:shadow-[0_1px_1px_rgba(0,0,0,0.02),0_4px_8px_-4px_rgba(0,0,0,0.04),0_16px_24px_-8px_rgba(0,0,0,0.06)] dark:border-[#333333] dark:bg-[#111111] dark:shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_16px_40px_rgba(0,0,0,0.18)] dark:hover:border-[#444444] dark:hover:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_20px_48px_rgba(0,0,0,0.24)]"
-    >
-      <Link
-        to={`/prompts/${item.id}`}
-        aria-label={`查看 ${item.title}`}
-        className="absolute inset-0 z-10 cursor-pointer rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/30"
-      />
-
-      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-[#f2f2f2] dark:bg-[#1a1a1a]">
-        {item.image && !hasImageError ? (
-          <img
-            src={item.image}
-            alt={`${item.title} 预览`}
-            loading="lazy"
-            decoding="async"
-            onError={() => setHasImageError(true)}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-[#4d4d4d] dark:text-[#a1a1a1]">
-            <FileText className="h-5 w-5" aria-hidden="true" />
-          </div>
-        )}
-
-        {isHovered && item.videoUrl ? (
-          <video
-            src={item.videoUrl}
-            poster={item.image || undefined}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="none"
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full bg-[#f2f2f2] object-cover dark:bg-[#1a1a1a]"
-          />
-        ) : null}
-
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            void handleFavorite();
-          }}
-          disabled={isFavoriteLoading}
-          className={`absolute right-2.5 top-2.5 z-20 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] border border-[#00000014] bg-white/85 text-[#4d4d4d] shadow-[0_12px_28px_rgba(0,0,0,0.14)] backdrop-blur-md transition-[background-color,border-color,color,opacity] hover:border-[#00000036] hover:bg-white hover:text-[#171717] disabled:cursor-not-allowed disabled:opacity-70 dark:border-[#333333] dark:bg-[#1a1a1ad9] dark:text-[#a1a1a1] dark:hover:border-[#444444] dark:hover:bg-[#242424] dark:hover:text-[#ededed] ${
-            isFavorited ? "text-amber-500 opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-          }`}
-          aria-label={isFavorited ? "取消收藏" : "收藏"}
-          title={`${isFavorited ? "取消收藏" : "收藏"} (${favoriteCount})`}
-        >
-          {isFavoriteLoading ? (
-            <LoaderCircle className="h-4 w-4 animate-spin" />
-          ) : (
-            <Star className="h-4 w-4" fill={isFavorited ? "currentColor" : "none"} />
-          )}
-        </button>
-      </div>
-
-      <div className="flex min-h-[64px] shrink-0 items-center justify-between gap-2 bg-white px-3 pb-3 pt-2.5 dark:bg-[#171717]">
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[14px] font-semibold leading-5 text-[#171717] dark:text-[#ededed]">
-            {item.title}
-          </h3>
-          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-[#4d4d4d] dark:text-[#a1a1a1]">
-            <span className="truncate">
-              {item.permanentlyUnlocked ? "已永久解锁" : item.category || "前端提示词"}
-            </span>
-            {isLocked ? (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void requestUnlock(item.id);
-                }}
-                className="relative z-20 inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-[5px] text-[#4d4d4d] transition-colors hover:bg-[#f2f2f2] hover:text-[#171717] dark:text-[#a1a1a1] dark:hover:bg-[#242424] dark:hover:text-[#ededed]"
-                aria-label="查看解锁方式"
-                title="查看解锁方式"
-              >
-                <Lock className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="relative z-20 flex shrink-0 items-center">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              void handleCopy();
-            }}
-            disabled={isCopyLoading}
-            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] border border-[#00000014] bg-[#fafafa] text-[#171717] transition-colors hover:border-[#00000036] hover:bg-[#f2f2f2] disabled:cursor-not-allowed disabled:opacity-70 dark:border-[#333333] dark:bg-[#1a1a1a] dark:text-[#d4d4d4] dark:hover:border-[#444444] dark:hover:bg-[#242424] dark:hover:text-[#ededed]"
-            aria-label={isLocked ? "解锁提示词" : isCopied ? "提示词已复制" : "复制提示词"}
-            title={isLocked ? "解锁提示词" : isCopied ? "已复制" : "复制提示词"}
-          >
-            {isCopyLoading ? (
-              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-            ) : isLocked ? (
-              <Lock className="h-3.5 w-3.5" />
-            ) : isCopied ? (
-              <Check className="h-3.5 w-3.5" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-}
+const HOME_SHOWCASE_COUNT = 10;
 
 function HomePromptShowcaseSection() {
+  const requestUnlock = usePromptUnlock();
   const [items, setItems] = useState<SiteItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState<string | null>(null);
+  const [promptDetail, setPromptDetail] = useState<PromptDetailState | null>(null);
+
+  useResourceView(
+    promptDetail?.item.sourceType === "artwork" ? "artwork" : "image_prompt",
+    promptDetail?.item.id,
+  );
 
   useEffect(() => {
     const controller = new AbortController();
     setIsLoading(true);
 
-    void listHomeArtworks({
-      current: 1,
-      pageSize: 8,
-      hotDays: 0,
-      signal: controller.signal,
-    })
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setItems(result.items.slice(0, 8));
+    async function loadShowcase() {
+      try {
+        const overview = await getArtworkHomeOverview({ signal: controller.signal });
+        let latestItems: SiteItem[] = overview.items;
+        if (latestItems.length === 0) {
+          const fallback = await listHomeArtworks({
+            current: 1,
+            pageSize: HOME_SHOWCASE_COUNT,
+            hotDays: 0,
+            signal: controller.signal,
+          });
+          latestItems = fallback.items;
         }
-      })
-      .catch(() => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setItems(latestItems.slice(0, HOME_SHOWCASE_COUNT));
+        setTotalCount(overview.totalCount ?? latestItems.length);
+      } catch {
         // Ignore showcase fetch error on landing page
-      })
-      .finally(() => {
+      } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
         }
-      });
+      }
+    }
+
+    void loadShowcase();
 
     return () => controller.abort();
   }, []);
 
   useEffect(
     () =>
-      subscribePromptAccess((unlocked) => {
+      subscribeArtworkFavoriteChange((change) => {
         setItems((current) =>
           current.map((item) =>
-            item.sourceType === "artwork" && item.id === String(unlocked.id)
+            item.sourceType === "artwork" && String(item.id) === String(change.artworkId)
               ? {
                   ...item,
-                  canAccess: unlocked.canAccessPrompt,
-                  permanentlyUnlocked: unlocked.permanentlyUnlocked,
-                  pointsPrice: unlocked.pointsPrice,
+                  favorited: change.isFavorited,
+                  favoriteCount: change.favoriteCount ?? item.favoriteCount,
                 }
               : item,
           ),
@@ -560,48 +370,181 @@ function HomePromptShowcaseSection() {
     [],
   );
 
+  useEffect(
+    () =>
+      subscribePromptAccess((unlocked) => {
+        const update = (item: SiteItem): SiteItem =>
+          item.sourceType === "artwork" && item.id === String(unlocked.id)
+            ? {
+                ...item,
+                canAccess: unlocked.canAccessPrompt,
+                permanentlyUnlocked: unlocked.permanentlyUnlocked,
+                pointsPrice: unlocked.pointsPrice,
+              }
+            : item;
+        setItems((current) => current.map(update));
+        setPromptDetail((current) =>
+          current && current.item.sourceType === "artwork" && current.item.id === String(unlocked.id)
+            ? {
+                ...current,
+                item: update(current.item),
+                promptContent: unlocked.promptContent ?? "",
+              }
+            : current,
+        );
+      }),
+    [],
+  );
+
+  const loadPromptContent = async (item: SiteItem) =>
+    item.sourceType === "artwork"
+      ? getArtworkPromptContent(item.id)
+      : getPromptAssetPromptContent(item.id);
+
+  const handlePromptOpen = async (item: SiteItem, imageAspectRatio: number) => {
+    const isVertical = imageAspectRatio < 1;
+
+    if (getArtworkAccessState(item) === "locked") {
+      setPromptDetail({ imageAspectRatio, isVertical, item, promptContent: "" });
+      return true;
+    }
+
+    try {
+      const promptContent = await loadPromptContent(item);
+      setPromptDetail({ imageAspectRatio, isVertical, item, promptContent });
+      return true;
+    } catch (error) {
+      if (
+        item.sourceType === "artwork" &&
+        error instanceof RequestError &&
+        [40101, 40300].includes(error.code ?? 0)
+      ) {
+        setPromptDetail({
+          imageAspectRatio,
+          isVertical,
+          item: { ...item, canAccess: false },
+          promptContent: "",
+        });
+        return true;
+      }
+      setMessage(error instanceof RequestError ? error.message : "提示词加载失败");
+      return false;
+    }
+  };
+
+  const handlePromptCopy = async (item: SiteItem) => {
+    if (item.sourceType === "artwork" && getArtworkAccessState(item) === "locked") {
+      await requestUnlock(item.id);
+      return false;
+    }
+    try {
+      const promptContent = await loadPromptContent(item);
+      await navigator.clipboard.writeText(promptContent);
+      void trackResource(
+        item.sourceType === "artwork" ? "artwork" : "image_prompt",
+        item.id,
+        "copy",
+      );
+      return true;
+    } catch (error) {
+      if (
+        item.sourceType === "artwork" &&
+        error instanceof RequestError &&
+        [40101, 40300].includes(error.code ?? 0)
+      ) {
+        await requestUnlock(item.id);
+      } else {
+        setMessage(error instanceof RequestError ? error.message : "提示词复制失败");
+      }
+      return false;
+    }
+  };
+
   return (
-    <section className="border-t border-[var(--hero-border)] px-4 py-12 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
-      <div className="mx-auto max-w-[1120px]">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-[22px] font-semibold tracking-[-0.03em] sm:text-[26px]">
-              最新上架
-            </h2>
-            <p className="mt-1 text-[13px] text-[var(--hero-muted)]">
-              最新收录的前端界面与交互组件提示词
-            </p>
+    <section className="frontend-prompt-page border-t border-[var(--hero-border)] px-3 py-8 sm:px-4 sm:py-10 lg:px-6 lg:py-12">
+      <div className="mx-auto w-full max-w-[1720px]">
+        <div className="relative flex min-h-0 w-full flex-col overflow-hidden rounded-[24px] border border-[var(--chat-border)] bg-[var(--chat-panel-bg)] px-5 pb-8 pt-6 shadow-[var(--chat-panel-shadow)] sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-[17px] font-semibold text-[var(--chat-ink)]">
+                最新上架组件
+              </h2>
+              <p className="mt-1 text-[13px] text-[var(--chat-muted)]">
+                最新发布的组件和对应提示词会优先展示在这里
+              </p>
+            </div>
+
+            <Link
+              to="/frontend-prompts"
+              className="inline-flex h-8 shrink-0 items-center gap-1 self-start rounded-[8px] border border-[var(--chat-border)] bg-[var(--chat-control-soft)] px-3 text-[12px] font-semibold text-[var(--chat-ink)] transition-colors hover:bg-[var(--chat-control-hover)] sm:self-auto"
+            >
+              <span>浏览全部资源</span>
+              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
           </div>
 
-          <Link
-            to="/frontend-prompts"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--hero-border)] bg-[var(--hero-surface)] px-3.5 py-1.5 text-[12px] font-medium text-[var(--hero-ink)] transition-colors hover:bg-[var(--hero-ink)]/[0.06]"
-          >
-            <span>查看全部</span>
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-        </div>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {isLoading
-            ? Array.from({ length: 8 }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className="overflow-hidden rounded-[16px] border border-[#00000014] bg-white dark:border-[#333333] dark:bg-[#111111]"
+          <div className="mt-4">
+            {isLoading ? (
+              <PromptMasonry
+                maxColumnCount={5}
+                preferredColumnWidth={280}
+                getItemHeight={(index) => (isVerticalCategoryPromptCard(index) ? 2 : 1)}
+              >
+                {Array.from({ length: HOME_SHOWCASE_COUNT }).map((_, index) => (
+                  <PromptCardSkeleton key={index} index={index} />
+                ))}
+              </PromptMasonry>
+            ) : items.length ? (
+              <>
+                <PromptMasonry
+                  maxColumnCount={5}
+                  preferredColumnWidth={280}
+                  getItemHeight={(index) => getPromptCardEstimatedHeight(items[index], index)}
                 >
-                  <div className="aspect-[4/3] w-full animate-pulse bg-[#f2f2f2] dark:bg-[#1a1a1a]" />
-                  <div className="flex min-h-[64px] items-center justify-between bg-white px-3 pb-3 pt-2.5 dark:bg-[#171717]">
-                    <div className="w-2/3">
-                      <div className="h-4 w-3/4 animate-pulse rounded bg-black/[0.06] dark:bg-white/[0.08]" />
-                      <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-black/[0.04] dark:bg-white/[0.05]" />
-                    </div>
-                    <div className="h-8 w-8 animate-pulse rounded-[8px] bg-black/[0.05] dark:bg-white/[0.06]" />
-                  </div>
+                  {items.map((item, index) => (
+                    <PromptCard
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      onCopy={handlePromptCopy}
+                      onMessage={setMessage}
+                      onOpen={handlePromptOpen}
+                    />
+                  ))}
+                </PromptMasonry>
+
+                <div className="mt-6 flex justify-center">
+                  <Link
+                    to="/frontend-prompts"
+                    className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--chat-border)] bg-[var(--chat-control-bg)] px-5 text-[13px] font-semibold text-[var(--chat-control-text)] transition-colors hover:bg-[var(--chat-control-hover)]"
+                  >
+                    <span>
+                      浏览全部 {totalCount > 0 ? `${totalCount.toLocaleString("zh-CN")} 个` : ""}组件资源
+                    </span>
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
                 </div>
-              ))
-            : items.map((item) => <HomePromptShowcaseCard key={item.id} item={item} />)}
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
+
+      {message ? (
+        <RequestErrorToast
+          message={message}
+          onClose={() => setMessage(null)}
+          variant="chat"
+        />
+      ) : null}
+
+      {promptDetail ? (
+        <PromptDetailDialog
+          detail={promptDetail}
+          onClose={() => setPromptDetail(null)}
+          onMessage={setMessage}
+        />
+      ) : null}
     </section>
   );
 }

@@ -211,7 +211,7 @@ function useViewportAutoplayVideo(videoUrl?: string) {
 type FrontendPromptView = "home" | "library" | "favorites";
 type CategoryKey = string;
 
-interface PromptDetailState {
+export interface PromptDetailState {
   imageAspectRatio: number;
   isVertical: boolean;
   item: SiteItem;
@@ -246,7 +246,7 @@ const CATEGORY_PROMPT_CARD_VARIANTS = [
   "square",
 ] as const;
 
-function isVerticalCategoryPromptCard(index: number) {
+export function isVerticalCategoryPromptCard(index: number) {
   return CATEGORY_PROMPT_CARD_VARIANTS[index % CATEGORY_PROMPT_CARD_VARIANTS.length] === "vertical";
 }
 
@@ -271,7 +271,7 @@ function getPromptImageAspectRatio(item: SiteItem) {
   return undefined;
 }
 
-function getPromptCardEstimatedHeight(item: SiteItem, index: number) {
+export function getPromptCardEstimatedHeight(item: SiteItem, index: number) {
   const fallbackRatio = isVerticalCategoryPromptCard(index) ? 9 / 16 : 4 / 3;
   const imageRatio = getPromptImageAspectRatio(item) ?? fallbackRatio;
 
@@ -1112,7 +1112,7 @@ function ArtworkDeconstructionButton({
   );
 }
 
-function PromptCard({
+export function PromptCard({
   item,
   index,
   onCopy,
@@ -1506,7 +1506,7 @@ function PromptCard({
   );
 }
 
-function PromptCardSkeleton({ index }: { index: number }) {
+export function PromptCardSkeleton({ index }: { index: number }) {
   const isVertical = isVerticalCategoryPromptCard(index);
 
   return (
@@ -1564,7 +1564,7 @@ function EmptyState({
   );
 }
 
-function PromptDetailDialog({
+export function PromptDetailDialog({
   detail,
   onClose,
   onMessage,
