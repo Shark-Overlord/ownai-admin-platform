@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ownai-design-oauth": {
+      "type": "sse",
+      "url": "https://ownai.icu/api/sse",
+      "timeout": 30000
+    }
+  }
+}

@@ -25,6 +25,21 @@ export interface McpAuthorizeVO {
   state?: string;
 }
 
+export interface McpOAuth2ApproveRequest {
+  clientId: string;
+  redirectUri: string;
+  state?: string;
+  scope?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
+}
+
+export interface McpOAuth2ApproveVO {
+  code: string;
+  state?: string;
+  redirectUrl: string;
+}
+
 export interface McpKeyVO {
   id: number;
   keyName: string;
@@ -45,6 +60,15 @@ export async function authorizeMcp(
   request: McpAuthorizeRequest = {}
 ): Promise<McpAuthorizeVO> {
   const res = await postJson<McpAuthorizeVO>("/mcp/oauth/authorize", request, {
+    includeAuthToken: true,
+  });
+  return res.data;
+}
+
+export async function approveMcpOAuth2(
+  request: McpOAuth2ApproveRequest
+): Promise<McpOAuth2ApproveVO> {
+  const res = await postJson<McpOAuth2ApproveVO>("/mcp/oauth2/approve", request, {
     includeAuthToken: true,
   });
   return res.data;

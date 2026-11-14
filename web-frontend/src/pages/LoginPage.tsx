@@ -78,8 +78,15 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryRedirect = new URLSearchParams(location.search).get("redirectTo");
+  const safeQueryRedirect =
+    queryRedirect && queryRedirect.startsWith("/") && !queryRedirect.startsWith("//")
+      ? queryRedirect
+      : "";
   const redirectTo =
-    (location.state as LoginPageLocationState | null)?.redirectTo || "/";
+    (location.state as LoginPageLocationState | null)?.redirectTo ||
+    safeQueryRedirect ||
+    "/";
 
   const loadCaptcha = async () => {
     setCaptchaError("");

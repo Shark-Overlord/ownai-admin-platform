@@ -169,4 +169,34 @@ class OwnAiDesignToolsTest {
         assertEquals("StatusBar", codeResult.components().get(0).tag());
         assertNotNull(codeResult.designSpec());
     }
+
+    @Test
+    void anonymousCaller_allowsArtworkPreviewAndMotionPresets_butRedactsMemberSourceCode() {
+        McpUserContext.clear();
+        sampleArtwork.setMemberOnly(1);
+
+        List<OwnAiDesignTools.ArtworkSearchResult> previews = tools.find_design_artworks(
+                "社交", "app", "暗黑", null, 1, null, 5
+        );
+        assertEquals(1, previews.size());
+        assertEquals("Claude iOS 聊天客户端", previews.get(0).title());
+
+        List<OwnAiDesignTools.MotionPresetResult> presets = tools.find_motion_presets(
+                "灵动岛弹簧展开", "framer-motion", "app"
+        );
+        assertFalse(presets.isEmpty());
+
+        OwnAiDesignTools.ArtworkCodeResult redactedCode = tools.get_artwork_code("Claude", "all");
+        assertNotNull(redactedCode);
+        assertTrue(redactedCode.prototypeHtml().contains("🔒"));
+        assertFalse(redactedCode.prototypeHtml().contains("Claude Chat App"));
+        assertTrue(redactedCode.components().get(0).code().contains("🔒"));
+        assertTrue(redactedCode.designSpec().contains("🔒"));
+
+        List<OwnAiDesignTools.DesignComponentResult> components = tools.find_design_components(
+                "社交", "app", "暗黑", "状态栏", "spring", null, true, "all", 5
+        );
+        assertFalse(components.isEmpty());
+        assertTrue(components.get(0).code().contains("🔒"));
+    }
 }

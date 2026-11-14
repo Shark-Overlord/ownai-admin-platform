@@ -1,0 +1,23 @@
+{
+  "name": "OwnAI 设计解构",
+  "name_zh": "OwnAI 设计解构",
+  "name_en": "OwnAI Design",
+  "description": "检索 870+ 高质感网页与 App 界面设计系统、组件 TSX 切片源码、微动效预设与 UI 提示词。",
+  "description_zh": "检索 870+ 高质感网页与 App 界面设计系统、组件 TSX 切片源码、微动效预设与 UI 提示词。",
+  "description_en": "Search 870+ curated web & app UI design systems, TSX components, motion presets, and prompts.",
+  "source": "ownai-design",
+  "type": "mcp",
+  "auth_mode": "token",
+  "version": "1.0.0",
+  "minWorkbuddyVersion": "4.24.0",
+  "examples_zh": [
+    "推荐 5 个暗黑极简风格的 SaaS 仪表盘设计作品供我挑选",
+    "查找带弹簧动效的移动端灵动岛状态栏 TSX 组件源码",
+    "提取 Claude 聊天界面的配色色盘、排版与微动效设计规范"
+  ],
+  "examples_en": [
+    "Recommend 5 dark minimalist SaaS dashboard UI designs to preview",
+    "Find mobile Dynamic Island status bar TSX component slices with spring motion",
+    "Extract the color palette, typography, and motion tokens for a chat UI"
+  ]
+}

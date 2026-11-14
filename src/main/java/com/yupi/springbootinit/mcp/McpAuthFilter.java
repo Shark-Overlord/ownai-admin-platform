@@ -22,10 +22,16 @@ public class McpAuthFilter extends OncePerRequestFilter {
 
     private final UserMcpKeyService userMcpKeyService;
     private final McpRateLimiter mcpRateLimiter;
+    private final boolean allowAnonymousPreview;
 
     public McpAuthFilter(UserMcpKeyService userMcpKeyService, McpRateLimiter mcpRateLimiter) {
+        this(userMcpKeyService, mcpRateLimiter, true);
+    }
+
+    public McpAuthFilter(UserMcpKeyService userMcpKeyService, McpRateLimiter mcpRateLimiter, boolean allowAnonymousPreview) {
         this.userMcpKeyService = userMcpKeyService;
         this.mcpRateLimiter = mcpRateLimiter;
+        this.allowAnonymousPreview = allowAnonymousPreview;
     }
 
     @Override
@@ -40,15 +46,41 @@ public class McpAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        String apiKey = extractApiKey(request);
-        if (StringUtils.isBlank(apiKey)) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED,
-                    "Missing MCP API Key. Provide via 'Authorization: Bearer omk_xxx' or 'X-MCP-Key' header.");
+        String clientIp = NetUtils.getIpAddress(request);
+        String rawCredential = extractRawCredential(request);
+
+        // 未携带任何凭证时：若开启匿名预览模式，允许按 IP 严格限流进入免费预览态（McpUserContext 为空）
+        if (StringUtils.isBlank(rawCredential)) {
+            if (!allowAnonymousPreview) {
+                sendError(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        "Missing MCP API Key. Provide via 'Authorization: Bearer omk_xxx' or 'X-MCP-Key' header.");
+                return;
+            }
+            if (mcpRateLimiter != null) {
+                McpRateLimiter.RateLimitResult anonLimit = mcpRateLimiter.checkAnonymousIpLimit(clientIp);
+                if (!anonLimit.allowed()) {
+                    sendRateLimitError(response, anonLimit);
+                    return;
+                }
+            }
+            McpUserContext.clear();
+            try {
+                response.setHeader("X-Accel-Buffering", "no");
+                response.setHeader("Cache-Control", "no-cache, no-transform");
+                filterChain.doFilter(request, response);
+            } finally {
+                McpUserContext.clear();
+            }
             return;
         }
 
-        String clientIp = NetUtils.getIpAddress(request);
-        User user = userMcpKeyService.validateKey(apiKey, clientIp);
+        if (!rawCredential.startsWith("omk_")) {
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED,
+                    "Invalid MCP API Key format. Expected key starting with 'omk_'. Generate one at https://ownai.icu/mcp/auth?client=WorkBuddy");
+            return;
+        }
+
+        User user = userMcpKeyService.validateKey(rawCredential, clientIp);
         if (user == null) {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED,
                     "Invalid or expired MCP API Key, or membership has expired.");
@@ -91,20 +123,20 @@ public class McpAuthFilter extends OncePerRequestFilter {
                 || "/api/mcp".equals(path);
     }
 
-    private String extractApiKey(HttpServletRequest request) {
-        // 优先 Authorization: Bearer xxx
-        String auth = request.getHeader("Authorization");
-        if (StringUtils.isNotBlank(auth) && auth.startsWith("Bearer ")) {
-            String token = auth.substring(7).trim();
-            // 只处理 MCP Key（omk_ 前缀），避免拦截 JWT Token
-            if (token.startsWith("omk_")) {
-                return token;
-            }
-        }
-        // 其次 X-MCP-Key 头
+    private String extractRawCredential(HttpServletRequest request) {
+        // 优先 X-MCP-Key 头
         String mcpKey = request.getHeader("X-MCP-Key");
         if (StringUtils.isNotBlank(mcpKey)) {
             return mcpKey.trim();
+        }
+        // 其次 Authorization: Bearer xxx
+        String auth = request.getHeader("Authorization");
+        if (StringUtils.isNotBlank(auth)) {
+            String trimmed = auth.trim();
+            if (trimmed.regionMatches(true, 0, "Bearer ", 0, 7)) {
+                return trimmed.substring(7).trim();
+            }
+            return trimmed;
         }
         return null;
     }

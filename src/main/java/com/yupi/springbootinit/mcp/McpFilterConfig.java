@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.mcp;
 
 import com.yupi.springbootinit.service.UserMcpKeyService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,9 +15,10 @@ public class McpFilterConfig {
     @Bean
     public FilterRegistrationBean<McpAuthFilter> mcpAuthFilterRegistration(
             UserMcpKeyService userMcpKeyService,
-            McpRateLimiter mcpRateLimiter) {
+            McpRateLimiter mcpRateLimiter,
+            @Value("${ownai.mcp.allow-anonymous-preview:true}") boolean allowAnonymousPreview) {
         FilterRegistrationBean<McpAuthFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new McpAuthFilter(userMcpKeyService, mcpRateLimiter));
+        registration.setFilter(new McpAuthFilter(userMcpKeyService, mcpRateLimiter, allowAnonymousPreview));
         registration.addUrlPatterns("/sse", "/mcp/*");
         registration.setOrder(1);
         registration.setName("mcpAuthFilter");

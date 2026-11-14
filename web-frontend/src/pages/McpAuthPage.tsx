@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Check,
@@ -21,6 +21,7 @@ import { getPersistedLoginUser } from "@/lib/auth";
 import {
   checkMcpAuthStatus,
   authorizeMcp,
+  approveMcpOAuth2,
   type McpAuthCheckVO,
 } from "@/lib/mcp";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,10 @@ function ClientIcon({
     );
   }
 
+  if (lower.includes("workbuddy") || lower.includes("codebuddy")) {
+    return <Sparkles className={cn(className, "text-sky-400")} />;
+  }
+
   return <Terminal className={className} />;
 }
 
@@ -118,12 +123,19 @@ function UserAvatarDisplay({
 }
 
 export function McpAuthPage() {
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const port = searchParams.get("port");
+  const isOAuth2 = searchParams.get("oauth2") === "1";
+  const oauth2ClientId = searchParams.get("client_id") || "";
+  const oauth2RedirectUri = searchParams.get("redirect_uri") || "";
+  const oauth2Scope = searchParams.get("scope") || "";
+  const oauth2CodeChallenge = searchParams.get("code_challenge") || "";
+  const oauth2CodeChallengeMethod = searchParams.get("code_challenge_method") || "";
   const rawClient = searchParams.get("client") || searchParams.get("clientName") || "";
-  const clientName = rawClient ? rawClient.trim() : "Cursor / Claude Desktop";
+  const clientName = rawClient ? rawClient.trim() : isOAuth2 ? "WorkBuddy" : "Cursor / Claude Desktop";
   const state = searchParams.get("state") || "";
   const callbackUrl = searchParams.get("callback");
 
@@ -163,6 +175,20 @@ export function McpAuthPage() {
     setErrorMsg(null);
 
     try {
+      if (isOAuth2 && oauth2ClientId && oauth2RedirectUri) {
+        const oauthRes = await approveMcpOAuth2({
+          clientId: oauth2ClientId,
+          redirectUri: oauth2RedirectUri,
+          state: state || undefined,
+          scope: oauth2Scope || undefined,
+          codeChallenge: oauth2CodeChallenge || undefined,
+          codeChallengeMethod: oauth2CodeChallengeMethod || undefined,
+        });
+        setCallbackSent(true);
+        window.location.href = oauthRes.redirectUrl;
+        return;
+      }
+
       const res = await authorizeMcp({ clientName, state });
       const token = res.token;
       setAuthorizedToken(token);
@@ -197,8 +223,10 @@ export function McpAuthPage() {
   };
 
   const handleGoLogin = () => {
-    const currentUrl = window.location.pathname + window.location.search;
-    navigate(`/auth/login?redirectTo=${encodeURIComponent(currentUrl)}`);
+    const currentUrl = location.pathname + location.search;
+    navigate(`/auth/login?redirectTo=${encodeURIComponent(currentUrl)}`, {
+      state: { redirectTo: currentUrl },
+    });
   };
 
   const localUser = getPersistedLoginUser();

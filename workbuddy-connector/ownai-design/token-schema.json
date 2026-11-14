@@ -1,0 +1,19 @@
+{
+  "title": "连接 OwnAI 设计解构账号",
+  "title_en": "Connect OwnAI Design Account",
+  "description": "填入您的 OwnAI MCP 专属密钥以解锁完整 TSX 组件切片与单页原型源码。密钥仅加密存储在本机 ~/.workbuddy 目录中。",
+  "description_en": "Enter your OwnAI MCP API Key to unlock full TSX component slices and HTML prototypes. Credentials are stored locally under ~/.workbuddy only.",
+  "docUrl": "https://ownai.icu/mcp/auth?client=WorkBuddy",
+  "docLabel": "一键获取 OwnAI MCP 密钥",
+  "fields": [
+    {
+      "key": "OWNAI_MCP_TOKEN",
+      "label": "OwnAI MCP 密钥",
+      "label_en": "OwnAI MCP Key",
+      "type": "password",
+      "required": true,
+      "placeholder": "omk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "description": "访问 https://ownai.icu/mcp/auth?client=WorkBuddy 登录会员账号后点击「确认授权」，复制生成的 omk_ 开头密钥。"
+    }
+  ]
+}

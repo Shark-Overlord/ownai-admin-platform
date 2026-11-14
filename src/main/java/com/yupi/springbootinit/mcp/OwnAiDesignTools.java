@@ -42,6 +42,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class OwnAiDesignTools {
 
+    private static final String ANONYMOUS_CODE_UPGRADE_NOTICE =
+            "/* 🔒 完整组件切片与单页原型源码属 OwnAI 会员权益。请前往 https://ownai.icu/pricing 开通会员，并在 https://ownai.icu/mcp/auth?client=WorkBuddy 生成专属密钥后配置解锁。 */";
+    private static final String ANONYMOUS_PROMPT_UPGRADE_NOTICE =
+            "🔒 会员专属深度解构提示词，请前往 https://ownai.icu/pricing 开通会员并在 https://ownai.icu/mcp/auth?client=WorkBuddy 获取专属密钥后解锁。";
+
     private final DeconstructionAssetFavoriteService favoriteService;
     private final ArtworkService artworkService;
     private final PromptAssetService promptAssetService;
@@ -72,6 +77,7 @@ public class OwnAiDesignTools {
             @ToolParam(description = "返回数量上限，默认 5，最大 15", required = false) Integer limit) {
 
         Long userId = McpUserContext.getUserId();
+        boolean isMemberAuth = userId != null;
         int safeLimit = (limit == null || limit <= 0) ? 5 : Math.min(limit, 15);
         boolean fullCode = includeCode == null || includeCode;
         boolean onlyFavorites = "favorites".equalsIgnoreCase(StringUtils.trim(source));
@@ -138,9 +144,13 @@ public class OwnAiDesignTools {
                                     aw.getTitle(), aw.getDeviceFrame(), aw.getSummary(),
                                     scenario, device, style, componentType, motionType, keyword);
 
+                            String exposedCode = !isMemberAuth
+                                    ? ANONYMOUS_CODE_UPGRADE_NOTICE
+                                    : (fullCode ? pCode : StringUtils.abbreviate(pCode, 300));
+
                             candidates.add(new ScoredComponent(
                                     pId, pTitle, pTag, resolveDeviceType(aw.getDeviceFrame()),
-                                    fullCode ? pCode : StringUtils.abbreviate(pCode, 300),
+                                    exposedCode,
                                     pDesc, artworkMotions, false, aw.getTitle(), aw.getId(), aw.getCoverUrl(), score
                             ));
                         }
@@ -225,11 +235,24 @@ public class OwnAiDesignTools {
             }
         }
 
-        String promptContent = StringUtils.isNotBlank(target.getDeconstructedPrompt())
-                ? target.getDeconstructedPrompt()
-                : (promptData != null && promptData.hasNonNull("rawMarkdown")
-                        ? promptData.path("rawMarkdown").asText()
-                        : target.getPromptContent());
+        boolean isMemberAuth = McpUserContext.get() != null;
+        boolean isFreeArtwork = target.getMemberOnly() == null || target.getMemberOnly() == 0;
+
+        String promptContent;
+        String sourceZipUrl;
+        if (isMemberAuth) {
+            promptContent = StringUtils.isNotBlank(target.getDeconstructedPrompt())
+                    ? target.getDeconstructedPrompt()
+                    : (promptData != null && promptData.hasNonNull("rawMarkdown")
+                            ? promptData.path("rawMarkdown").asText()
+                            : target.getPromptContent());
+            sourceZipUrl = target.getSourceZipUrl();
+        } else {
+            promptContent = isFreeArtwork && StringUtils.isNotBlank(target.getPromptContent())
+                    ? target.getPromptContent()
+                    : ANONYMOUS_PROMPT_UPGRADE_NOTICE;
+            sourceZipUrl = null;
+        }
 
         return new DesignSystemSpec(
                 target.getTitle(),
@@ -239,7 +262,7 @@ public class OwnAiDesignTools {
                 layout,
                 motionTokens,
                 promptContent,
-                target.getSourceZipUrl(),
+                sourceZipUrl,
                 Integer.valueOf(1).equals(target.getIsDeconstructed()),
                 target.getCoverUrl()
         );
@@ -401,6 +424,9 @@ public class OwnAiDesignTools {
             return null;
         }
 
+        boolean isMemberAuth = McpUserContext.get() != null;
+        boolean isFreeArtwork = target.getMemberOnly() == null || target.getMemberOnly() == 0;
+
         List<ComponentCodeItem> componentList = new ArrayList<>();
         if (StringUtils.isNotBlank(target.getPartsData())) {
             try {
@@ -410,7 +436,7 @@ public class OwnAiDesignTools {
                         componentList.add(new ComponentCodeItem(
                                 p.path("title").asText(),
                                 p.path("tag").asText(),
-                                p.path("code").asText(),
+                                isMemberAuth ? p.path("code").asText() : ANONYMOUS_CODE_UPGRADE_NOTICE,
                                 p.path("desc").asText()
                         ));
                     }
@@ -420,13 +446,20 @@ public class OwnAiDesignTools {
             }
         }
 
+        String prototypeHtml = isMemberAuth ? target.getStandaloneHtml() : ANONYMOUS_CODE_UPGRADE_NOTICE;
+        String designSpec = isMemberAuth
+                ? target.getDeconstructedPrompt()
+                : (isFreeArtwork && StringUtils.isNotBlank(target.getPromptContent())
+                        ? target.getPromptContent()
+                        : ANONYMOUS_PROMPT_UPGRADE_NOTICE);
+
         return new ArtworkCodeResult(
                 target.getTitle(),
                 resolveDeviceType(target.getDeviceFrame()),
                 target.getSummary(),
-                target.getStandaloneHtml(),
+                prototypeHtml,
                 componentList,
-                target.getDeconstructedPrompt(),
+                designSpec,
                 target.getCoverUrl()
         );
     }
@@ -457,11 +490,15 @@ public class OwnAiDesignTools {
             String tags = vo.getTagList() != null
                     ? vo.getTagList().stream().map(com.yupi.springbootinit.model.vo.TagVO::getName).collect(Collectors.joining(","))
                     : vo.getAssetTagText();
+            boolean lockedForCaller = user == null && Integer.valueOf(1).equals(vo.getMemberOnly());
+            String promptOut = (lockedForCaller || StringUtils.isBlank(vo.getPromptContent())) && Integer.valueOf(1).equals(vo.getMemberOnly())
+                    ? ANONYMOUS_PROMPT_UPGRADE_NOTICE
+                    : vo.getPromptContent();
             return new PromptTemplateResult(
                     vo.getTitle(),
                     vo.getSummary(),
-                    vo.getPromptContent(),
-                    vo.getPromptCn(),
+                    promptOut,
+                    lockedForCaller ? null : vo.getPromptCn(),
                     vo.getCoverUrl(),
                     tags
             );

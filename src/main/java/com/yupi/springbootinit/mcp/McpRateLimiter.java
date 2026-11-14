@@ -35,6 +35,21 @@ public class McpRateLimiter {
     @Value("${ownai.mcp.rate-limit.requests-per-day:800}")
     private int maxRequestsPerDay = 800;
 
+    @Getter
+    @Setter
+    @Value("${ownai.mcp.rate-limit.anon-requests-per-second:2}")
+    private int anonMaxRequestsPerSecond = 2;
+
+    @Getter
+    @Setter
+    @Value("${ownai.mcp.rate-limit.anon-requests-per-minute:12}")
+    private int anonMaxRequestsPerMinute = 12;
+
+    @Getter
+    @Setter
+    @Value("${ownai.mcp.rate-limit.anon-requests-per-day:60}")
+    private int anonMaxRequestsPerDay = 60;
+
     public McpRateLimiter() {
     }
 
@@ -51,6 +66,7 @@ public class McpRateLimiter {
     ) implements Serializable {}
 
     private final ConcurrentHashMap<Long, UserRateState> userStates = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, UserRateState> anonymousIpStates = new ConcurrentHashMap<>();
 
     /**
      * 校验指定用户是否允许发起一次 MCP 请求
@@ -122,11 +138,68 @@ public class McpRateLimiter {
     }
 
     /**
+     * 校验匿名预览 IP 是否允许发起一次 MCP 请求
+     */
+    public RateLimitResult checkAnonymousIpLimit(String clientIp) {
+        String safeIp = (clientIp == null || clientIp.trim().isEmpty()) ? "unknown" : clientIp.trim();
+        long now = System.currentTimeMillis();
+        long secondSlot = now / 1000L;
+        Calendar cal = Calendar.getInstance();
+        int dayOfYear = cal.get(Calendar.DAY_OF_YEAR);
+        int year = cal.get(Calendar.YEAR);
+
+        UserRateState state = anonymousIpStates.computeIfAbsent(safeIp, k -> new UserRateState());
+        synchronized (state) {
+            state.lastActiveTime = now;
+
+            if (state.currentYear != year || state.currentDayOfYear != dayOfYear) {
+                state.currentYear = year;
+                state.currentDayOfYear = dayOfYear;
+                state.dailyCount = 0;
+            }
+            if (state.dailyCount >= anonMaxRequestsPerDay) {
+                log.warn("MCP 匿名预览 IP={} 达到每日上限 {}", safeIp, anonMaxRequestsPerDay);
+                return new RateLimitResult(false,
+                        "匿名预览今日调用已达上限（" + anonMaxRequestsPerDay + "次/天），前往 https://ownai.icu/pricing 开通会员配置专属密钥可享 800次/天 完整额度。",
+                        3600);
+            }
+
+            if (now - state.minuteWindowStart >= 60_000L) {
+                state.minuteWindowStart = now;
+                state.minuteCount = 0;
+            }
+            if (state.minuteCount >= anonMaxRequestsPerMinute) {
+                long remainingMillis = 60_000L - (now - state.minuteWindowStart);
+                int waitSec = (int) Math.max(1, (remainingMillis + 999) / 1000);
+                return new RateLimitResult(false,
+                        "匿名预览调用过于频繁（上限 " + anonMaxRequestsPerMinute + "次/分钟），请稍等 " + waitSec + " 秒后再试。",
+                        waitSec);
+            }
+
+            if (state.currentSecond != secondSlot) {
+                state.currentSecond = secondSlot;
+                state.secondCount = 0;
+            }
+            if (state.secondCount >= anonMaxRequestsPerSecond) {
+                return new RateLimitResult(false,
+                        "请求过于密集，请稍等 1 秒后再试。",
+                        1);
+            }
+
+            state.secondCount++;
+            state.minuteCount++;
+            state.dailyCount++;
+            return new RateLimitResult(true, null, 0);
+        }
+    }
+
+    /**
      * 定期内存清理（淘汰 24 小时未活跃的用户状态，防止内存膨胀）
      */
     public void pruneExpired() {
         long expireThreshold = System.currentTimeMillis() - 86_400_000L;
         userStates.entrySet().removeIf(e -> e.getValue().lastActiveTime < expireThreshold);
+        anonymousIpStates.entrySet().removeIf(e -> e.getValue().lastActiveTime < expireThreshold);
     }
 
     /**
