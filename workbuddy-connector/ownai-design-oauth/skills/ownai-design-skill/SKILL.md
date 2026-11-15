@@ -1,7 +1,7 @@
 ---
 name: ownai-design-skill
 description: OwnAI 智能设计与前端解构技能 — 按多维设计语义检索 870+ 高质感网页/App 界面设计作品、单页 HTML 原型、细粒度 TSX 组件切片、Framer Motion 微动效参数与设计系统规范
-version: 1.0.0
+version: 1.0.1
 author: OwnAI
 ---
 

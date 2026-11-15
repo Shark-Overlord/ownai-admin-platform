@@ -8,7 +8,7 @@
   "source": "ownai-design-oauth",
   "type": "mcp",
   "auth_mode": "server-side",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minWorkbuddyVersion": "4.24.0",
   "examples_zh": [
     "推荐 5 个暗黑极简风格的 SaaS 仪表盘设计作品供我挑选",

@@ -1,7 +1,7 @@
 ---
 name: ownai-design-skill
 description: OwnAI 智能设计与前端解构技能 — 按多维设计语义检索 870+ 高质感网页/App 界面设计作品、单页 HTML 原型、细粒度 TSX 组件切片、Framer Motion 微动效参数与设计系统规范
-version: 1.0.0
+version: 1.0.1
 author: OwnAI
 ---
 
@@ -98,4 +98,4 @@ author: OwnAI
 
 - **授权范围**：本连接器使用用户在 `https://ownai.icu/mcp/auth?client=WorkBuddy` 生成的 `omk_` 开头专属密钥，仅拥有只读检索设计作品、源码切片与用户个人收藏的最小权限，不会修改用户账号或计费数据。
 - **401 凭证失效或会员到期**：若接口返回 `401 Unauthorized`（密钥填写有误、已被吊销或 OwnAI 会员已到期），请提示用户前往 `https://ownai.icu/mcp/auth?client=WorkBuddy` 检查会员状态并重新生成密钥，在 WorkBuddy 连接器配置中更新后重连。
-- **429 频率超限**：服务端设有防突发与日度配额保护（3 次/秒、30 次/分、800 次/天）。收到 `429` 时请按 `Retry-After` 稍候重试，避免循环高频并发调用。
+- **429 频率超限**：服务端对实际业务工具调用设有防死循环与日度配额保护（20 次/秒、180 次/分、2000 次/天；SSE 握手与能力发现不计入配额）。收到 `429` 时请按 `Retry-After` 稍候重试。

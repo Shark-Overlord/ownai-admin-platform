@@ -198,5 +198,19 @@ class OwnAiDesignToolsTest {
         );
         assertFalse(components.isEmpty());
         assertTrue(components.get(0).code().contains("🔒"));
+
+        // 免登录版 4 个核心工具必须 100% 返回完整真实内容，不含任何 🔒 截断提示
+        OwnAiFreeDesignTools freeTools = new OwnAiFreeDesignTools(tools);
+        OwnAiDesignTools.DesignSystemSpec freeSpec = freeTools.get_design_system("SaaS", "website", "暗黑极简", "仪表盘");
+        assertNotNull(freeSpec);
+        assertNotNull(freeSpec.systemPrompt());
+        assertFalse(freeSpec.systemPrompt().contains("🔒"));
+
+        List<OwnAiDesignTools.MotionPresetResult> universalMotions = freeTools.find_motion_presets("任意自定义页面切换动画", null, "website");
+        assertFalse(universalMotions.isEmpty());
+
+        List<OwnAiDesignTools.PromptTemplateResult> freePrompts = freeTools.find_prompts_for_creation("极简科技", "网页Hero", "极简科技网页Hero", "frontend-ui", 5);
+        assertFalse(freePrompts.isEmpty());
+        assertFalse(freePrompts.get(0).promptContent().contains("🔒"));
     }
 }

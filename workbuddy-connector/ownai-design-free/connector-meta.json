@@ -2,21 +2,23 @@
   "name": "OwnAI 设计灵感库",
   "name_zh": "OwnAI 设计灵感库",
   "name_en": "OwnAI Design Inspiration",
-  "description": "免登录浏览 870+ 精选网页与 App 界面设计灵感、Framer Motion 微动效预设与免费 UI 提示词。",
-  "description_zh": "免登录浏览 870+ 精选网页与 App 界面设计灵感、Framer Motion 微动效预设与免费 UI 提示词。",
-  "description_en": "Browse 870+ curated web & app UI inspirations, Framer Motion presets, and public UI prompts.",
+  "description": "免登录检索精选网页与 App 设计作品预览、设计系统色盘规范、Framer Motion 微动效参数与免费 UI 提示词。",
+  "description_zh": "免登录检索精选网页与 App 设计作品预览、设计系统色盘规范、Framer Motion 微动效参数与免费 UI 提示词。",
+  "description_en": "Browse curated web & app UI previews, design system tokens, Framer Motion presets, and public UI prompts.",
   "source": "ownai-design-free",
   "type": "mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minWorkbuddyVersion": "4.24.0",
   "examples_zh": [
     "推荐 5 个暗黑极简风格的 SaaS 仪表盘设计作品截图供我参考",
     "给我找一套类似 iOS 灵动岛弹簧展开的 Framer Motion 与 CSS 缓动参数",
-    "搜索极简科技风网页 Hero 区域的免费设计提示词模板"
+    "生成一套深色科技风桌面端 SaaS 看板的设计系统色盘、字阶与圆角规范",
+    "搜索极简科技风网页 Hero 首屏的公开免费 UI 提示词模板"
   ],
   "examples_en": [
     "Show me 5 dark minimalist SaaS dashboard UI design previews for inspiration",
     "Find Framer Motion and CSS cubic-bezier presets for a springy Dynamic Island expansion",
-    "Search public UI prompt templates for minimalist tech hero sections"
+    "Generate a complete color palette, typography scale, and layout token spec for a dark SaaS dashboard",
+    "Search public free UI prompt templates for minimalist tech hero sections"
   ]
 }

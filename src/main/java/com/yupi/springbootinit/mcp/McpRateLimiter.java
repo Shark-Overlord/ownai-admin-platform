@@ -22,33 +22,33 @@ public class McpRateLimiter {
 
     @Getter
     @Setter
-    @Value("${ownai.mcp.rate-limit.requests-per-second:3}")
-    private int maxRequestsPerSecond = 3;
+    @Value("${ownai.mcp.rate-limit.requests-per-second:20}")
+    private int maxRequestsPerSecond = 20;
 
     @Getter
     @Setter
-    @Value("${ownai.mcp.rate-limit.requests-per-minute:30}")
-    private int maxRequestsPerMinute = 30;
+    @Value("${ownai.mcp.rate-limit.requests-per-minute:180}")
+    private int maxRequestsPerMinute = 180;
 
     @Getter
     @Setter
-    @Value("${ownai.mcp.rate-limit.requests-per-day:800}")
-    private int maxRequestsPerDay = 800;
+    @Value("${ownai.mcp.rate-limit.requests-per-day:2000}")
+    private int maxRequestsPerDay = 2000;
 
     @Getter
     @Setter
-    @Value("${ownai.mcp.rate-limit.anon-requests-per-second:2}")
-    private int anonMaxRequestsPerSecond = 2;
+    @Value("${ownai.mcp.rate-limit.anon-requests-per-second:15}")
+    private int anonMaxRequestsPerSecond = 15;
 
     @Getter
     @Setter
-    @Value("${ownai.mcp.rate-limit.anon-requests-per-minute:12}")
-    private int anonMaxRequestsPerMinute = 12;
+    @Value("${ownai.mcp.rate-limit.anon-requests-per-minute:120}")
+    private int anonMaxRequestsPerMinute = 120;
 
     @Getter
     @Setter
-    @Value("${ownai.mcp.rate-limit.anon-requests-per-day:60}")
-    private int anonMaxRequestsPerDay = 60;
+    @Value("${ownai.mcp.rate-limit.anon-requests-per-day:600}")
+    private int anonMaxRequestsPerDay = 600;
 
     public McpRateLimiter() {
     }
@@ -171,6 +171,7 @@ public class McpRateLimiter {
             if (state.minuteCount >= anonMaxRequestsPerMinute) {
                 long remainingMillis = 60_000L - (now - state.minuteWindowStart);
                 int waitSec = (int) Math.max(1, (remainingMillis + 999) / 1000);
+                log.warn("MCP 匿名预览 IP={} 达到分钟级上限 {}", safeIp, anonMaxRequestsPerMinute);
                 return new RateLimitResult(false,
                         "匿名预览调用过于频繁（上限 " + anonMaxRequestsPerMinute + "次/分钟），请稍等 " + waitSec + " 秒后再试。",
                         waitSec);
@@ -181,6 +182,7 @@ public class McpRateLimiter {
                 state.secondCount = 0;
             }
             if (state.secondCount >= anonMaxRequestsPerSecond) {
+                log.warn("MCP 匿名预览 IP={} 触发秒级突发流控 {}", safeIp, anonMaxRequestsPerSecond);
                 return new RateLimitResult(false,
                         "请求过于密集，请稍等 1 秒后再试。",
                         1);
